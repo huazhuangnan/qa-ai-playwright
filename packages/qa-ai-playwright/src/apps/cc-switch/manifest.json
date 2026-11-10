@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "id": "cc-switch",
+  "version": "4.0.28",
+  "release_tag": "v4.0.28",
+  "commit": "8656ebd91f3eba631837126e29df71e8353b7e43",
+  "source_type": "external",
+  "scope": "environment",
+  "license": "MIT",
+  "repository": "https://github.com/farion1231/cc-switch",
+  "download_base": "https://github.com/farion1231/cc-switch/releases/download/v4.0.28",
+  "install_directory": "tools/cc-switch",
+  "assets": [
+    {
+      "platform": "win32",
+      "arch": "x64",
+      "file": "CC-Switch-v4.0.28-Windows-Portable.zip",
+      "format": "zip",
+      "sha256": "c690bc6ef1bc0bce62db50d8d089abf50eaa0c98f18765016b920f3c14b0c770"
+    },
+    {
+      "platform": "win32",
+      "arch": "arm64",
+      "file": "CC-Switch-v4.0.28-Windows-arm64-Portable.zip",
+      "format": "zip",
+      "sha256": "cce4ea4e311acb3cebce31c84c188f3b85b9c5413e2dee1c9d011db3487615f8"
+    },
+    {
+      "platform": "darwin",
+      "arch": "universal",
+      "file": "CC-Switch-v4.0.28-macOS.zip",
+      "format": "zip",
+      "sha256": "4594f9c5b88e150b50bbc7a95d96406c7f471de472846e5289d97c86f6374619"
+    },
+    {
+      "platform": "linux",
+      "arch": "x64",
+      "file": "CC-Switch-v4.0.28-Linux-x86_64.AppImage",
+      "format": "appimage",
+      "sha256": "19640a4df129b35dd176763a5d64746a8f9c4d4625573350be11df036cea7433"
+    },
+    {
+      "platform": "linux",
+      "arch": "arm64",
+      "file": "CC-Switch-v4.0.28-Linux-arm64.AppImage",
+      "format": "appimage",
+      "sha256": "4ed5f7704052693b1cbc7095598551e2f94a6289a54950bd2bfc1aac4a5ac37c"
+    }
+  ]
+}

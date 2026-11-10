@@ -1,0 +1,49 @@
+# 版本记录
+
+本页记录当前组件版本和首次提交前的版本规则。
+使用步骤见[环境初始化](environment.zh-CN.md)。
+
+## 当前版本
+
+| 组件 | 版本 |
+| --- | --- |
+| 仓库项目 | 0.0.1 |
+| qa-maintainer | 0.0.1 |
+| qa-core | 0.0.1 |
+| qa-business-guide | 0.0.1 |
+| qa-test-design | 0.0.1 |
+| qa-api | 0.0.1 |
+| qa-web | 0.0.1 |
+| qa-triage | 0.0.1 |
+| qa-docs | 0.0.1 |
+| qa-setup | 0.0.1 |
+| Bun | 1.4.4 |
+| pnpm | 12.18.0 |
+| Playwright CLI 工具 | 0.1.24 |
+| Agent Browser 工具 | 0.42.0 |
+| cc-switch | 4.0.28 |
+| qa-python | 0.0.1 |
+| qa-typescript | 0.0.1 |
+
+模板版本：
+
+| 模板 | 版本 |
+| --- | --- |
+| QA 文档 | 0.0.1 |
+| TypeScript 项目 | 0.0.1 |
+| Python 项目 | 0.0.1 |
+
+## 版本规则
+
+首次提交前，仓库自有版本固定为 `0.0.1`。
+范围包括根项目、builtin Skills、维护 Skill 和项目模板。
+此阶段修改内容不递增版本，也不建立虚假的历史版本。
+外部 Skill 按需安装，实际来源和版本以项目安装记录为准。
+MCP 清单和下载应用继续记录真实上游版本。
+首次提交后可再按 SemVer 管理兼容变化。
+
+## 初始版本
+
+| 版本 | 状态 | 范围 |
+| --- | --- | --- |
+| `0.0.1` | 首次提交前开发中 | TypeScript CLI、按需 Skill、MCP、模板和文档；工单示例提供 TypeScript 与 Python QA |

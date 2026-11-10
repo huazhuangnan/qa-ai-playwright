@@ -1,0 +1,46 @@
+# 本地环境和生成项目。只匹配仓库根目录，避免误忽略交付包内的 Skill 源码。
+/.qa-env/
+/workspaces/
+/.validation/
+/qa-python/
+/qa-typescript/
+**/.qa-project.json
+
+# 运行时依赖和工具缓存
+**/.venv/
+**/venv/
+**/node_modules/
+**/__pycache__/
+*.py[cod]
+**/.pytest_cache/
+**/.cache/
+**/.tmp/
+**/.npm/
+**/dist/
+**/data/*.db*
+*.tsbuildinfo
+
+# 测试输出与敏感运行状态
+**/reports/
+**/test-results/
+**/playwright-report/
+**/blob-report/
+**/playwright/.auth/
+**/.playwright-cli/
+**/.coverage
+**/.coverage.*
+**/htmlcov/
+*.log
+npm-debug.log*
+
+# 本地凭证和临时文件
+.env
+.env.*
+!.env.example
+*.tmp
+*.part
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+desktop.ini

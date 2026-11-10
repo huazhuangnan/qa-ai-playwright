@@ -1,0 +1,224 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "QA Ticket API",
+    "version": "0.1.0",
+    "description": "本地示例接口契约。业务规则以示例需求为准。"
+  },
+  "servers": [{ "url": "/" }],
+  "security": [{ "sessionCookie": [] }],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "operationId": "health",
+        "summary": "健康检查",
+        "security": [],
+        "responses": { "200": { "description": "服务可用" } }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "login",
+        "summary": "登录并建立会话",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Login" } } }
+        },
+        "responses": {
+          "200": { "description": "登录成功，返回用户并设置 HttpOnly cookie" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "summary": "退出会话",
+        "security": [],
+        "responses": { "204": { "description": "会话已移除" } }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "operationId": "currentUser",
+        "summary": "查看当前用户",
+        "responses": { "200": { "description": "当前用户" }, "401": { "$ref": "#/components/responses/Unauthorized" } }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "operationId": "listUsers",
+        "summary": "列出用户",
+        "responses": { "200": { "description": "用户列表" }, "401": { "$ref": "#/components/responses/Unauthorized" } }
+      }
+    },
+    "/api/tickets": {
+      "get": {
+        "operationId": "listTickets",
+        "summary": "查询工单",
+        "parameters": [
+          { "name": "q", "in": "query", "description": "去除首尾空白后搜索。", "schema": { "type": "string", "maxLength": 100, "default": "" } },
+          { "name": "status", "in": "query", "schema": { "$ref": "#/components/schemas/Status" } },
+          { "name": "priority", "in": "query", "schema": { "$ref": "#/components/schemas/Priority" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
+          { "name": "pageSize", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "工单分页结果" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "operationId": "createTicket",
+        "summary": "创建工单",
+        "description": "成员不能分配负责人。新工单状态为 open，版本为 1。",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TicketCreate" } } }
+        },
+        "responses": {
+          "201": {
+            "description": "创建成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Ticket" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/tickets/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/TicketId" }],
+      "get": {
+        "operationId": "getTicket",
+        "summary": "查询工单详情",
+        "responses": { "200": { "description": "工单详情" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      },
+      "patch": {
+        "operationId": "updateTicket",
+        "summary": "更新工单",
+        "description": "必须提供当前版本及至少一个变更字段。仅创建者或管理员可修改。",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TicketUpdate" } } }
+        },
+        "responses": {
+          "200": { "description": "更新成功" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "description": "状态流转无效或版本冲突" }
+        }
+      },
+      "delete": {
+        "operationId": "deleteTicket",
+        "summary": "删除工单",
+        "description": "仅创建者或管理员可删除。",
+        "responses": {
+          "204": { "description": "删除成功" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/tickets/{id}/comments": {
+      "parameters": [{ "$ref": "#/components/parameters/TicketId" }],
+      "get": {
+        "operationId": "listComments",
+        "summary": "查询评论",
+        "responses": { "200": { "description": "评论列表" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      },
+      "post": {
+        "operationId": "createComment",
+        "summary": "添加评论",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CommentCreate" } } }
+        },
+        "responses": {
+          "201": { "description": "评论已创建" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/tickets/{id}/audit": {
+      "parameters": [{ "$ref": "#/components/parameters/TicketId" }],
+      "get": {
+        "operationId": "listAudit",
+        "summary": "查询审计记录",
+        "responses": { "200": { "description": "审计列表" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": { "type": "apiKey", "in": "cookie", "name": "qa_ticket_session" }
+    },
+    "parameters": {
+      "TicketId": { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+    },
+    "responses": {
+      "BadRequest": { "description": "请求参数不合法" },
+      "Unauthorized": { "description": "未登录或凭证无效" },
+      "Forbidden": { "description": "权限不足" },
+      "NotFound": { "description": "工单不存在" }
+    },
+    "schemas": {
+      "Login": {
+        "type": "object",
+        "required": ["username", "password"],
+        "properties": {
+          "username": { "type": "string", "minLength": 1, "maxLength": 40, "description": "长度按去除首尾空白后的值计算。" },
+          "password": { "type": "string", "minLength": 1, "maxLength": 120 }
+        }
+      },
+      "Status": { "type": "string", "enum": ["open", "in_progress", "resolved", "closed"] },
+      "Priority": { "type": "string", "enum": ["low", "medium", "high", "urgent"] },
+      "TicketCreate": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "title": { "type": "string", "minLength": 2, "maxLength": 80, "description": "长度按去除首尾空白后的值计算。" },
+          "description": { "type": "string", "maxLength": 2000, "default": "", "description": "去除首尾空白。" },
+          "priority": { "allOf": [{ "$ref": "#/components/schemas/Priority" }], "default": "medium" },
+          "assigneeId": { "type": "integer", "minimum": 1, "nullable": true }
+        }
+      },
+      "TicketUpdate": {
+        "type": "object",
+        "required": ["version"],
+        "description": "除 version 外至少提供一个字段。",
+        "properties": {
+          "version": { "type": "integer", "minimum": 1 },
+          "title": { "type": "string", "minLength": 2, "maxLength": 80, "description": "长度按去除首尾空白后的值计算。" },
+          "description": { "type": "string", "maxLength": 2000, "description": "去除首尾空白。" },
+          "status": { "$ref": "#/components/schemas/Status" },
+          "priority": { "$ref": "#/components/schemas/Priority" },
+          "assigneeId": { "type": "integer", "minimum": 1, "nullable": true }
+        }
+      },
+      "Ticket": {
+        "type": "object",
+        "required": ["id", "title", "status", "version"],
+        "properties": {
+          "id": { "type": "integer", "minimum": 1 },
+          "title": { "type": "string" },
+          "status": { "$ref": "#/components/schemas/Status" },
+          "version": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "CommentCreate": {
+        "type": "object",
+        "required": ["body"],
+        "properties": { "body": { "type": "string", "minLength": 1, "maxLength": 1000, "description": "长度按去除首尾空白后的值计算。" } }
+      }
+    }
+  }
+}

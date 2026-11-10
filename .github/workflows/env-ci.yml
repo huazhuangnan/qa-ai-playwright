@@ -1,0 +1,117 @@
+name: 01 - Environment installation
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  environment:
+    name: Environment / ${{ matrix.os }} / ${{ matrix.profile }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        profile: [latest, compatible]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    env:
+      QA_ROOT: ${{ github.workspace }}/workspaces/environment with spaces
+      QA_NODE_MAJOR: ${{ matrix.profile == 'compatible' && '24' || '26' }}
+      QA_PYTHON_VERSION: ${{ matrix.profile == 'compatible' && '3.14' || '3.15' }}
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/bootstrap
+        with:
+          stack: both
+          codex: 'true'
+          full: 'true'
+      - name: Type-check repository maintenance code (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run pnpm install --frozen-lockfile --ignore-scripts
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run bun run typecheck
+          exit $LASTEXITCODE
+      - name: Type-check repository maintenance code (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm install --frozen-lockfile --ignore-scripts
+          bash packages/qa-ai-playwright/src/bin/qa.sh run bun run typecheck
+      - name: Verify environment, actual versions and repeat install (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $output = & .\packages\qa-ai-playwright\src\bin\qa.cmd --help 2>&1 | Out-String
+          if ($output -notmatch 'PowerShell: 7\.') { throw 'qa.cmd did not prefer PowerShell 7' }
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run bun tests/ci-cases.ts env
+          exit $LASTEXITCODE
+      - name: Verify environment, actual versions and repeat install (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: bash packages/qa-ai-playwright/src/bin/qa.sh run bun tests/ci-cases.ts env
+      - name: Verify on-demand external Skill commands
+        if: runner.os == 'Linux' && matrix.profile == 'latest'
+        shell: bash
+        run: bash packages/qa-ai-playwright/src/bin/qa.sh run bun tests/external-skills-ci.ts
+      - name: Record exact resolved versions
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: environment-${{ matrix.os }}-${{ matrix.profile }}
+          path: workspaces/environment with spaces/state.json
+          if-no-files-found: ignore
+          retention-days: 7
+      - uses: ./.github/actions/cleanup
+        if: always()
+  powershell-fallback:
+    name: Windows PowerShell 5.1 fallback
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      QA_ROOT: ${{ github.workspace }}/workspaces/powershell 5 fallback
+      QA_POWERSHELL: powershell.exe
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/bootstrap
+        with:
+          stack: python
+          skills: 'false'
+      - name: Verify fallback
+        shell: powershell
+        run: |
+          $output = & .\packages\qa-ai-playwright\src\bin\qa.cmd --help 2>&1 | Out-String
+          if ($output -notmatch 'PowerShell: 5\.1') { throw 'qa.cmd did not fall back to Windows PowerShell 5.1' }
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd env check python --skip-codex --skip-skills
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - uses: ./.github/actions/cleanup
+        if: always()
+  minimal-linux:
+    name: Minimal Linux / no Python, Node, Homebrew, sudo
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+      - shell: bash
+        run: |
+          docker run --rm -v "$PWD:/workspace" -w /workspace ubuntu:latest bash -euc '
+            apt-get update
+            apt-get install -y --no-install-recommends ca-certificates curl tar gzip
+            ! command -v python3
+            ! command -v node
+            ! command -v brew
+            ! command -v sudo
+            export QA_ROOT=/workspace/workspaces/minimal-environment
+            bash packages/qa-ai-playwright/src/bin/qa.sh env init both
+            bash packages/qa-ai-playwright/src/bin/qa.sh env check both
+            bash packages/qa-ai-playwright/src/bin/qa.sh run bun test --max-concurrency=1 tests/lifecycle.test.ts
+            bash packages/qa-ai-playwright/src/bin/qa.sh env uninstall
+            test ! -e "$QA_ROOT"
+          '

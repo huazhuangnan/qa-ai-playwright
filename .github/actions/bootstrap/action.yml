@@ -1,0 +1,56 @@
+name: Local QA bootstrap
+description: Bootstrap from an empty local root without setup-node, setup-python or OS package managers.
+inputs:
+  stack:
+    description: Python, TypeScript or both
+    default: both
+  codex:
+    description: Whether this suite tests the Codex installation
+    default: 'false'
+  skills:
+    description: Whether this suite installs bundled Skills
+    default: 'true'
+  full:
+    description: Install the optional documentation and browser packs
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - name: Cold check and bootstrap (Windows launcher)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      env:
+        PROFILE: ${{ inputs.stack }}
+        WITH_CODEX: ${{ inputs.codex }}
+        WITH_SKILLS: ${{ inputs.skills }}
+        WITH_FULL: ${{ inputs.full }}
+      run: |
+        $options = @($env:PROFILE)
+        if ($env:WITH_CODEX -ne 'true') { $options += '--skip-codex' }
+        if ($env:WITH_SKILLS -ne 'true') { $options += '--skip-skills' }
+        if ($env:WITH_FULL -eq 'true') { $options += '--full' }
+        & .\packages\qa-ai-playwright\src\bin\qa.cmd --root $env:QA_ROOT env check @options
+        if ($LASTEXITCODE -ne 1) { throw 'Fresh check should report missing environment' }
+        if (Test-Path -LiteralPath $env:QA_ROOT) { throw 'Check created files' }
+        & .\packages\qa-ai-playwright\src\bin\qa.cmd --root $env:QA_ROOT env init @options
+        exit $LASTEXITCODE
+    - name: Cold check and bootstrap (system Bash)
+      if: runner.os != 'Windows'
+      shell: bash
+      env:
+        PROFILE: ${{ inputs.stack }}
+        WITH_CODEX: ${{ inputs.codex }}
+        WITH_SKILLS: ${{ inputs.skills }}
+        WITH_FULL: ${{ inputs.full }}
+      run: |
+        options=("$PROFILE")
+        if [[ "$WITH_CODEX" != true ]]; then options+=(--skip-codex); fi
+        if [[ "$WITH_SKILLS" != true ]]; then options+=(--skip-skills); fi
+        if [[ "$WITH_FULL" == true ]]; then options+=(--full); fi
+        set +e
+        bash packages/qa-ai-playwright/src/bin/qa.sh --root "$QA_ROOT" env check "${options[@]}"
+        code=$?
+        set -e
+        test "$code" -eq 1
+        test ! -e "$QA_ROOT"
+        bash packages/qa-ai-playwright/src/bin/qa.sh --root "$QA_ROOT" env init "${options[@]}"

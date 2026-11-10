@@ -1,0 +1,29 @@
+{
+  "name": "qa-ticket-app-suite-typescript",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.18.0",
+  "scripts": {
+    "test": "playwright test",
+    "test:api": "playwright test tests/api --project=chromium",
+    "test:smoke": "playwright test --grep @smoke --project=chromium",
+    "test:regression": "playwright test --grep @regression --project=chromium",
+    "test:security": "playwright test --grep @security --project=chromium",
+    "test:a11y": "playwright test tests/e2e/accessibility.spec.ts --project=chromium",
+    "test:e2e": "playwright test tests/e2e --project=chromium",
+    "test:mobile": "playwright test tests/e2e/mobile.spec.ts --project=mobile",
+    "typecheck": "tsc --noEmit",
+    "report": "playwright show-report"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.65.0",
+    "@types/node": "^26.6.6",
+    "dotenv": "^17.2.3",
+    "typescript": "^7.0.2"
+  }
+}

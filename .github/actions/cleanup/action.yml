@@ -1,0 +1,18 @@
+name: Remove managed environment
+description: Remove only the marked local environment after the interpreter has exited.
+runs:
+  using: composite
+  steps:
+    - name: Cleanup (PowerShell 7)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        & .\packages\qa-ai-playwright\src\bin\qa.cmd env uninstall
+        if ($LASTEXITCODE) { exit $LASTEXITCODE }
+        if (Test-Path -LiteralPath $env:QA_ROOT) { throw 'Environment not removed' }
+    - name: Cleanup (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        bash packages/qa-ai-playwright/src/bin/qa.sh env uninstall
+        test ! -e "$QA_ROOT"

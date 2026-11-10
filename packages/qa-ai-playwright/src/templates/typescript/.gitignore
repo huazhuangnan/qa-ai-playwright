@@ -1,0 +1,17 @@
+node_modules/
+.cache/
+.env
+.env.*
+!.env.example
+!.env.*.example
+playwright/.auth/
+.playwright-cli/
+reports/
+playwright-report/
+blob-report/
+test-results/
+.qa-project.json
+*.tsbuildinfo
+*.log
+*.tmp
+*.part

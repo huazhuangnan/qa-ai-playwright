@@ -1,0 +1,10 @@
+{
+  "id": "agent-browser",
+  "package": "agent-browser",
+  "version": "0.42.0",
+  "source": "vercel-labs/agent-browser",
+  "source_type": "external",
+  "license": "Apache-2.0",
+  "scope": "environment",
+  "transport": "stdio"
+}

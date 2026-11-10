@@ -1,0 +1,24 @@
+{
+  "name": "qa-ai-playwright-workspace",
+  "description": "QA + AI + Playwright",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.18.0",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "typecheck:all": "pnpm -r --if-present typecheck",
+    "build:example": "pnpm --filter qa-ticket-app build",
+    "test:example:typescript": "pnpm --filter qa-ticket-app-suite-typescript test",
+    "test:unit": "bun test --max-concurrency=1 tests/lifecycle.test.ts",
+    "test:ci": "bun tests/ci-cases.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "@types/node": "26.6.6",
+    "typescript": "7.0.2"
+  }
+}

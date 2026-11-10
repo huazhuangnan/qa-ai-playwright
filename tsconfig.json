@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "forceConsistentCasingInFileNames": true,
+    "lib": ["ES2023"],
+    "noEmit": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "strict": true,
+    "types": ["node", "bun"]
+  },
+  "include": ["packages/qa-ai-playwright/src/qa-cli.ts", "packages/qa-ai-playwright/src/cli/**/*.ts", "tests/*.ts"]
+}

@@ -1,0 +1,10 @@
+{
+  "id": "playwright",
+  "package": "@playwright/mcp",
+  "version": "0.0.85",
+  "source": "microsoft/playwright-mcp",
+  "source_type": "external",
+  "license": "Apache-2.0",
+  "scope": "environment",
+  "transport": "stdio"
+}

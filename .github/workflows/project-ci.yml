@@ -1,0 +1,188 @@
+name: 02 - Project and browser tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      browsers:
+        description: Browser coverage
+        type: choice
+        default: chromium
+        options: [chromium, all]
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  example-contract:
+    name: Example contract / TypeScript
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      QA_ROOT: ${{ github.workspace }}/workspaces/example-environment
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/bootstrap
+        with:
+          stack: typescript
+          skills: 'false'
+      - name: Install locked workspace dependencies
+        shell: bash
+        run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm install --frozen-lockfile
+      - name: Install Chromium and system dependencies
+        shell: bash
+        run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm --filter qa-ticket-app-suite-typescript exec playwright install --with-deps chromium
+      - name: Check example types and contract
+        shell: bash
+        run: |
+          bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm --filter qa-ticket-app typecheck
+          bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm --filter qa-ticket-app-suite-typescript typecheck
+          bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm --filter qa-ticket-app-suite-typescript exec playwright test tests/unit/local-targets.spec.ts tests/api/openapi.spec.ts --project=chromium
+      - name: Upload contract evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: example-openapi
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            apps/qa-ticket-app-suite-typescript/reports/
+            apps/qa-ticket-app-suite-typescript/test-results/
+            apps/qa-ticket-app-suite-typescript/playwright-report/
+      - uses: ./.github/actions/cleanup
+        if: always()
+  example-python:
+    name: Example ticket flow / Python / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      QA_ROOT: ${{ github.workspace }}/workspaces/example-python-${{ matrix.os }}
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/bootstrap
+        with:
+          stack: python
+          skills: 'false'
+      - name: Install locked workspace dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run pnpm install --frozen-lockfile
+          exit $LASTEXITCODE
+      - name: Install locked workspace dependencies (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm install --frozen-lockfile
+      - name: Validate Python dependency lock (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: apps/qa-ticket-app-suite-python
+        run: |
+          & ..\..\packages\qa-ai-playwright\src\bin\qa.cmd run python scripts\check_lock.py
+          exit $LASTEXITCODE
+      - name: Validate Python dependency lock (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        working-directory: apps/qa-ticket-app-suite-python
+        run: bash ../../packages/qa-ai-playwright/src/bin/qa.sh run python scripts/check_lock.py
+      - name: Create isolated Python environment (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run uv venv apps\qa-ticket-app-suite-python\.venv --python python
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run uv pip sync apps\qa-ticket-app-suite-python\requirements.lock --python apps\qa-ticket-app-suite-python\.venv\Scripts\python.exe
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run apps\qa-ticket-app-suite-python\.venv\Scripts\python.exe -m playwright install chromium
+          exit $LASTEXITCODE
+      - name: Create isolated Python environment (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          bash packages/qa-ai-playwright/src/bin/qa.sh run uv venv apps/qa-ticket-app-suite-python/.venv --python python
+          bash packages/qa-ai-playwright/src/bin/qa.sh run uv pip sync apps/qa-ticket-app-suite-python/requirements.lock --python apps/qa-ticket-app-suite-python/.venv/bin/python
+          bash packages/qa-ai-playwright/src/bin/qa.sh run apps/qa-ticket-app-suite-python/.venv/bin/python -m playwright install --with-deps chromium
+      - name: Run Python ticket workflow (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: apps/qa-ticket-app-suite-python
+        run: |
+          & ..\..\packages\qa-ai-playwright\src\bin\qa.cmd run .venv\Scripts\python.exe -m pytest
+          exit $LASTEXITCODE
+      - name: Run Python ticket workflow (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        working-directory: apps/qa-ticket-app-suite-python
+        run: bash ../../packages/qa-ai-playwright/src/bin/qa.sh run .venv/bin/python -m pytest
+      - name: Upload Python test evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: example-python-${{ matrix.os }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            apps/qa-ticket-app-suite-python/reports/
+            apps/qa-ticket-app-suite-python/test-results/
+      - uses: ./.github/actions/cleanup
+        if: always()
+  project:
+    name: ${{ matrix.stack }} / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        stack: [python, typescript]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    env:
+      QA_ROOT: ${{ github.workspace }}/workspaces/project environment
+      QA_TEST_STACK: ${{ matrix.stack }}
+      QA_TEST_BROWSERS: ${{ inputs.browsers || 'chromium' }}
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/bootstrap
+        with:
+          stack: ${{ matrix.stack }}
+          full: 'true'
+      - name: Install repository maintenance dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run pnpm install --frozen-lockfile --ignore-scripts
+          exit $LASTEXITCODE
+      - name: Install repository maintenance dependencies (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm install --frozen-lockfile --ignore-scripts
+      - name: Initialize project, launch browser, type check (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run bun tests/ci-cases.ts project
+          exit $LASTEXITCODE
+      - name: Initialize project, launch browser, type check (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: bash packages/qa-ai-playwright/src/bin/qa.sh run bun tests/ci-cases.ts project
+      - name: Upload browser and test reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: project-${{ matrix.stack }}-${{ matrix.os }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            workspaces/test project */reports/
+            workspaces/test project */test-results/
+            workspaces/test project */playwright-report/
+      - uses: ./.github/actions/cleanup
+        if: always()

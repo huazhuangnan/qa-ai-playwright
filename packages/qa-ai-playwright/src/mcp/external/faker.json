@@ -1,0 +1,13 @@
+{
+  "id": "faker",
+  "package": "faker-mcp-server",
+  "version": "1.0.3",
+  "entry": "dist/index.js",
+  "args": [],
+  "source": "funsjanssen/faker-mcp",
+  "source_type": "external",
+  "license": "MIT",
+  "scope": "environment",
+  "transport": "stdio",
+  "optional": true
+}

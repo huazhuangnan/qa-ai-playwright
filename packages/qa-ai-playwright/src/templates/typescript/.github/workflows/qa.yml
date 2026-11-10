@@ -1,0 +1,177 @@
+name: TypeScript QA
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+    inputs:
+      full_suite:
+        description: Run all operating systems and browsers
+        type: boolean
+        default: false
+      qa_env:
+        description: Environment profile
+        default: stg
+      run_api:
+        description: Run API integration tests
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quick:
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' && !inputs.full_suite)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      QA_ENV: dev
+      UI_BASE_URL: ${{ vars.QA_UI_BASE_URL || vars.QA_BASE_URL }}
+      API_BASE_URL: ${{ vars.QA_API_BASE_URL || vars.QA_BASE_URL }}
+      QA_AUTH_ROLES: ${{ vars.QA_AUTH_ROLES }}
+      QA_AUTH_ROLE: ${{ vars.QA_AUTH_ROLE }}
+      QA_AUTH_LOGIN_PATH: ${{ vars.QA_AUTH_LOGIN_PATH }}
+      QA_AUTH_USERNAME_SELECTOR: ${{ vars.QA_AUTH_USERNAME_SELECTOR }}
+      QA_AUTH_PASSWORD_SELECTOR: ${{ vars.QA_AUTH_PASSWORD_SELECTOR }}
+      QA_AUTH_SUBMIT_SELECTOR: ${{ vars.QA_AUTH_SUBMIT_SELECTOR }}
+      QA_AUTH_SUCCESS_SELECTOR: ${{ vars.QA_AUTH_SUCCESS_SELECTOR }}
+      QA_AUTH_SUCCESS_URL: ${{ vars.QA_AUTH_SUCCESS_URL }}
+      QA_AUTH_INDEXED_DB: ${{ vars.QA_AUTH_INDEXED_DB }}
+      QA_AUTH_ADMIN_USERNAME: ${{ secrets.QA_AUTH_ADMIN_USERNAME }}
+      QA_AUTH_ADMIN_PASSWORD: ${{ secrets.QA_AUTH_ADMIN_PASSWORD }}
+      QA_AUTH_USER_USERNAME: ${{ secrets.QA_AUTH_USER_USERNAME }}
+      QA_AUTH_USER_PASSWORD: ${{ secrets.QA_AUTH_USER_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.18.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+          cache: pnpm
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: pnpm install --frozen-lockfile
+      - run: bun run check:lock
+      - run: bun run typecheck
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright test tests/unit tests/functional tests/e2e --project=chromium
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: typescript-quick
+          path: |
+            playwright-report/
+            reports/
+            test-results/
+          retention-days: 7
+
+  full:
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.full_suite)
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        browser: [chromium, firefox, webkit]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    env:
+      QA_ENV: dev
+      UI_BASE_URL: ${{ vars.QA_UI_BASE_URL || vars.QA_BASE_URL }}
+      API_BASE_URL: ${{ vars.QA_API_BASE_URL || vars.QA_BASE_URL }}
+      QA_AUTH_ROLES: ${{ vars.QA_AUTH_ROLES }}
+      QA_AUTH_ROLE: ${{ vars.QA_AUTH_ROLE }}
+      QA_AUTH_LOGIN_PATH: ${{ vars.QA_AUTH_LOGIN_PATH }}
+      QA_AUTH_USERNAME_SELECTOR: ${{ vars.QA_AUTH_USERNAME_SELECTOR }}
+      QA_AUTH_PASSWORD_SELECTOR: ${{ vars.QA_AUTH_PASSWORD_SELECTOR }}
+      QA_AUTH_SUBMIT_SELECTOR: ${{ vars.QA_AUTH_SUBMIT_SELECTOR }}
+      QA_AUTH_SUCCESS_SELECTOR: ${{ vars.QA_AUTH_SUCCESS_SELECTOR }}
+      QA_AUTH_SUCCESS_URL: ${{ vars.QA_AUTH_SUCCESS_URL }}
+      QA_AUTH_INDEXED_DB: ${{ vars.QA_AUTH_INDEXED_DB }}
+      QA_AUTH_ADMIN_USERNAME: ${{ secrets.QA_AUTH_ADMIN_USERNAME }}
+      QA_AUTH_ADMIN_PASSWORD: ${{ secrets.QA_AUTH_ADMIN_PASSWORD }}
+      QA_AUTH_USER_USERNAME: ${{ secrets.QA_AUTH_USER_USERNAME }}
+      QA_AUTH_USER_PASSWORD: ${{ secrets.QA_AUTH_USER_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.18.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+          cache: pnpm
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: pnpm install --frozen-lockfile
+      - run: bun run check:lock
+      - run: pnpm exec playwright install ${{ matrix.browser }}
+      - if: runner.os == 'Linux'
+        run: pnpm exec playwright install-deps ${{ matrix.browser }}
+      - run: pnpm exec playwright test tests/functional tests/e2e --project=${{ matrix.browser }}
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: typescript-${{ matrix.os }}-${{ matrix.browser }}
+          path: |
+            playwright-report/
+            reports/
+            test-results/
+          retention-days: 7
+
+  api:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_api }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ inputs.qa_env }}
+    env:
+      QA_ENV: ${{ inputs.qa_env }}
+      API_BASE_URL: ${{ vars.QA_API_BASE_URL || secrets.QA_API_BASE_URL || vars.QA_BASE_URL || secrets.QA_BASE_URL }}
+      QA_API_TOKEN: ${{ secrets.QA_API_TOKEN }}
+      REQUIRE_API_TESTS: '1'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.18.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+          cache: pnpm
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - name: Require API configuration
+        shell: bash
+        run: |
+          if [[ -z "$API_BASE_URL" ]]; then
+            echo "QA_API_BASE_URL or QA_BASE_URL is required" >&2
+            exit 1
+          fi
+      - run: pnpm install --frozen-lockfile
+      - run: bun run check:lock
+      - run: pnpm exec playwright test tests/api --project=chromium
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: typescript-api
+          path: |
+            playwright-report/
+            reports/
+            test-results/
+          retention-days: 7
