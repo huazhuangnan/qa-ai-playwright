@@ -1,0 +1,364 @@
+name: CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+
+  workflow-lint:
+    name: GitHub Actions lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check tracked text line endings
+        shell: bash
+        run: |
+          if git grep --cached -Il \r' -- .; then
+            echo 'Tracked text files must use LF line endings.' >&2
+            exit 1
+          else
+            status=$?
+            if [ "$status" -ne 1 ]; then exit "$status"; fi
+          fi
+      - name: Lint repository and template workflows
+        shell: bash
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 \
+            .github/workflows/ci.yml \
+            packages/qa-ai-playwright/src/templates/typescript/.github/workflows/qa.yml \
+            packages/qa-ai-playwright/src/templates/python/.github/workflows/qa.yml
+  environment:
+    name: Environment / ${{ matrix.os }} / ${{ matrix.profile }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15-intel]
+        profile: [latest, compatible]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    env:
+      QA_ROOT: ${{ github.workspace }}/workspaces/environment with spaces
+      QA_NODE_MAJOR: ${{ matrix.profile == 'compatible' && '24' || '26' }}
+      QA_PYTHON_VERSION: ${{ matrix.profile == 'compatible' && '3.14' || '3.15' }}
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/bootstrap
+        with:
+          stack: both
+          codex: 'true'
+          full: 'true'
+      - name: Type-check repository maintenance code (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run pnpm install --frozen-lockfile --ignore-scripts
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run bun run typecheck
+          exit $LASTEXITCODE
+      - name: Type-check repository maintenance code (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm install --frozen-lockfile --ignore-scripts
+          bash packages/qa-ai-playwright/src/bin/qa.sh run bun run typecheck
+      - name: Verify environment, actual versions and repeat install (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $output = & .\packages\qa-ai-playwright\src\bin\qa.cmd --help 2>&1 | Out-String
+          if ($output -notmatch 'PowerShell: 7\.') { throw 'qa.cmd did not prefer PowerShell 7' }
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run bun tests/ci-cases.ts env
+          exit $LASTEXITCODE
+      - name: Verify environment, actual versions and repeat install (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: bash packages/qa-ai-playwright/src/bin/qa.sh run bun tests/ci-cases.ts env
+      - name: Verify on-demand external Skill commands
+        if: runner.os == 'Linux' && matrix.profile == 'latest'
+        shell: bash
+        run: bash packages/qa-ai-playwright/src/bin/qa.sh run bun tests/external-skills-ci.ts
+      - name: Record exact resolved versions
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: environment-${{ matrix.os }}-${{ matrix.profile }}
+          path: workspaces/environment with spaces/state.json
+          if-no-files-found: ignore
+          retention-days: 7
+      - uses: ./.github/actions/cleanup
+        if: always()
+  powershell-fallback:
+    name: Windows PowerShell 5.1 fallback
+    runs-on: windows-2025
+    timeout-minutes: 20
+    env:
+      QA_ROOT: ${{ github.workspace }}/workspaces/powershell 5 fallback
+      QA_POWERSHELL: powershell.exe
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/bootstrap
+        with:
+          stack: python
+          skills: 'false'
+      - name: Verify fallback
+        shell: powershell
+        run: |
+          $output = & .\packages\qa-ai-playwright\src\bin\qa.cmd --help 2>&1 | Out-String
+          if ($output -notmatch 'PowerShell: 5\.1') { throw 'qa.cmd did not fall back to Windows PowerShell 5.1' }
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd env check python --skip-codex --skip-skills
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - uses: ./.github/actions/cleanup
+        if: always()
+  minimal-linux:
+    name: Minimal Linux / no Python, Node, Homebrew, sudo
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+      - shell: bash
+        run: |
+          docker run --rm -v "$PWD:/workspace" -w /workspace ubuntu:24.04 bash -euc '
+            apt-get update
+            apt-get install -y --no-install-recommends ca-certificates curl tar gzip
+            ! command -v python3
+            ! command -v node
+            ! command -v brew
+            ! command -v sudo
+            export QA_ROOT=/workspace/workspaces/minimal-environment
+            bash packages/qa-ai-playwright/src/bin/qa.sh env init both
+            bash packages/qa-ai-playwright/src/bin/qa.sh env check both
+            bash packages/qa-ai-playwright/src/bin/qa.sh run bun run test:unit
+            bash packages/qa-ai-playwright/src/bin/qa.sh env uninstall
+            test ! -e "$QA_ROOT"
+          '
+
+  example-contract:
+    name: Example suite / TypeScript
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      QA_ROOT: ${{ github.workspace }}/workspaces/example-environment
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/bootstrap
+        with:
+          stack: typescript
+          skills: 'false'
+      - name: Install locked workspace dependencies
+        shell: bash
+        run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm install --frozen-lockfile
+      - name: Install Chromium and system dependencies
+        shell: bash
+        run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm --filter qa-ticket-app-suite-typescript exec playwright install --with-deps chromium
+      - name: Check example types and run full suite
+        shell: bash
+        run: |
+          bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm --filter qa-ticket-app typecheck
+          bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm --filter qa-ticket-app-suite-typescript typecheck
+          bash packages/qa-ai-playwright/src/bin/qa.sh run bun run test:example:typescript
+      - name: Upload TypeScript test evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: example-typescript
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            apps/qa-ticket-app-suite-typescript/reports/
+            apps/qa-ticket-app-suite-typescript/test-results/
+            apps/qa-ticket-app-suite-typescript/playwright-report/
+      - uses: ./.github/actions/cleanup
+        if: always()
+  example-python:
+    name: Example ticket flow / Python / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      QA_ROOT: ${{ github.workspace }}/workspaces/example-python-${{ matrix.os }}
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/bootstrap
+        with:
+          stack: python
+          skills: 'false'
+      - name: Install locked workspace dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run pnpm install --frozen-lockfile
+          exit $LASTEXITCODE
+      - name: Install locked workspace dependencies (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm install --frozen-lockfile
+      - name: Validate Python dependency lock (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: apps/qa-ticket-app-suite-python
+        run: |
+          & ..\..\packages\qa-ai-playwright\src\bin\qa.cmd run python scripts\check_lock.py
+          exit $LASTEXITCODE
+      - name: Validate Python dependency lock (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        working-directory: apps/qa-ticket-app-suite-python
+        run: bash ../../packages/qa-ai-playwright/src/bin/qa.sh run python scripts/check_lock.py
+      - name: Create isolated Python environment (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run uv venv apps\qa-ticket-app-suite-python\.venv --python python
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run uv pip sync apps\qa-ticket-app-suite-python\requirements.lock --python apps\qa-ticket-app-suite-python\.venv\Scripts\python.exe
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run apps\qa-ticket-app-suite-python\.venv\Scripts\python.exe -m playwright install chromium
+          exit $LASTEXITCODE
+      - name: Create isolated Python environment (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          bash packages/qa-ai-playwright/src/bin/qa.sh run uv venv apps/qa-ticket-app-suite-python/.venv --python python
+          bash packages/qa-ai-playwright/src/bin/qa.sh run uv pip sync apps/qa-ticket-app-suite-python/requirements.lock --python apps/qa-ticket-app-suite-python/.venv/bin/python
+          bash packages/qa-ai-playwright/src/bin/qa.sh run apps/qa-ticket-app-suite-python/.venv/bin/python -m playwright install --with-deps chromium
+      - name: Run Python ticket workflow (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run bun run test:example:python
+          exit $LASTEXITCODE
+      - name: Run Python ticket workflow (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: bash packages/qa-ai-playwright/src/bin/qa.sh run bun run test:example:python
+      - name: Upload Python test evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: example-python-${{ matrix.os }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            apps/qa-ticket-app-suite-python/reports/
+            apps/qa-ticket-app-suite-python/test-results/
+      - uses: ./.github/actions/cleanup
+        if: always()
+  project:
+    name: ${{ matrix.stack }} / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15-intel]
+        stack: [python, typescript]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    env:
+      QA_ROOT: ${{ github.workspace }}/workspaces/project environment
+      QA_TEST_STACK: ${{ matrix.stack }}
+      QA_TEST_BROWSERS: ${{ inputs.browsers || 'chromium' }}
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/bootstrap
+        with:
+          stack: ${{ matrix.stack }}
+          full: 'true'
+      - name: Install repository maintenance dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run pnpm install --frozen-lockfile --ignore-scripts
+          exit $LASTEXITCODE
+      - name: Install repository maintenance dependencies (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm install --frozen-lockfile --ignore-scripts
+      - name: Initialize project, launch browser, type check (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run bun tests/ci-cases.ts project
+          exit $LASTEXITCODE
+      - name: Initialize project, launch browser, type check (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: bash packages/qa-ai-playwright/src/bin/qa.sh run bun tests/ci-cases.ts project
+      - name: Upload browser and test reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: project-${{ matrix.stack }}-${{ matrix.os }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            workspaces/test project */reports/
+            workspaces/test project */test-results/
+            workspaces/test project */playwright-report/
+      - uses: ./.github/actions/cleanup
+        if: always()
+
+  uninstall:
+    name: Uninstall protection / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    env:
+      QA_ROOT: ${{ github.workspace }}/workspaces/uninstall environment
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/bootstrap
+        with:
+          stack: both
+      - name: Install repository maintenance dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run pnpm install --frozen-lockfile --ignore-scripts
+          exit $LASTEXITCODE
+      - name: Install repository maintenance dependencies (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm install --frozen-lockfile --ignore-scripts
+      - name: Lifecycle unit tests and real project uninstall (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & .\packages\qa-ai-playwright\src\bin\qa.cmd run bun tests/ci-cases.ts uninstall
+          exit $LASTEXITCODE
+      - name: Lifecycle unit tests and real project uninstall (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: bash packages/qa-ai-playwright/src/bin/qa.sh run bun tests/ci-cases.ts uninstall
+      - uses: ./.github/actions/cleanup
+        if: always()
+      - name: Verify projects survive environment removal (Windows)
+        if: success() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          foreach ($stack in @('python','typescript')) {
+            $notes = Join-Path $PWD "workspaces/uninstall project $stack/user-notes.txt"
+            if (!(Test-Path -LiteralPath $notes)) { throw 'User file deleted' }
+          }
+      - name: Verify projects survive environment removal (Unix)
+        if: success() && runner.os != 'Windows'
+        shell: bash
+        run: |
+          test -f 'workspaces/uninstall project python/user-notes.txt'
+          test -f 'workspaces/uninstall project typescript/user-notes.txt'

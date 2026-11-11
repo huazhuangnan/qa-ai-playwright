@@ -49,6 +49,16 @@ CLI 中的 `REPO` 和 `QA_REPO` 指向交付包根目录。安装记录中的源
 已有环境应使用新入口重新执行 `env init`，以刷新激活脚本中的 `QA_REPO`。
 重跑会保留已有 Skill 和项目文件。旧的环境与项目数据不会自动搬迁。
 
+## 浏览器 CLI 入口与 CI 组织
+
+`@playwright/cli` 的运行入口固定为环境目录内 `node_modules/@playwright/cli/playwright-cli.js`。
+安装校验、`qa run playwright-cli` 和 CI 版本检查必须使用同一个入口。
+不能根据旧版包结构拼接 `cli.js`。
+
+GitHub Actions 统一由根目录的 CI 工作流承载。
+平台矩阵、示例项目、环境生命周期和卸载保护继续保持独立 job。
+重复的安装依赖、Windows 与 Unix 分支通过复合 Action 复用。
+工作流只保留必要的门禁和证据归档步骤。
 ## 维护语言
 
 - 仓库自身的 CLI、工具和测试统一使用 TypeScript。
@@ -68,6 +78,20 @@ pnpm install --frozen-lockfile
 bun run typecheck
 bun run test:unit
 ```
+
+在仓库根目录运行示例：
+
+```bash
+bun run dev:example
+bun run build:example
+bun run test:example:typescript
+bun run test:example:python
+```
+
+开发命令会初始化示例数据库，并将演示账号密码恢复为默认值。
+Python 测试前先按 [Python 示例说明](../apps/qa-ticket-app-suite-python/README.md)准备 .venv 和 Chromium。
+测试参数可直接追加到对应命令。
+两套测试和开发服务使用相同端口，须分别运行。
 
 `bun run test:ci env` 可执行环境集成套件。
 完整套件仍由 GitHub Actions 运行。
@@ -180,9 +204,7 @@ Skill 使用 SemVer。
 
 | Workflow | 覆盖内容 |
 | --- | --- |
-| [env-ci](../.github/workflows/env-ci.yml) | Actions lint、冷启动、版本组合、PowerShell 7/5.1、类型检查、CLI、MCP 和 CC Switch |
-| [project-ci](../.github/workflows/project-ci.yml) | 两套模板、TypeScript/Python 完整示例、项目生成、浏览器和类型检查 |
-| [uninstall-ci](../.github/workflows/uninstall-ci.yml) | 所有权、路径边界、清理和卸载保留 |
+| [ci](../.github/workflows/ci.yml) | Actions lint、环境矩阵、模板示例、项目生成、浏览器检查和卸载保护 |
 
 Windows 主路径使用 PowerShell 7。
 独立任务通过 `QA_POWERSHELL=powershell.exe` 验证 5.1 降级。

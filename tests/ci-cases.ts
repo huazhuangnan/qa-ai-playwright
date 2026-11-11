@@ -33,6 +33,7 @@ interface EnvironmentState {
   pnpm: string;
   python: string;
   uv: string;
+  playwright_cli: string;
   playwright_mcp: string;
   agent_browser: string;
   cc_switch: string;
@@ -88,6 +89,7 @@ async function environmentCase(): Promise<void> {
     process.env.QA_UV_VERSION ?? '0.13.7',
   );
   assert.equal(state.profile, 'full');
+  assert.equal(state.playwright_cli, '0.1.24');
   assert.equal(state.playwright_mcp, '0.0.85');
   assert.equal(state.agent_browser, '0.42.0');
   assert.equal(state.cc_switch, '4.0.28');

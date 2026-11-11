@@ -64,7 +64,7 @@ Project ready: ［项目目录］. QA templates: ［版本］. Language template
 ```
 
 `env check` 输出运行时信息，并在末尾输出包含 `root`、`missing` 和 `versions` 的 JSON 对象。
-`missing` 为空表示所选环境组件检查通过，不代表业务测试通过。
+`missing` 为空表示所选环境组件检查通过，不代表业务测试通过。检查会验证固定版本、启动器和实际 JavaScript 入口。命令成功返回 0，存在缺失项返回 1。
 重复初始化时，`KEEP` 表示保留已有项目文件。
 测试结果与证据位置见[从需求到执行](qa-workflow.zh-CN.md#可观察的执行示例)。
 
@@ -78,7 +78,7 @@ Project ready: ［项目目录］. QA templates: ［版本］. Language template
 | `--language python/typescript` | 选择新项目语言 |
 | `--browser chromium/firefox/webkit/all/none` | 选择项目浏览器 |
 | `--skip-codex` | 不安装 Codex 和声明需要 Codex 的 MCP |
-| `--skip-skills` | 兼容参数，跳过浏览器辅助 CLI 和 MCP；不影响 Skill 按需检查 |
+| `--skip-skills` | 跳过 Playwright CLI、浏览器辅助 CLI 和 MCP；不影响 Skill 按需检查 |
 | `--with-deps` | Linux 安装浏览器系统库 |
 
 `--language` 也可写作 `--语言`。
@@ -187,6 +187,7 @@ source .qa-env/activate.sh
 | Linux 缺浏览器库 | 使用 `project init <目录> --language <语言> --with-deps` |
 | 找不到运行时或 Codex | 检查 `state.json`、激活文件和 `QA_ROOT` |
 | 浏览器 executable 不存在 | 安装对应浏览器并使用相同 `--root` |
+| `playwright-cli --version` 报 `MODULE_NOT_FOUND` | 使用相同 `--root` 重新执行 `env init`，再执行 `env check` |
 | API 测试 skipped | 检查 `QA_ENV`、`API_BASE_URL`、API 门禁和认证变量 |
 | Skill 或模板未更新 | 保留已有内容。升级前先合并本地修改 |
 | Python 锁文件未受管理或已修改 | 备份并手动处理 `requirements.lock` 和元数据后重跑初始化。失败前已复制的模板会保留 |

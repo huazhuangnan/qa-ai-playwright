@@ -519,7 +519,7 @@ export class Environment {
    */
   playwrightCli(...args: (string | number)[]): void {
     this.run(
-      [this.node, join(this.playwrightCliPackage, 'cli.js'), ...args],
+      [this.node, this.requirePlaywrightCliEntry(), ...args],
     );
   }
 
@@ -934,7 +934,8 @@ export class Environment {
     const installed = this.packageVersion(packageFile);
     if (
       installed === this.playwrightCliVersion &&
-      existsSync(this.playwrightCliBin)
+      existsSync(this.playwrightCliBin) &&
+      this.playwrightCliEntry()
     ) {
       return installed;
     }
@@ -949,7 +950,8 @@ export class Environment {
     const actual = this.requirePackageVersion(packageFile);
     if (
       actual !== this.playwrightCliVersion ||
-      !existsSync(this.playwrightCliBin)
+      !existsSync(this.playwrightCliBin) ||
+      !this.playwrightCliEntry()
     ) {
       throw new Error(
         `Expected Playwright CLI ${this.playwrightCliVersion}, got ${actual}`,
@@ -1591,7 +1593,8 @@ export class Environment {
       );
       if (
         cliVersion !== this.playwrightCliVersion ||
-        !existsSync(this.playwrightCliBin)
+        !existsSync(this.playwrightCliBin) ||
+        !this.playwrightCliEntry()
       ) {
         missing.push(`playwright-cli@${this.playwrightCliVersion}`);
       }
@@ -1635,6 +1638,43 @@ export class Environment {
       : {};
   }
 
+  /**
+   * Resolves the Playwright CLI entry declared by the installed package.
+   *
+   * @returns An existing package entry, or undefined when the metadata is invalid.
+   */
+  private playwrightCliEntry(): string | undefined {
+    const data = this.readJson(join(this.playwrightCliPackage, 'package.json'));
+    const bin = data?.bin;
+    const binObject = this.objectValue(bin);
+    const relative = typeof bin === 'string'
+      ? bin
+      : typeof binObject['playwright-cli'] === 'string'
+        ? binObject['playwright-cli']
+        : Object.values(binObject).find((value) => typeof value === 'string');
+    if (typeof relative !== 'string') {
+      return undefined;
+    }
+    const entry = resolve(this.playwrightCliPackage, relative);
+    return within(entry, this.playwrightCliPackage) && existsSync(entry)
+      ? entry
+      : undefined;
+  }
+
+  /**
+   * Returns the installed Playwright CLI entry or a repairable error.
+   *
+   * @returns Existing executable JavaScript entry.
+   */
+  private requirePlaywrightCliEntry(): string {
+    const entry = this.playwrightCliEntry();
+    if (!entry) {
+      throw new Error(
+        `Playwright CLI entry is missing from ${this.playwrightCliPackage}`,
+      );
+    }
+    return entry;
+  }
   private packageVersion(path: string): string | undefined {
     const data = this.readJson(path);
     return typeof data?.version === 'string' ? data.version : undefined;
