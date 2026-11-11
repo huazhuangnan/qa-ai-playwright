@@ -144,7 +144,17 @@ if [[ ! -x "$node" ]]; then
   release_base="https://nodejs.org/dist/latest-v$QA_NODE_MAJOR.x"
   checksum="$root/cache/downloads/node-SHASUMS256.txt"
   fetch "$release_base/SHASUMS256.txt" "$checksum"
-  name=$(awk -v suffix="-$platform-$arch.tar.gz" '$2 == suffix || $2 == "*" suffix { print $2; exit }' "$checksum")
+  # Each checksum line contains "<sha256>  <filename>"; match the filename suffix.
+  name=$(awk -v suffix="-$platform-$arch.tar.gz" '
+    {
+      candidate = $2
+      sub(/^\*/, "", candidate)
+      if (substr(candidate, length(candidate) - length(suffix) + 1) == suffix) {
+        print candidate
+        exit
+      }
+    }
+  ' "$checksum")
   [[ -n "$name" ]] || { echo "Node $QA_NODE_MAJOR release file was not found" >&2; exit 1; }
   expected=$(awk -v target="$name" '$2 == target || $2 == "*" target { print $1; exit }' "$checksum")
   [[ "$expected" =~ ^[a-fA-F0-9]{64}$ ]] || { echo 'Invalid Node checksum' >&2; exit 1; }

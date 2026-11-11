@@ -29,6 +29,7 @@ import {
 import {
   OWNER,
   REPO,
+  WINDOWS,
   atomicJson,
   digest,
   removeOwned,
@@ -142,6 +143,37 @@ test('caches, browser state and credentials stay inside the environment', () => 
     assert.ok(value, key);
     assert.ok(within(value, environment.root), key);
   }
+});
+
+test('package manager bootstrap allows Bun and pnpm scripts separately', async () => {
+  const environment = new StubEnvironment({
+    root: join(createWorkspace(), 'environment'),
+    env: {},
+  });
+  environment.save();
+
+  await assert.rejects(
+    () => environment.ensurePackageManagers(),
+    /Expected Bun 1\.4\.4 and pnpm 12\.18\.0/,
+  );
+  const installs = environment.commands.filter(
+    (command) => command.includes('install') && command.includes('--global'),
+  );
+  assert.equal(installs.length, 2);
+  assert.ok(installs.some((command) =>
+    command.includes('--allow-scripts=bun') &&
+    command.includes('bun@1.4.4')
+  ));
+  assert.ok(installs.some((command) =>
+    command.includes('--allow-scripts=pnpm') &&
+    command.includes('pnpm@12.18.0')
+  ));
+  assert.equal(
+    environment.bunBin,
+    WINDOWS
+      ? join(environment.npmPrefix, 'node_modules/bun/bin/bun.exe')
+      : join(environment.npmBin, 'bun'),
+  );
 });
 
 test('template version validation rejects incomplete semantic versions', () => {

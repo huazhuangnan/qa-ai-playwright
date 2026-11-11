@@ -201,7 +201,9 @@ export class Environment {
     this.node = join(this.nodeDir, WINDOWS ? 'node.exe' : 'bin/node');
     this.npmPrefix = join(this.root, 'tools', 'npm');
     this.npmBin = WINDOWS ? this.npmPrefix : join(this.npmPrefix, 'bin');
-    this.bunBin = join(this.npmBin, WINDOWS ? 'bun.cmd' : 'bun');
+    this.bunBin = WINDOWS
+      ? join(this.npmPrefix, 'node_modules/bun/bin/bun.exe')
+      : join(this.npmBin, 'bun');
     this.pnpmBin = join(this.npmBin, WINDOWS ? 'pnpm.cmd' : 'pnpm');
     this.codexBin = join(this.npmBin, WINDOWS ? 'codex.cmd' : 'codex');
     this.codexPackage = join(
@@ -634,15 +636,19 @@ export class Environment {
       }
     };
 
-    if (
-      currentVersion(this.bunBin) !== this.bunVersion ||
-      currentVersion(this.pnpmBin) !== this.pnpmVersion
-    ) {
+    if (currentVersion(this.bunBin) !== this.bunVersion) {
       this.npm([
         'install',
         '--global',
         '--allow-scripts=bun',
         `bun@${this.bunVersion}`,
+      ]);
+    }
+    if (currentVersion(this.pnpmBin) !== this.pnpmVersion) {
+      this.npm([
+        'install',
+        '--global',
+        '--allow-scripts=pnpm',
         `pnpm@${this.pnpmVersion}`,
       ]);
     }

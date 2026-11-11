@@ -182,6 +182,8 @@ source .qa-env/activate.sh
 | --- | --- |
 | PowerShell 策略阻止脚本 | 使用 `packages/qa-ai-playwright/src/bin/qa.cmd`，它只为该进程设置 Bypass |
 | 下载失败 | 检查代理、受信证书、磁盘和报错域名 |
+| Node 自举提示 release file was not found | 确认 `SHASUMS256.txt` 含目标平台的 `.tar.gz` 包；脚本按文件后缀匹配 |
+| Windows 提示 Bun 或 pnpm missing | 重新执行 `env init`；Bun 使用 `bun.exe`，pnpm 安装脚本单独放行 |
 | Linux 缺浏览器库 | 使用 `project init <目录> --language <语言> --with-deps` |
 | 找不到运行时或 Codex | 检查 `state.json`、激活文件和 `QA_ROOT` |
 | 浏览器 executable 不存在 | 安装对应浏览器并使用相同 `--root` |
