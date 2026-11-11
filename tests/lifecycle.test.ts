@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { delimiter, dirname, join, resolve } from 'node:path';
 import { test } from 'bun:test';
 
 import {
@@ -143,6 +143,9 @@ test('caches, browser state and credentials stay inside the environment', () => 
     assert.ok(value, key);
     assert.ok(within(value, environment.root), key);
   }
+  assert.ok(
+    (variables.PATH ?? '').split(delimiter).includes(dirname(environment.bunBin)),
+  );
 });
 
 test('package manager bootstrap allows Bun and pnpm scripts separately', async () => {
@@ -174,6 +177,31 @@ test('package manager bootstrap allows Bun and pnpm scripts separately', async (
       ? join(environment.npmPrefix, 'node_modules/bun/bin/bun.exe')
       : join(environment.npmBin, 'bun'),
   );
+});
+
+test('environment check rejects a stale uv executable', () => {
+  const managed = createEnvironment();
+  const environment = new StubEnvironment({
+    root: managed.root,
+    env: {},
+  });
+  mkdirSync(dirname(environment.uv), { recursive: true });
+  writeFileSync(environment.uv, 'stale uv placeholder', 'utf8');
+  const capture = captureConsole();
+  try {
+    assert.equal(
+      environment.check({
+        stack: 'python',
+        profile: 'standard',
+        skipCodex: true,
+        skipSkills: true,
+      }),
+      1,
+    );
+  } finally {
+    capture.restore();
+  }
+  assert.match(capture.output(), /"uv@0\.13\.7"/);
 });
 
 test('template version validation rejects incomplete semantic versions', () => {
@@ -402,6 +430,33 @@ test('generated CI workflows expose safety and API gates', () => {
     ),
     /auth_state\.py/,
   );
+  assert.match(
+    readFileSync(
+      join(REPO, 'src/templates/python/.github/workflows/qa.yml'),
+      'utf8',
+    ),
+    /pip install --require-hashes -r requirements\.lock/u,
+  );
+});
+
+test('repository and template workflows pin runner images', () => {
+  const rootWorkflows = join(REPO, '../../.github/workflows');
+  const workflowFiles = [
+    ...readdirSync(rootWorkflows)
+      .filter((name) => name.endsWith('.yml'))
+      .map((name) => join(rootWorkflows, name)),
+    join(REPO, 'src/templates/typescript/.github/workflows/qa.yml'),
+    join(REPO, 'src/templates/python/.github/workflows/qa.yml'),
+  ];
+  for (const file of workflowFiles) {
+    const workflow = readFileSync(file, 'utf8');
+    assert.doesNotMatch(
+      workflow,
+      /\b(?:ubuntu|windows|macos)-latest\b/u,
+      file,
+    );
+    assert.doesNotMatch(workflow, /ubuntu:latest/u, file);
+  }
 });
 
 test('project uninstall preserves user changes and initialized documentation', async () => {
@@ -441,6 +496,11 @@ test('project uninstall preserves user changes and initialized documentation', a
     withDeps: false,
   };
   await projectInit(environment, args);
+  assert.ok(environment.commands.some((command) =>
+    command.includes('compile') &&
+    command.includes('--universal') &&
+    command.includes('--generate-hashes')
+  ));
   for (const relativePath of [
     'docs/qa/generated/business-understanding.md',
     'docs/qa/generated/test-plan.md',

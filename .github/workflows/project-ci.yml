@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   example-contract:
-    name: Example contract / TypeScript
+    name: Example suite / TypeScript
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -34,17 +34,17 @@ jobs:
       - name: Install Chromium and system dependencies
         shell: bash
         run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm --filter qa-ticket-app-suite-typescript exec playwright install --with-deps chromium
-      - name: Check example types and contract
+      - name: Check example types and run full suite
         shell: bash
         run: |
           bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm --filter qa-ticket-app typecheck
           bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm --filter qa-ticket-app-suite-typescript typecheck
-          bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm --filter qa-ticket-app-suite-typescript exec playwright test tests/unit/local-targets.spec.ts tests/api/openapi.spec.ts --project=chromium
-      - name: Upload contract evidence
+          bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm --filter qa-ticket-app-suite-typescript test
+      - name: Upload TypeScript test evidence
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: example-openapi
+          name: example-typescript
           retention-days: 7
           if-no-files-found: ignore
           path: |

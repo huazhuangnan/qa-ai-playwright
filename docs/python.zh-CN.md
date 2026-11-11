@@ -247,8 +247,8 @@ python-qa/
 
 JUnit 在 `reports/`。截图和 Trace 在 `test-results/`。
 
-`project init` 根据 `requirements.in` 生成带哈希的 `requirements.lock`。
-CI 会检查锁文件与环境基线，再从锁文件安装依赖。
+`project init` 使用 universal 解析生成跨平台哈希锁。
+CI 会检查锁文件与环境基线，并用 `--require-hashes` 安装。
 
 <details>
 <summary>Windows（PowerShell 7 优先，5.1 降级）</summary>

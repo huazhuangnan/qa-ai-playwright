@@ -27,6 +27,7 @@
 | Python 运行时 uv | <https://docs.astral.sh/uv/> |
 | GitHub Actions CI | <https://docs.github.com/actions> |
 | GitHub-hosted runner labels | <https://docs.github.com/en/actions/reference/runners/github-hosted-runners> |
+| Actionlint | <https://github.com/rhysd/actionlint> |
 | Playwright MCP（Microsoft） | <https://github.com/microsoft/playwright-mcp> |
 
 ## 高下载 Skill 参考

@@ -133,7 +133,7 @@ MCP：
 | `<root>/codex/config.toml` | CLI | 局部 Codex 与 MCP 配置 |
 | `<project>/.qa-project.json` | CLI | 项目所有权、模板版本、文件校验值 |
 | `<project>/pnpm-lock.yaml` | 项目 | Node 依赖锁 |
-| `<project>/requirements.lock` | 项目 | Python 哈希依赖锁 |
+| `<project>/requirements.lock` | 项目 | 跨平台解析的 Python 哈希依赖锁 |
 
 修改锁文件格式时，必须提供迁移策略和回滚策略。
 旧环境的 Skill 文件和锁记录保留。环境检查不要求 Skill。
@@ -143,6 +143,7 @@ MCP：
 
 默认运行时版本统一位于 [runtime-versions.env](../packages/qa-ai-playwright/src/runtime-versions.env)。
 `uv` 使用固定版本，避免安装结果漂移。
+`env check` 同时校验 uv 版本；不一致时重新执行 `env init`。
 Bun 和 pnpm 使用固定版本。
 `env init` 在 Node 安装完成后安装这两个工具。
 
@@ -166,14 +167,15 @@ Skill 使用 SemVer。
 
 | Workflow | 覆盖内容 |
 | --- | --- |
-| [env-ci](../.github/workflows/env-ci.yml) | 冷启动、版本组合、PowerShell 7/5.1、TS 类型检查、CLI、MCP 握手、CC Switch |
-| [project-ci](../.github/workflows/project-ci.yml) | 两套模板、TypeScript/Python 示例、项目生成、浏览器和类型检查 |
+| [env-ci](../.github/workflows/env-ci.yml) | Actions lint、冷启动、版本组合、PowerShell 7/5.1、类型检查、CLI、MCP 和 CC Switch |
+| [project-ci](../.github/workflows/project-ci.yml) | 两套模板、TypeScript/Python 完整示例、项目生成、浏览器和类型检查 |
 | [uninstall-ci](../.github/workflows/uninstall-ci.yml) | 所有权、路径边界、清理和卸载保留 |
 
 Windows 主路径使用 PowerShell 7。
 独立任务通过 `QA_POWERSHELL=powershell.exe` 验证 5.1 降级。
 CI runner 固定为 `ubuntu-24.04`、`windows-2025` 和 `macos-15-intel`。
 不使用 `*-latest` 标签，避免系统迁移和 macOS ARM 排队改变验证环境。
+最小 Linux 容器同样固定为 `ubuntu:24.04`。
 生成项目 CI 在 PR 使用快速矩阵，完整矩阵放在夜间或手动任务。
 测试或运行器失败时，不得只增加重试或跳过门禁。
 

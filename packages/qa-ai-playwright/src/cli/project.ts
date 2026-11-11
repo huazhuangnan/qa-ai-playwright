@@ -191,6 +191,7 @@ export async function projectInit(
             requirementsSource,
             '--python',
             env.python(),
+            '--universal',
             '--generate-hashes',
             '--output-file',
             requirementsLock,

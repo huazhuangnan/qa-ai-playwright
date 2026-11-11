@@ -366,13 +366,14 @@ export class Environment {
       ),
     };
 
-    const pathParts = [
+    const pathParts = [...new Set([
       dirname(this.node),
+      dirname(this.bunBin),
       this.npmBin,
       join(this.root, 'bin'),
       ...(python ? [dirname(python)] : []),
       this.environment.PATH ?? '',
-    ].filter(Boolean);
+    ].filter(Boolean))];
     values.PATH = pathParts.join(WINDOWS ? ';' : ':');
 
     const browser = this.playwrightChromiumExecutable();
@@ -778,7 +779,16 @@ export class Environment {
    */
   async ensureUv(): Promise<string> {
     if (existsSync(this.uv)) {
-      return this.run([this.uv, '--version'], { capture: true }) ?? '';
+      try {
+        const current =
+          this.run([this.uv, '--version'], { capture: true }) ?? '';
+        if (this.uvVersionMatches(current)) {
+          return current;
+        }
+      } catch {
+        // A damaged local uv executable is replaced below.
+      }
+      removeOwned(this.uv, this.root);
     }
     if (!/^(latest|\d+\.\d+\.\d+)$/.test(this.uvVersion)) {
       throw new Error('Invalid QA_UV_VERSION');
@@ -824,7 +834,22 @@ export class Environment {
     if (!WINDOWS) {
       chmodSync(this.uv, 0o755);
     }
-    return this.run([this.uv, '--version'], { capture: true }) ?? '';
+    const current = this.run([this.uv, '--version'], { capture: true }) ?? '';
+    if (!this.uvVersionMatches(current)) {
+      throw new Error(
+        `Expected uv ${this.uvVersion}; got ${current.trim() || 'missing'}`,
+      );
+    }
+    return current;
+  }
+
+  /** Returns whether a uv version output matches the pinned policy. */
+  private uvVersionMatches(output: string): boolean {
+    if (this.uvVersion === 'latest') {
+      return /^uv \d+\.\d+\.\d+/u.test(output);
+    }
+    const version = `uv ${this.uvVersion}`;
+    return output === version || output.startsWith(`${version} `);
   }
 
   /**
@@ -1413,6 +1438,16 @@ export class Environment {
         }
       } catch {
         missing.push('python');
+      }
+      try {
+        const version =
+          this.run([this.uv, '--version'], { capture: true }) ?? '';
+        console.log(version);
+        if (!this.uvVersionMatches(version)) {
+          missing.push(`uv@${this.uvVersion}`);
+        }
+      } catch {
+        missing.push(`uv@${this.uvVersion}`);
       }
     }
 

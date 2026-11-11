@@ -22,7 +22,7 @@
 - `QA_ENV`、`UI_BASE_URL` 和 `API_BASE_URL` 是基础示例。项目变量按契约增加并登记到 `docs/qa/inputs/input-index.md`。
 - UI 与 API 地址不同时分别配置。`BASE_URL` 仅用于兼容旧项目。
 - API 请求必须设置超时，检查状态码和适用的业务契约。
-- 依赖维护在 `requirements.in`。`requirements.lock` 由初始化生成并提交，CI 只安装锁文件。
+- `requirements.lock` 使用 universal 解析和哈希。CI 使用 `--require-hashes` 安装。
 - API 使用 `qa_api` fixture。写入数据前调用 `require_write_access`，并登记 `cleanup_registry`。
 - 生产写入默认拒绝。只有显式设置 `QA_ALLOW_PRODUCTION_WRITES=true` 才允许。
 - `REQUIRE_API_TESTS=1` 时缺少环境配置直接失败，跳过的 API 不计为覆盖。

@@ -32,6 +32,7 @@ interface EnvironmentState {
   bun: string;
   pnpm: string;
   python: string;
+  uv: string;
   playwright_mcp: string;
   agent_browser: string;
   cc_switch: string;
@@ -82,6 +83,10 @@ async function environmentCase(): Promise<void> {
   assert.equal(state.bun, process.env.QA_BUN_VERSION ?? '1.4.4');
   assert.equal(state.pnpm, process.env.QA_PNPM_VERSION ?? '12.18.0');
   assert.ok(state.python.startsWith(`Python ${pythonVersion}.`));
+  assert.equal(
+    state.uv.split(/\s+/u)[1],
+    process.env.QA_UV_VERSION ?? '0.13.7',
+  );
   assert.equal(state.profile, 'full');
   assert.equal(state.playwright_mcp, '0.0.85');
   assert.equal(state.agent_browser, '0.42.0');

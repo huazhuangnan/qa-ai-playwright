@@ -133,9 +133,10 @@ if [[ ! -x "$node" ]]; then
 
   fetch() {
     if command -v curl >/dev/null 2>&1; then
-      curl --fail --location --retry 3 --connect-timeout 30 "$1" -o "$2"
+      curl --fail --location --retry 3 --retry-delay 2 \
+        --connect-timeout 30 --max-time 300 "$1" -o "$2"
     elif command -v wget >/dev/null 2>&1; then
-      wget -O "$2" "$1"
+      wget --tries=3 --timeout=30 -O "$2" "$1"
     else
       echo 'curl or wget is required for bootstrap' >&2
       exit 1
@@ -156,16 +157,26 @@ if [[ ! -x "$node" ]]; then
     }
   ' "$checksum")
   [[ -n "$name" ]] || { echo "Node $QA_NODE_MAJOR release file was not found" >&2; exit 1; }
+  [[ "$name" =~ ^node-v[0-9]+\.[0-9]+\.[0-9]+-$platform-$arch\.tar\.gz$ ]] \
+    || { echo 'Unexpected Node archive name' >&2; exit 1; }
   expected=$(awk -v target="$name" '$2 == target || $2 == "*" target { print $1; exit }' "$checksum")
   [[ "$expected" =~ ^[a-fA-F0-9]{64}$ ]] || { echo 'Invalid Node checksum' >&2; exit 1; }
   archive="$root/cache/downloads/$name"
   if [[ ! -f "$archive" ]]; then
     fetch "$release_base/$name" "$archive"
   fi
-  if command -v sha256sum >/dev/null 2>&1; then
-    actual=$(sha256sum "$archive" | awk '{ print $1 }')
-  else
-    actual=$(shasum -a 256 "$archive" | awk '{ print $1 }')
+  hash_file() {
+    if command -v sha256sum >/dev/null 2>&1; then
+      sha256sum "$1" | awk '{ print $1 }'
+    else
+      shasum -a 256 "$1" | awk '{ print $1 }'
+    fi
+  }
+  actual=$(hash_file "$archive")
+  if [[ "$expected" != "$actual" ]]; then
+    rm -f -- "$archive"
+    fetch "$release_base/$name" "$archive"
+    actual=$(hash_file "$archive")
   fi
   [[ "$expected" == "$actual" ]] || { echo 'Node checksum mismatch' >&2; exit 1; }
 
