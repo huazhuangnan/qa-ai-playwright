@@ -47,6 +47,7 @@
 - 默认 MCP 使用固定版本和局部状态。版本、配置、检查与卸载逻辑必须同步。
 - 缓存、局部安装环境、依赖、报告、临时文件和凭证加入 .gitignore；生成项目的忽略规则限定根目录，不能误忽略 packages/qa-ai-playwright/src/skills/ 下的源码。
 - 本仓库安装和测试统一交给 GitHub Actions，不在维护者本机执行。
+- GitHub Actions 固定明确 runner 标签，不使用 `ubuntu-latest` 或 `macos-latest`。
 
 ## QA Skills 边界
 

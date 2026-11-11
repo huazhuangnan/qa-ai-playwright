@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-24.04, windows-2025, macos-15-intel]
         profile: [latest, compatible]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
@@ -72,7 +72,7 @@ jobs:
         if: always()
   powershell-fallback:
     name: Windows PowerShell 5.1 fallback
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 20
     env:
       QA_ROOT: ${{ github.workspace }}/workspaces/powershell 5 fallback
@@ -95,7 +95,7 @@ jobs:
         if: always()
   minimal-linux:
     name: Minimal Linux / no Python, Node, Homebrew, sudo
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v6

@@ -85,7 +85,8 @@ metadata:
 校验值覆盖实际安装的全部文件。
 没有版本的本地定制标记为未知。
 
-本仓库不在维护者本机执行安装或测试，验证统一交给 GitHub Actions。按变更范围更新 env-ci.yml、project-ci.yml、uninstall-ci.yml 及相关测试，再静态审阅；未获得远程结果前不得宣布通过。涉及模板/运行器时覆盖项目生成、重跑保留、失败证据及卸载保留。Skill 格式检查不代表行为验证。用 tests/skill-cases/scenarios.json 做行为复核，区分真实执行和情景演练。
+本仓库不在维护者本机执行安装或测试，验证统一交给 GitHub Actions。
+GitHub Actions 固定明确 runner 标签，不使用 ubuntu-latest 或 macos-latest。按变更范围更新 env-ci.yml、project-ci.yml、uninstall-ci.yml 及相关测试，再静态审阅；未获得远程结果前不得宣布通过。涉及模板/运行器时覆盖项目生成、重跑保留、失败证据及卸载保留。Skill 格式检查不代表行为验证。用 tests/skill-cases/scenarios.json 做行为复核，区分真实执行和情景演练。
 
 修改 Skills 分层、安装名单或同级引用时，同步检查用户指南、维护指南、锁文件断言和 CI 预期。
 调整 `qa-docs` 时检查按需路由、项目安装和链接资料模板。

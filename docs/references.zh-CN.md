@@ -26,6 +26,7 @@
 | Node.js 运行时 | <https://nodejs.org/en/download> |
 | Python 运行时 uv | <https://docs.astral.sh/uv/> |
 | GitHub Actions CI | <https://docs.github.com/actions> |
+| GitHub-hosted runner labels | <https://docs.github.com/en/actions/reference/runners/github-hosted-runners> |
 | Playwright MCP（Microsoft） | <https://github.com/microsoft/playwright-mcp> |
 
 ## 高下载 Skill 参考

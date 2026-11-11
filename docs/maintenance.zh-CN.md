@@ -172,6 +172,8 @@ Skill 使用 SemVer。
 
 Windows 主路径使用 PowerShell 7。
 独立任务通过 `QA_POWERSHELL=powershell.exe` 验证 5.1 降级。
+CI runner 固定为 `ubuntu-24.04`、`windows-2025` 和 `macos-15-intel`。
+不使用 `*-latest` 标签，避免系统迁移和 macOS ARM 排队改变验证环境。
 生成项目 CI 在 PR 使用快速矩阵，完整矩阵放在夜间或手动任务。
 测试或运行器失败时，不得只增加重试或跳过门禁。
 

@@ -17,7 +17,7 @@ concurrency:
 jobs:
   example-contract:
     name: Example contract / TypeScript
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       QA_ROOT: ${{ github.workspace }}/workspaces/example-environment
@@ -58,7 +58,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-24.04, windows-2025]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     env:
@@ -138,7 +138,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-24.04, windows-2025, macos-15-intel]
         stack: [python, typescript]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 35
