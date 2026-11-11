@@ -5,6 +5,7 @@ set -euo pipefail
 repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)
 while IFS='=' read -r key value; do
   if [[ "$key" == QA_NODE_MAJOR ]]; then
+    value=${value%$'\r'}
     export QA_NODE_MAJOR=${QA_NODE_MAJOR:-$value}
   fi
 done <"$repo/src/runtime-versions.env"
