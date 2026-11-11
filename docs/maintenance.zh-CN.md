@@ -58,7 +58,7 @@ Agent Browser 的 socket 使用环境根目录下的短目录 `s`，默认会话
 Chromium 的临时文件使用系统临时目录，避免浏览器内部 socket 继承长工作区路径。Windows 同时设置 `TEMP`、`TMP` 和 `TMPDIR`，Unix 使用 `/tmp`。Agent Browser 的截图、下载、流程、配置和 socket 仍写入环境目录。
 
 GitHub Actions 统一由根目录的 CI 工作流承载。
-普通 push 和 pull request 只运行 lint、最新版本环境 smoke 和一个项目 smoke。
+普通 push 和 pull request 运行 lint、Ubuntu/Windows/macOS 最新版本环境 smoke 和一个项目 smoke。
 手动 `suite=full` 才运行完整平台、兼容版本、示例、项目和卸载矩阵。
 平台差异通过复合 Action 和统一启动器处理。
 

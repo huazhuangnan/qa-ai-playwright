@@ -150,10 +150,11 @@ async function environmentCase(): Promise<void> {
   );
   assert.ok(mcpLock.servers.faker);
   qa(['mcp', 'remove', 'faker']);
-  assert.equal(
-    readMcpServerConfig(join(ROOT, 'codex/config.toml'), 'faker').command,
-    '',
+  assert.deepEqual(readMcpServerConfig(join(ROOT, 'codex/config.toml'), 'faker'), {});
+  const updatedMcpLock = readJson<{ servers: Record<string, unknown> }>(
+    join(ROOT, 'codex/mcp.lock.json'),
   );
+  assert.equal(updatedMcpLock.servers.faker, undefined);
 
   assert.ok(!existsSync(join(ROOT, 'codex/skills/qa-core')));
   const legacy = join(ROOT, 'codex/skills/qa-python/SKILL.md');

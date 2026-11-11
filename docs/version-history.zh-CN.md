@@ -44,6 +44,8 @@ MCP 清单和下载应用继续记录真实上游版本。
 
 ## 未发布
 
+- 修复 CI 对 MCP 移除结果的断言，并检查安装记录已清理。
+
 - 增加示例应用开发入口和 Python 示例测试入口。
 - Python 测试入口使用项目 `.venv`，并透传 pytest 参数。
 - GitHub Actions 调用示例测试入口。
@@ -56,6 +58,7 @@ MCP 清单和下载应用继续记录真实上游版本。
 - 修复 Chromium 临时目录继承长工作区路径导致的 SingletonSocket 超长问题。
 - 修复 Windows Codex MCP 配置中的单引号路径和混合引号数组解析。
 - 为 Windows Agent Browser 注入稳定的 Chrome 启动参数，避免 Chrome for Testing 提前退出。
+- 将 macOS 加入常规 latest 环境 smoke，及时覆盖三平台启动器和浏览器路径。
 
 ## 初始版本
 
