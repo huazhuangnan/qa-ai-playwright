@@ -491,7 +491,7 @@ test('generated CI workflows expose safety and API gates', () => {
     assert.match(workflow, /concurrency:/);
     assert.match(workflow, /timeout-minutes:/);
     assert.match(workflow, /workflow_dispatch:/);
-    assert.match(workflow, /schedule:/);
+    assert.doesNotMatch(workflow, /schedule:/);
     assert.match(workflow, /quick:/);
     assert.match(workflow, /full:/);
     assert.match(workflow, /QA_UI_BASE_URL/);

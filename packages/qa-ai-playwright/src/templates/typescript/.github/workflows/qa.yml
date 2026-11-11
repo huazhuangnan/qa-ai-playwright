@@ -3,8 +3,6 @@ name: TypeScript QA
 on:
   push:
   pull_request:
-  schedule:
-    - cron: '17 2 * * *'
   workflow_dispatch:
     inputs:
       full_suite:
@@ -80,8 +78,7 @@ jobs:
 
   full:
     if: >-
-      github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.full_suite)
+      github.event_name == 'workflow_dispatch' && inputs.full_suite
     strategy:
       fail-fast: false
       matrix:
