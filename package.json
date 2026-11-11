@@ -13,7 +13,7 @@
     "typecheck:all": "pnpm -r --if-present typecheck",
     "build:example": "pnpm --filter qa-ticket-app build",
     "test:example:typescript": "pnpm --filter qa-ticket-app-suite-typescript test",
-    "test:unit": "bun test --max-concurrency=1 tests/lifecycle.test.ts",
+    "test:unit": "bun test --max-concurrency=1 tests/lifecycle.test.ts tests/browser-discovery.test.ts",
     "test:ci": "bun tests/ci-cases.ts"
   },
   "devDependencies": {

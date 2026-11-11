@@ -126,7 +126,7 @@ jobs:
             export QA_ROOT=/workspace/workspaces/minimal-environment
             bash packages/qa-ai-playwright/src/bin/qa.sh env init both
             bash packages/qa-ai-playwright/src/bin/qa.sh env check both
-            bash packages/qa-ai-playwright/src/bin/qa.sh run bun test --max-concurrency=1 tests/lifecycle.test.ts
+            bash packages/qa-ai-playwright/src/bin/qa.sh run bun run test:unit
             bash packages/qa-ai-playwright/src/bin/qa.sh env uninstall
             test ! -e "$QA_ROOT"
           '

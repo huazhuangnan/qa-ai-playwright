@@ -224,13 +224,7 @@ async function projectCase(): Promise<void> {
 
 /** Runs lifecycle unit tests and verifies project and environment cleanup. */
 async function uninstallCase(): Promise<void> {
-  qa([
-    'run',
-    'bun',
-    'test',
-    '--max-concurrency=1',
-    'tests/lifecycle.test.ts',
-  ]);
+  qa(['run', 'bun', 'run', 'test:unit']);
   for (const stack of ['python', 'typescript']) {
     const target = join(REPO, 'workspaces', `uninstall project ${stack}`);
     mkdirSync(target, { recursive: true });

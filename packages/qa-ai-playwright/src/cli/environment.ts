@@ -440,7 +440,7 @@ export class Environment {
   }
 
   /**
-   * Runs the environment-local pnpm executable.
+   * Runs pnpm through managed Node, avoiding Windows batch-file execution.
    *
    * @param args - pnpm arguments.
    * @param options - Working directory and output capture mode.
@@ -450,7 +450,16 @@ export class Environment {
     args: readonly (string | number)[],
     options?: RunOptions,
   ): string | undefined {
-    return this.run([this.pnpmBin, ...args], options);
+    const bin = join(
+      this.npmPrefix,
+      WINDOWS
+        ? 'node_modules/pnpm/bin'
+        : 'lib/node_modules/pnpm/bin',
+    );
+    // pnpm 12 uses ESM; retain the CommonJS entry for older configured versions.
+    const esm = join(bin, 'pnpm.mjs');
+    const entry = existsSync(esm) ? esm : join(bin, 'pnpm.cjs');
+    return this.run([this.node, entry, ...args], options);
   }
 
   /**
@@ -629,9 +638,9 @@ export class Environment {
         return undefined;
       }
       try {
-        return this.run([executable, '--version'], {
-          capture: true,
-        })?.trim();
+        return (executable === this.pnpmBin
+          ? this.pnpm(['--version'], { capture: true })
+          : this.run([executable, '--version'], { capture: true }))?.trim();
       } catch {
         return undefined;
       }
@@ -1481,8 +1490,9 @@ export class Environment {
         continue;
       }
       try {
-        const actual =
-          this.run([executable, '--version'], { capture: true })?.trim();
+        const actual = (name === 'pnpm'
+          ? this.pnpm(['--version'], { capture: true })
+          : this.run([executable, '--version'], { capture: true }))?.trim();
         console.log(`${name} ${actual ?? ''}`.trim());
         if (actual !== version) {
           missing.push(`${name}@${version}`);
@@ -1649,12 +1659,13 @@ function readChecksum(file: string, archiveName: string): string {
   throw new Error(`Checksum is missing for ${archiveName}`);
 }
 
+/** Finds full Chromium builds, including the macOS Chrome for Testing bundle. */
 function findChromium(directory: string): string | undefined {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
     if (
       entry.isFile() &&
-      ['chrome.exe', 'chrome', 'Chromium'].includes(entry.name)
+      ['chrome.exe', 'chrome', 'Chromium', 'Google Chrome for Testing'].includes(entry.name)
     ) {
       return path;
     }

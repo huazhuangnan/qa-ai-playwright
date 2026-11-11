@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -177,6 +178,74 @@ test('package manager bootstrap allows Bun and pnpm scripts separately', async (
       ? join(environment.npmPrefix, 'node_modules/bun/bin/bun.exe')
       : join(environment.npmBin, 'bun'),
   );
+});
+
+for (const entryName of ['pnpm.mjs', 'pnpm.cjs']) {
+  test(`${entryName} preserves spaced paths and literal arguments`, () => {
+    const environment = createEnvironment('environment with spaces');
+    // Use the current CI runtime instead of downloading a second Node binary.
+    Object.defineProperty(environment, 'node', { value: process.execPath });
+    const entry = join(
+      environment.npmPrefix,
+      WINDOWS
+        ? `node_modules/pnpm/bin/${entryName}`
+        : `lib/node_modules/pnpm/bin/${entryName}`,
+    );
+    mkdirSync(dirname(entry), { recursive: true });
+    writeFileSync(
+      entry,
+      'console.log(JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd() }));\n',
+    );
+    const args = ['--version', 'value with spaces', 'literal & value'];
+    const output = environment.pnpm(args, { cwd: environment.root, capture: true });
+    assert.deepEqual(JSON.parse(output ?? ''), {
+      args,
+      cwd: realpathSync(environment.root),
+    });
+  });
+}
+
+test('bootstrap and environment check probe pnpm through its JavaScript entry', async () => {
+  const managed = createEnvironment('environment with spaces');
+  const entry = join(
+    managed.npmPrefix,
+    WINDOWS ? 'node_modules/pnpm/bin/pnpm.mjs' : 'lib/node_modules/pnpm/bin/pnpm.mjs',
+  );
+  mkdirSync(dirname(entry), { recursive: true });
+  writeFileSync(entry, 'pnpm ESM placeholder');
+  const environment = new class extends StubEnvironment {
+    override run(
+      command: readonly (string | number)[],
+      options: RunOptions = {},
+    ): string | undefined {
+      const result = super.run(command, options);
+      if (command[0] === this.bunBin) return this.bunVersion;
+      if (String(command[1]).endsWith('pnpm.mjs')) return this.pnpmVersion;
+      return result;
+    }
+  }({ root: managed.root, env: {} });
+
+  assert.deepEqual(await environment.ensurePackageManagers(), {
+    bun: environment.bunVersion,
+    pnpm: environment.pnpmVersion,
+  });
+  assert.ok(!environment.commands.some((command) => command.includes('install')));
+  const capture = captureConsole();
+  try {
+    environment.check({
+      stack: 'typescript',
+      profile: 'standard',
+      skipCodex: true,
+      skipSkills: true,
+    });
+  } finally {
+    capture.restore();
+  }
+  assert.match(capture.output(), /pnpm 12\.18\.0/);
+  assert.ok(!environment.commands.some((command) => command[0] === environment.pnpmBin));
+  assert.equal(environment.commands.filter((command) =>
+    command[0] === environment.node && String(command[1]).endsWith('pnpm.mjs')
+  ).length, 3);
 });
 
 test('environment check rejects a stale uv executable', () => {

@@ -216,5 +216,14 @@ CI runner 固定为 `ubuntu-24.04`、`windows-2025` 和 `macos-15-intel`。
 5. 对 MCP 执行协议握手。
 6. 运行目标项目的测试并保留 Trace、JUnit 和截图。
 
+浏览器下载完成后仍提示安装不完整时，检查可执行文件识别规则。
+macOS 新版使用 `Google Chrome for Testing`，旧版使用 `Chromium`。
+完整 Chromium 检查不能仅凭 Headless Shell 存在就放行。
+
+Windows 中 pnpm 安装后仍显示 `missing` 时，检查是否直接启动了 `pnpm.cmd`。
+CLI 应使用环境内 Node 执行 pnpm 的 JavaScript 入口。
+pnpm 12 使用 `bin/pnpm.mjs`。旧版回退到 `bin/pnpm.cjs`。
+版本探测与项目命令使用相同调用路径，避免探测结果不一致。
+
 详细版本和迁移历史见[版本记录](version-history.zh-CN.md)。
 框架来源与许可证见[参考来源](references.zh-CN.md)。
