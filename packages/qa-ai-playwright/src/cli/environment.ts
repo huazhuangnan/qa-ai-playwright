@@ -12,6 +12,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 
 import {
@@ -37,6 +38,14 @@ import {
 /** Keeps Agent Browser socket paths below Unix domain socket limits. */
 const AGENT_BROWSER_SOCKET_DIR = 's';
 const AGENT_BROWSER_SESSION = 'qa';
+
+/** Uses the host temporary directory for Chromium's own short-lived files. */
+function agentBrowserTempEnvironment(): NodeJS.ProcessEnv {
+  if (WINDOWS) {
+    return {};
+  }
+  return { TMPDIR: tmpdir() };
+}
 
 /** Options used to create an isolated environment manager. */
 export interface EnvironmentOptions {
@@ -64,6 +73,7 @@ export interface EnvironmentCheckOptions {
 export interface RunOptions {
   cwd?: string;
   capture?: boolean;
+  env?: NodeJS.ProcessEnv;
 }
 
 interface NodeRelease {
@@ -406,7 +416,7 @@ export class Environment {
     console.log(`> ${args.join(' ')}`);
     const result = spawnSync(executable, args.slice(1), {
       cwd: options.cwd,
-      env: { ...this.environment, ...this.variables() },
+      env: { ...this.environment, ...this.variables(), ...options.env },
       encoding: 'utf8',
       stdio: options.capture ? 'pipe' : 'inherit',
       windowsHide: true,
@@ -548,6 +558,7 @@ export class Environment {
         ...sessionArgs,
         ...args,
       ],
+      { env: agentBrowserTempEnvironment() },
     );
   }
 
@@ -1023,6 +1034,7 @@ export class Environment {
       command: this.node,
       args: [entry, '--session', AGENT_BROWSER_SESSION, 'mcp'],
       env: {
+        ...agentBrowserTempEnvironment(),
         AGENT_BROWSER_SOCKET_DIR: join(
           this.root,
           AGENT_BROWSER_SOCKET_DIR,
