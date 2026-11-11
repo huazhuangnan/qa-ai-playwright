@@ -84,6 +84,11 @@ Project ready: ［项目目录］. QA templates: ［版本］. Language template
 `--language` 也可写作 `--语言`。
 `--skip-skills` 不会跳过 CC Switch。
 
+环境初始化使用固定的运行时和工具版本。
+CI 的 `latest` 对应当前默认版本，`compatible` 对应仍需支持的兼容版本。
+`--full` 只在需要 Agent Browser CLI 或 Agent Browser MCP 时使用。
+版本变化、安装逻辑变化或平台变化会触发对应 CI 验证。
+
 ## 配置变量
 
 `QA_ENV` 选择 `.env.dev`、`.env.stg` 等配置文件。
@@ -187,7 +192,9 @@ source .qa-env/activate.sh
 | Linux 缺浏览器库 | 使用 `project init <目录> --language <语言> --with-deps` |
 | 找不到运行时或 Codex | 检查 `state.json`、激活文件和 `QA_ROOT` |
 | 浏览器 executable 不存在 | 安装对应浏览器并使用相同 `--root` |
-| `playwright-cli --version` 报 `MODULE_NOT_FOUND` | 使用相同 `--root` 重新执行 `env init`，再执行 `env check` |
+| `playwright-cli --version` 报 `MODULE_NOT_FOUND` | 使用相同 `--root` 重新执行 `env init`，再执行 `env check`；确认安装包 `bin` 入口和启动器指向同一文件 |
+| CI 重复执行完整环境矩阵 | 检查验证键、成功缓存和 `cache_buster`；必要时手动运行 `suite=full` |
+| CI 错误跳过环境验证 | 检查运行时、安装实现、工作流和测试入口是否已经改变验证键 |
 | API 测试 skipped | 检查 `QA_ENV`、`API_BASE_URL`、API 门禁和认证变量 |
 | Skill 或模板未更新 | 保留已有内容。升级前先合并本地修改 |
 | Python 锁文件未受管理或已修改 | 备份并手动处理 `requirements.lock` 和元数据后重跑初始化。失败前已复制的模板会保留 |

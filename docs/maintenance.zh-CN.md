@@ -51,14 +51,22 @@ CLI 中的 `REPO` 和 `QA_REPO` 指向交付包根目录。安装记录中的源
 
 ## 浏览器 CLI 入口与 CI 组织
 
-`@playwright/cli` 的运行入口固定为环境目录内 `node_modules/@playwright/cli/playwright-cli.js`。
+`@playwright/cli` 的运行入口由安装包 `package.json` 的 `bin` 字段解析。
 安装校验、`qa run playwright-cli` 和 CI 版本检查必须使用同一个入口。
 不能根据旧版包结构拼接 `cli.js`。
 
 GitHub Actions 统一由根目录的 CI 工作流承载。
-平台矩阵、示例项目、环境生命周期和卸载保护继续保持独立 job。
-重复的安装依赖、Windows 与 Unix 分支通过复合 Action 复用。
-工作流只保留必要的门禁和证据归档步骤。
+普通 push 和 pull request 只运行 lint、最新版本环境 smoke 和一个项目 smoke。
+手动 `suite=full` 才运行完整平台、兼容版本、示例、项目和卸载矩阵。
+平台差异通过复合 Action 和统一启动器处理。
+
+CI 根据平台、Node、Python、工具版本和相关实现文件生成验证键。
+同一验证键成功后，后续常规运行跳过重复的环境初始化验证。
+验证键包含运行时版本、安装实现、启动器、CI 配置和测试入口。
+版本、安装逻辑、模板、MCP、工作流或测试入口变化时，验证键自动失效。
+手动运行可通过 `cache_buster` 强制创建新的验证键。
+版本缓存只优化调度，不替代当前提交的类型检查、单元测试和项目测试。
+
 ## 维护语言
 
 - 仓库自身的 CLI、工具和测试统一使用 TypeScript。
@@ -211,8 +219,25 @@ Windows 主路径使用 PowerShell 7。
 CI runner 固定为 `ubuntu-24.04`、`windows-2025` 和 `macos-15-intel`。
 不使用 `*-latest` 标签，避免系统迁移和 macOS ARM 排队改变验证环境。
 最小 Linux 容器同样固定为 `ubuntu:24.04`。
-生成项目 CI 在 PR 使用快速矩阵，完整矩阵放在夜间或手动任务。
+生成项目 CI 在 PR 使用快速矩阵，完整矩阵只通过手动任务。
 测试或运行器失败时，不得只增加重试或跳过门禁。
+
+## CI 触发与验证范围
+
+| 触发方式 | 默认验证 |
+| --- | --- |
+| pull request、普通 push | workflow lint、latest 环境 smoke、TypeScript 项目 smoke |
+| 手动 `suite=full` | 完整三平台、latest/compatible、示例、项目和卸载保护 |
+| 手动 `suite=smoke` | 与普通 push 相同 |
+
+
+`latest` 使用仓库当前声明的默认 Node 26、Python 3.15 和固定工具版本。
+`compatible` 使用 Node 24、Python 3.14，只在完整验证中运行。
+环境成功记录使用 GitHub Actions cache 保存。
+缓存键变化、缓存失效或 `cache_buster` 变化时重新执行环境验证。
+
+以下检查不使用版本成功缓存：类型检查、维护单元测试、项目生成、浏览器测试、模板测试和卸载保护。
+它们始终根据当前触发范围执行，避免历史环境成功掩盖新的代码回归。
 
 ## 变更门禁
 

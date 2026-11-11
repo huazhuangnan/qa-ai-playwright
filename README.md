@@ -72,8 +72,8 @@ Python 示例使用 `requirements.lock` 和 Playwright Python。
 默认只写隔离的 `environment` 作用域。
 MCP 配置写入 `<root>/codex/config.toml`。
 
-环境 CLI 安装 Playwright CLI 和 Playwright MCP。
-`env init <语言> --full` 增加 Agent Browser CLI 和 MCP。
+环境 CLI 默认安装 Playwright CLI 和 Playwright MCP。
+`env init <语言> --full` 只在需要 Agent Browser CLI 或 MCP 时使用。
 QA、Bun、pnpm 和其他 Skill 由 AI 按任务检查。缺失时安装到业务项目，不写全局配置。
 不熟悉业务时使用 `$qa-business-guide` 获取步骤、边界和下一步。
 所有语言方案都会安装 CC Switch。可用 `qa.cmd run cc-switch` 启动。
@@ -89,8 +89,8 @@ CC Switch 程序位于环境目录，运行后的用户数据仍按上游设计�
 - [AI 文档与上下文](docs/ai-docs.zh-CN.md)：链接资料、静态导出和上下文控制
 - [从需求到执行](docs/qa-workflow.zh-CN.md)：输入、调用、执行和证据
 - [参考来源](docs/references.zh-CN.md)：官方文档和许可证
-- [版本记录](docs/version-history.zh-CN.md)：组件、模板与迁移变化
-- [维护指南](docs/maintenance.zh-CN.md)：实现、版本、发布与 CI
+- [版本记录](docs/version-history.zh-CN.md)：组件、验证范围与迁移变化
+- [维护指南](docs/maintenance.zh-CN.md)：实现、版本、发布、CI 矩阵与验证缓存
 - [全栈示例](apps/qa-ticket-app/README.md)：Hono、Drizzle、SQLite、React 和 shadcn/ui
 - [示例 QA 文档](docs/examples/qa-ticket-app/inputs/input-index.md)：共享需求、契约、计划和报告
 - [TypeScript 示例 QA](apps/qa-ticket-app-suite-typescript/README.md)：Playwright Test、fixtures 和 E2E

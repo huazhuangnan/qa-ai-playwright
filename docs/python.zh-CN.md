@@ -209,7 +209,7 @@ API 测试默认跳过，CI 手动门禁会设置 `REQUIRE_API_TESTS=1`。
 按项目实际变量扩展工作流 `env` 和仓库 secrets。
 不要假设所有项目只使用这几个 secret。
 PR 在 Linux 和 Chromium 上快速验证。
-夜间或手动 `full_suite` 运行三平台和三浏览器矩阵。
+手动启用 `full_suite` 后运行三平台和三浏览器矩阵。
 浏览器测试加 `--browser chromium --tracing retain-on-failure --screenshot only-on-failure`。
 生产类写操作使用 `require_write_access` fixture。
 默认拒绝生产写入，除非显式设置 `QA_ALLOW_PRODUCTION_WRITES=true`。

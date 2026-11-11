@@ -173,8 +173,8 @@ API 测试默认跳过，CI 手动门禁会设置 `REQUIRE_API_TESTS=1`。
 模板演示 `QA_API_BASE_URL`、`QA_BASE_URL` 和 `QA_API_TOKEN` 基线配置。
 按项目实际变量扩展工作流 `env` 和仓库 secrets。
 不要假设所有项目只使用这几个 secret。
-PR 在 Linux 和 Chromium 上快速验证。
-夜间或手动 `full_suite` 运行三平台和三浏览器矩阵。
+PR 和普通 push 运行 Linux Chromium smoke。
+手动 `suite=full` 运行完整环境和项目矩阵。
 仅安装 Chromium 时保留 `--project=chromium`。
 安装全部浏览器后可用 `bun run test`。
 生产类写操作调用 `requireWriteAccess` fixture。
