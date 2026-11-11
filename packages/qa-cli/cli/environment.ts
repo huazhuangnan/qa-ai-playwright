@@ -97,6 +97,7 @@ export interface RunOptions {
   cwd?: string;
   capture?: boolean;
   env?: NodeJS.ProcessEnv;
+  windowsVerbatimArguments?: boolean;
 }
 
 interface CcSwitchAsset {
@@ -127,6 +128,7 @@ type State = Record<string, unknown>;
  * {@link Environment.root}. The class does not update global configuration.
  */
 export class Environment {
+  private checking = false;
   readonly root: string;
   readonly repo: string;
   readonly environment: NodeJS.ProcessEnv;
@@ -264,7 +266,10 @@ export class Environment {
         throw new Error('Windows command arguments contain unsupported characters');
       }
       const command = parts.map(part => `"${part}"`).join(' ');
-      return this.run([this.environment.ComSpec ?? 'cmd.exe', '/d', '/s', '/c', `"${command}"`], options);
+      return this.run([this.environment.ComSpec ?? 'cmd.exe', '/d', '/s', '/c', `"${command}"`], {
+        ...options,
+        windowsVerbatimArguments: true,
+      });
     }
     return this.run([executable, ...args], options);
   }
@@ -289,11 +294,27 @@ export class Environment {
   get playwrightCliPackage(): string { return this.globalPackage('@playwright/cli', this.playwrightCliBin); }
   get playwrightMcpPackage(): string { return this.globalPackage('@playwright/mcp', this.globalTool('playwright-mcp')); }
   get agentBrowserPackage(): string { return this.globalPackage('agent-browser', this.agentBrowser); }
+  /** Runs npm using user-level cache and temporary paths rather than QA-local paths. */
+  private globalNpm(args: readonly string[], capture = false): string | undefined {
+    const npm = this.globalTool('npm');
+    const options: RunOptions = {
+      capture,
+      env: {
+        npm_config_prefix: undefined,
+        NPM_CONFIG_PREFIX: undefined,
+        npm_config_cache: this.environment.npm_config_cache,
+        TEMP: this.environment.TEMP,
+        TMP: this.environment.TMP,
+        TMPDIR: this.environment.TMPDIR,
+        PATH: this.environment.PATH,
+      },
+    };
+    return npm ? this.runGlobal(npm, args, options) : this.npm(args, options);
+  }
+
   /** Reads npm's configured global prefix without the QA-local prefix override. */
   private discoverGlobalNpmBin(): string | undefined {
-    const npm = this.globalTool('npm');
-    const options: RunOptions = { capture: true, env: { npm_config_prefix: undefined, NPM_CONFIG_PREFIX: undefined } };
-    const prefix = (npm ? this.runGlobal(npm, ['config', 'get', 'prefix'], options) : this.npm(['config', 'get', 'prefix'], options))?.trim();
+    const prefix = this.globalNpm(['config', 'get', 'prefix'], true)?.trim();
     if (!prefix || within(resolve(prefix), this.root)) return undefined;
     const bin = WINDOWS ? prefix : join(prefix, 'bin');
     this.state.global_npm_bin = bin;
@@ -303,17 +324,13 @@ export class Environment {
   /** Installs a missing tool using npm's user or system global prefix. */
   private installGlobal(packageSpec: string, executableName?: string, packageName?: string): void {
     const args = ['install', '--global', packageSpec];
-    const npm = this.globalTool('npm');
-    const options: RunOptions = { env: { npm_config_prefix: undefined, NPM_CONFIG_PREFIX: undefined } };
-    const invoke = (argv: string[], opts: RunOptions): string | undefined =>
-      npm ? this.runGlobal(npm, argv, opts) : this.npm(argv, opts);
     if (!this.discoverGlobalNpmBin()) {
       throw new Error('npm global prefix resolves inside the QA environment; configure a system or user global prefix');
     }
     const tool = executableName ?? packageSpec.split('@')[0];
     if (this.globalTool(tool) || (packageName && this.globalPackage(packageName, this.globalTool(tool)))) return;
     console.log(`Installing missing global tool: npm ${args.join(' ')}`);
-    invoke(args, options);
+    this.globalNpm(args);
   }
 
   get bunBin(): string { return this.globalTool('bun') ?? ''; }
@@ -484,12 +501,21 @@ export class Environment {
       throw new Error('Command must not be empty');
     }
     console.log(`> ${args.join(' ')}`);
+    const probeEnvironment: NodeJS.ProcessEnv = {};
+    if (this.checking) {
+      for (const key of [
+        'UV_CACHE_DIR', 'UV_PYTHON_INSTALL_DIR', 'UV_PYTHON_BIN_DIR',
+        'npm_config_cache', 'BUN_INSTALL_CACHE_DIR', 'PNPM_HOME', 'PIP_CACHE_DIR',
+        'XDG_CACHE_HOME', 'TEMP', 'TMP', 'TMPDIR', 'PLAYWRIGHT_BROWSERS_PATH',
+      ]) probeEnvironment[key] = this.environment[key];
+    }
     const result = spawnSync(executable, args.slice(1), {
       cwd: options.cwd,
-      env: { ...this.environment, ...this.variables(), ...options.env },
+      env: { ...this.environment, ...this.variables(), ...probeEnvironment, ...options.env },
       encoding: 'utf8',
       stdio: options.capture ? 'pipe' : 'inherit',
       windowsHide: true,
+      windowsVerbatimArguments: options.windowsVerbatimArguments,
     });
     if (result.error) {
       throw result.error;
@@ -743,7 +769,7 @@ export class Environment {
     }
     const shimCommand = isShim ? command.map(part => `"${part}"`).join(' ') : '';
     const child = isShim
-      ? spawn(this.environment.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `"${shimCommand}"`], { detached: true, stdio: 'ignore' })
+      ? spawn(this.environment.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `"${shimCommand}"`], { detached: true, stdio: 'ignore', windowsVerbatimArguments: true })
       : spawn(executable, command.slice(1), { detached: true, stdio: 'ignore' });
     child.on('error', error => console.error(`Unable to launch CC Switch: ${error.message}`));
     child.unref();
@@ -1496,6 +1522,16 @@ export class Environment {
    * @returns Zero when no component is missing.
    */
   check(options: EnvironmentCheckOptions): number {
+    this.checking = true;
+    try {
+      return this.checkComponents(options);
+    } finally {
+      this.checking = false;
+    }
+  }
+
+  /** Probes components while preserving the caller's cache and temporary paths. */
+  private checkComponents(options: EnvironmentCheckOptions): number {
     const missing: string[] = [];
     if (!options.skipSkills) {
       try { this.discoverGlobalNpmBin(); } catch { /* Component checks report missing tools below. */ }

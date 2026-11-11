@@ -281,6 +281,17 @@ test('a missing package manager is installed once using the discovered global np
   assert.equal(readFileSync(pnpm, 'utf8'), 'installed pnpm');
 });
 
+test('checking a fresh environment does not create its directory', () => {
+  const base = createWorkspace();
+  const root = join(base, 'environment with spaces');
+  const environment = new Environment({
+    root,
+    env: { ...process.env, npm_config_cache: join(base, 'npm-cache') },
+  });
+  environment.check({ stack: 'both', profile: 'full', skipCodex: false, skipSkills: false });
+  assert.equal(existsSync(root), false);
+});
+
 test('PATH discovery ignores a non-executable Unix file', () => {
   if (WINDOWS) return;
   const base = createWorkspace();

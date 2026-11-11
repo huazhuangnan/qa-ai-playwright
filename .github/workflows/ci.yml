@@ -35,6 +35,9 @@ jobs:
           "LOCALAPPDATA=$(Join-Path $testHome 'appdata')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "HOME=$testHome" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           $bin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Verify cold bootstrap prerequisites
+        shell: pwsh
+        run: node --experimental-strip-types tests/bootstrap-preflight.ts
       - uses: ./.github/actions/bootstrap
         with:
           stack: typescript
@@ -81,6 +84,9 @@ jobs:
           "LOCALAPPDATA=$(Join-Path $testHome 'appdata')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "HOME=$testHome" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           $bin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Verify cold bootstrap prerequisites
+        shell: pwsh
+        run: node --experimental-strip-types tests/bootstrap-preflight.ts
       - uses: ./.github/actions/bootstrap
         with:
           stack: both

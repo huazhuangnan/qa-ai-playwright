@@ -31,7 +31,10 @@ runs:
         if ($env:WITH_FULL -eq 'true') { $options += '--full' }
         & .\packages\qa-cli\bin\qa.cmd --root $env:QA_ROOT env check @options
         if ($LASTEXITCODE -ne 1) { throw 'Fresh check should report missing environment' }
-        if (Test-Path -LiteralPath $env:QA_ROOT) { throw 'Check created files' }
+        if (Test-Path -LiteralPath $env:QA_ROOT) {
+          Get-ChildItem -LiteralPath $env:QA_ROOT -Force -Recurse | Select-Object -ExpandProperty FullName
+          throw 'Check created files'
+        }
         & .\packages\qa-cli\bin\qa.cmd --root $env:QA_ROOT env init @options
         exit $LASTEXITCODE
     - name: Cold check and bootstrap (system Bash)
@@ -51,6 +54,13 @@ runs:
         bash packages/qa-cli/bin/qa.sh --root "$QA_ROOT" env check "${options[@]}"
         code=$?
         set -e
-        test "$code" -eq 1
-        test ! -e "$QA_ROOT"
+        if [[ "$code" -ne 1 ]]; then
+          echo "Fresh check returned $code, expected 1" >&2
+          exit 1
+        fi
+        if [[ -e "$QA_ROOT" ]]; then
+          echo 'Check created files:' >&2
+          find "$QA_ROOT" -print >&2
+          exit 1
+        fi
         bash packages/qa-cli/bin/qa.sh --root "$QA_ROOT" env init "${options[@]}"
