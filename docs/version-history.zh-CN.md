@@ -52,6 +52,7 @@ MCP 清单和下载应用继续记录真实上游版本。
 - 手动完整验证支持通过 `cache_buster` 强制重新验证。
 - 修复 Playwright CLI 实际入口解析，避免按旧版包结构拼接不存在的 `cli.js`。
 - 合并仓库级 GitHub Actions 工作流，按验证范围和成功键拆分快速与完整验证。
+- 修复长工作区路径下 Agent Browser 的 Unix socket 超长问题。
 
 ## 初始版本
 

@@ -122,10 +122,13 @@ async function environmentCase(): Promise<void> {
     'agent-browser',
   );
   assert.equal(agentBrowser.args?.at(-1), 'mcp');
+  assert.equal(agentBrowser.args?.[1], '--session');
+  assert.equal(agentBrowser.args?.[2], 'qa');
   assert.equal(
     agentBrowser.env?.AGENT_BROWSER_SOCKET_DIR,
-    join(ROOT, 'runtime/agent-browser'),
+    join(ROOT, 's'),
   );
+  assert.ok(join(ROOT, 's', 'qa.sock').length <= 103);
   assert.ok(agentBrowser.env?.AGENT_BROWSER_EXECUTABLE_PATH);
   assert.equal(
     agentBrowser.env?.AGENT_BROWSER_CONFIG,

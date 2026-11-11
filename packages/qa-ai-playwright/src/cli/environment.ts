@@ -34,6 +34,10 @@ import {
   type Stack,
 } from './shared.ts';
 
+/** Keeps Agent Browser socket paths below Unix domain socket limits. */
+const AGENT_BROWSER_SOCKET_DIR = 's';
+const AGENT_BROWSER_SESSION = 'qa';
+
 /** Options used to create an isolated environment manager. */
 export interface EnvironmentOptions {
   root: string;
@@ -350,7 +354,7 @@ export class Environment {
       TMPDIR: join(this.root, 'tmp'),
       PLAYWRIGHT_BROWSERS_PATH: join(this.root, 'cache/browsers'),
       CODEX_HOME: join(this.root, 'codex'),
-      AGENT_BROWSER_SOCKET_DIR: join(this.root, 'runtime/agent-browser'),
+      AGENT_BROWSER_SOCKET_DIR: join(this.root, AGENT_BROWSER_SOCKET_DIR),
       AGENT_BROWSER_SCREENSHOT_DIR: join(
         this.root,
         'agent-browser-output',
@@ -530,10 +534,18 @@ export class Environment {
    * @returns Captured output when requested by the caller.
    */
   agentBrowserCli(...args: (string | number)[]): void {
+    const hasSession = args.some((arg) => {
+      const value = String(arg);
+      return value === '--session' || value.startsWith('--session=');
+    });
+    const sessionArgs = hasSession
+      ? []
+      : ['--session', AGENT_BROWSER_SESSION];
     this.run(
       [
         this.node,
         join(this.agentBrowserPackage, 'bin/agent-browser.js'),
+        ...sessionArgs,
         ...args,
       ],
     );
@@ -1009,11 +1021,11 @@ export class Environment {
     }
     return {
       command: this.node,
-      args: [entry, 'mcp'],
+      args: [entry, '--session', AGENT_BROWSER_SESSION, 'mcp'],
       env: {
         AGENT_BROWSER_SOCKET_DIR: join(
           this.root,
-          'runtime/agent-browser',
+          AGENT_BROWSER_SOCKET_DIR,
         ),
         AGENT_BROWSER_SCREENSHOT_DIR: join(
           this.root,
@@ -1324,7 +1336,7 @@ export class Environment {
     mkdirSync(join(this.root, 'tmp'), { recursive: true });
     if (profile === 'full' && !options.skipSkills) {
       for (const relative of [
-        'runtime/agent-browser',
+        AGENT_BROWSER_SOCKET_DIR,
         'agent-browser-output',
         'agent-browser-downloads',
         'agent-browser-flows',
