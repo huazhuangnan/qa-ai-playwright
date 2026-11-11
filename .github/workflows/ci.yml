@@ -92,7 +92,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: .ci-success
-          key: qa-env-success-${{ runner.os }}-smoke-latest-${{ hashFiles('packages/qa-ai-playwright/src/runtime-versions.env', 'packages/qa-ai-playwright/src/cli/environment.ts', 'packages/qa-ai-playwright/src/cli/shared.ts', '.github/workflows/ci.yml', '.github/actions/bootstrap/action.yml', 'tests/ci-cases.ts', 'packages/qa-ai-playwright/src/templates/**') }}-${{ inputs.cache_buster || 'v1' }}
+          key: qa-env-success-${{ runner.os }}-smoke-latest-${{ hashFiles('packages/qa-ai-playwright/src/**', 'packages/qa-ai-playwright/package.json', 'tests/**', '.github/actions/**', '.github/workflows/ci.yml', 'package.json', 'pnpm-lock.yaml') }}-${{ inputs.cache_buster || 'v1' }}
       - uses: ./.github/actions/bootstrap
         if: steps.version-cache.outputs.cache-hit != 'true'
         with:
@@ -130,7 +130,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: .ci-success
-          key: qa-env-success-${{ runner.os }}-smoke-latest-${{ hashFiles('packages/qa-ai-playwright/src/runtime-versions.env', 'packages/qa-ai-playwright/src/cli/environment.ts', 'packages/qa-ai-playwright/src/cli/shared.ts', '.github/workflows/ci.yml', '.github/actions/bootstrap/action.yml', 'tests/ci-cases.ts', 'packages/qa-ai-playwright/src/templates/**') }}-${{ inputs.cache_buster || 'v1' }}
+          key: qa-env-success-${{ runner.os }}-smoke-latest-${{ hashFiles('packages/qa-ai-playwright/src/**', 'packages/qa-ai-playwright/package.json', 'tests/**', '.github/actions/**', '.github/workflows/ci.yml', 'package.json', 'pnpm-lock.yaml') }}-${{ inputs.cache_buster || 'v1' }}
 
   project-smoke:
     name: TypeScript project smoke
@@ -189,7 +189,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: .ci-success
-          key: qa-env-success-${{ runner.os }}-full-${{ matrix.profile }}-${{ hashFiles('packages/qa-ai-playwright/src/runtime-versions.env', 'packages/qa-ai-playwright/src/cli/environment.ts', 'packages/qa-ai-playwright/src/cli/shared.ts', '.github/workflows/ci.yml', '.github/actions/bootstrap/action.yml', 'tests/ci-cases.ts', 'packages/qa-ai-playwright/src/templates/**') }}-${{ inputs.cache_buster || 'v1' }}
+          key: qa-env-success-${{ runner.os }}-full-${{ matrix.profile }}-${{ hashFiles('packages/qa-ai-playwright/src/**', 'packages/qa-ai-playwright/package.json', 'tests/**', '.github/actions/**', '.github/workflows/ci.yml', 'package.json', 'pnpm-lock.yaml') }}-${{ inputs.cache_buster || 'v1' }}
       - uses: ./.github/actions/bootstrap
         if: steps.version-cache.outputs.cache-hit != 'true'
         with:
@@ -232,7 +232,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: .ci-success
-          key: qa-env-success-${{ runner.os }}-full-${{ matrix.profile }}-${{ hashFiles('packages/qa-ai-playwright/src/runtime-versions.env', 'packages/qa-ai-playwright/src/cli/environment.ts', 'packages/qa-ai-playwright/src/cli/shared.ts', '.github/workflows/ci.yml', '.github/actions/bootstrap/action.yml', 'tests/ci-cases.ts', 'packages/qa-ai-playwright/src/templates/**') }}-${{ inputs.cache_buster || 'v1' }}
+          key: qa-env-success-${{ runner.os }}-full-${{ matrix.profile }}-${{ hashFiles('packages/qa-ai-playwright/src/**', 'packages/qa-ai-playwright/package.json', 'tests/**', '.github/actions/**', '.github/workflows/ci.yml', 'package.json', 'pnpm-lock.yaml') }}-${{ inputs.cache_buster || 'v1' }}
 
   powershell-fallback:
     name: Windows PowerShell 5.1 fallback
@@ -362,7 +362,9 @@ jobs:
         working-directory: apps/qa-ticket-app-suite-python
         run: |
           & ..\..\packages\qa-ai-playwright\src\bin\qa.cmd run python -m venv .venv
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & .venv\Scripts\python.exe -m pip install --requirement requirements.lock --require-hashes
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & ..\..\packages\qa-ai-playwright\src\bin\qa.cmd run pnpm exec playwright install chromium
           exit $LASTEXITCODE
       - name: Install Python dependencies and Chromium (Unix)
@@ -370,9 +372,9 @@ jobs:
         shell: bash
         working-directory: apps/qa-ticket-app-suite-python
         run: |
-          ../../packages/qa-ai-playwright/src/bin/qa.sh run python -m venv .venv
+          bash ../../packages/qa-ai-playwright/src/bin/qa.sh run python -m venv .venv
           .venv/bin/python -m pip install --requirement requirements.lock --require-hashes
-          ../../packages/qa-ai-playwright/src/bin/qa.sh run pnpm exec playwright install chromium
+          bash ../../packages/qa-ai-playwright/src/bin/qa.sh run pnpm exec playwright install chromium
       - name: Run Python ticket workflow (Windows)
         if: runner.os == 'Windows'
         shell: pwsh

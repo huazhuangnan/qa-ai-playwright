@@ -144,7 +144,7 @@ async function environmentCase(): Promise<void> {
     'faker',
   );
   assert.ok(faker.command);
-  assert.ok(faker.args?.some((argument) => argument.endsWith('dist/index.js')));
+  assert.ok(faker.args?.includes(join(packageRoot, 'faker-mcp-server', 'dist', 'index.js')));
   const mcpLock = readJson<{ servers: Record<string, unknown> }>(
     join(ROOT, 'codex/mcp.lock.json'),
   );

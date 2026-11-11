@@ -833,12 +833,7 @@ test('project initialization refuses linked dependency directories', async () =>
     const outside = join(base, `outside-${stack}`);
     mkdirSync(target);
     mkdirSync(outside);
-    try {
-      symlinkSync(outside, join(target, dependency), 'dir');
-    } catch {
-      console.warn(`Directory symlinks unsupported for ${stack}`);
-      continue;
-    }
+    symlinkSync(outside, join(target, dependency), process.platform === 'win32' ? 'junction' : 'dir');
     await assert.rejects(
       () =>
         projectInit(environment, {
