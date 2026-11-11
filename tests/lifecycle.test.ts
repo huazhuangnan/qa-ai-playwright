@@ -77,6 +77,31 @@ function createWorkspace(): string {
   return directory;
 }
 
+/** Captures console output until the original console methods are restored. */
+function captureConsole(): { output: () => string; restore: () => void } {
+  const output: string[] = [];
+  const methods = ['log', 'warn', 'error'] as const;
+  const originals = Object.fromEntries(
+    methods.map((method) => [method, console[method]]),
+  ) as Record<(typeof methods)[number], (...args: unknown[]) => void>;
+  const capture = (...args: unknown[]) => {
+    output.push(args.map((value) => String(value)).join(' '));
+  };
+
+  for (const method of methods) {
+    console[method] = capture;
+  }
+
+  return {
+    output: () => output.join('\n'),
+    restore: () => {
+      for (const method of methods) {
+        console[method] = originals[method];
+      }
+    },
+  };
+}
+
 class StubEnvironment extends Environment {
   readonly commands: string[][] = [];
 
