@@ -55,7 +55,7 @@ CLI 中的 `REPO` 和 `QA_REPO` 指向交付包根目录。安装记录中的源
 安装校验、`qa run playwright-cli` 和 CI 版本检查必须使用同一个入口。
 不能根据旧版包结构拼接 `cli.js`。
 Agent Browser 的 socket 使用环境根目录下的短目录 `s`，默认会话名为 `qa`，避免长工作区路径超过 Unix socket 的 103 字节限制。
-Unix 上 Chromium 的临时文件使用系统 `TMPDIR`，避免浏览器内部 socket 继承长工作区路径。
+Chromium 的临时文件使用系统临时目录，避免浏览器内部 socket 继承长工作区路径。Windows 同时设置 `TEMP`、`TMP` 和 `TMPDIR`，Unix 使用 `/tmp`。Agent Browser 的截图、下载、流程、配置和 socket 仍写入环境目录。
 
 GitHub Actions 统一由根目录的 CI 工作流承载。
 普通 push 和 pull request 只运行 lint、最新版本环境 smoke 和一个项目 smoke。

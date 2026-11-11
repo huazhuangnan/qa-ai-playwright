@@ -35,6 +35,7 @@ import {
   digest,
   removeOwned,
   templateVersion,
+  readMcpServerConfig,
   within,
 } from '../packages/qa-ai-playwright/src/cli/shared.ts';
 import { parseArgs } from '../packages/qa-ai-playwright/src/qa-cli.ts';
@@ -174,6 +175,38 @@ test('caches, browser state and credentials stay inside the environment', () => 
   );
 });
 
+test('parses Windows Codex MCP TOML with mixed quoted paths', () => {
+  const config = join(createWorkspace(), 'codex', 'config.toml');
+  mkdirSync(dirname(config), { recursive: true });
+  writeFileSync(
+    config,
+    `[mcp_servers.agent-browser]
+command = 'D:\\qa env\\runtime\\node.exe'
+args = ['D:\\qa env\\agent-browser.js', "--session", 'qa', "--args", "--disable-gpu,--no-sandbox", 'mcp']
+
+[mcp_servers.agent-browser.env]
+AGENT_BROWSER_SOCKET_DIR = 'D:\\qa env\\s'
+TEMP = 'C:\\Users\\runner\\AppData\\Local\\Temp'
+`,
+    'utf8',
+  );
+
+  assert.deepEqual(readMcpServerConfig(config, 'agent-browser'), {
+    command: 'D:\\qa env\\runtime\\node.exe',
+    args: [
+      'D:\\qa env\\agent-browser.js',
+      '--session',
+      'qa',
+      '--args',
+      '--disable-gpu,--no-sandbox',
+      'mcp',
+    ],
+    env: {
+      AGENT_BROWSER_SOCKET_DIR: 'D:\\qa env\\s',
+      TEMP: 'C:\\Users\\runner\\AppData\\Local\\Temp',
+    },
+  });
+});
 test('package manager bootstrap allows Bun and pnpm scripts separately', async () => {
   const environment = new StubEnvironment({
     root: join(createWorkspace(), 'environment'),

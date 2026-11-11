@@ -53,7 +53,9 @@ MCP 清单和下载应用继续记录真实上游版本。
 - 修复 Playwright CLI 实际入口解析，避免按旧版包结构拼接不存在的 `cli.js`。
 - 合并仓库级 GitHub Actions 工作流，按验证范围和成功键拆分快速与完整验证。
 - 修复长工作区路径下 Agent Browser 的 Unix socket 超长问题。
-- 修复 Unix Chromium 临时目录继承长工作区路径导致的 SingletonSocket 超长问题。
+- 修复 Chromium 临时目录继承长工作区路径导致的 SingletonSocket 超长问题。
+- 修复 Windows Codex MCP 配置中的单引号路径和混合引号数组解析。
+- 为 Windows Agent Browser 注入稳定的 Chrome 启动参数，避免 Chrome for Testing 提前退出。
 
 ## 初始版本
 

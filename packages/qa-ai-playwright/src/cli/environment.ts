@@ -12,7 +12,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 
 import {
@@ -38,13 +38,19 @@ import {
 /** Keeps Agent Browser socket paths below Unix domain socket limits. */
 const AGENT_BROWSER_SOCKET_DIR = 's';
 const AGENT_BROWSER_SESSION = 'qa';
+const AGENT_BROWSER_LAUNCH_ARGS = WINDOWS
+  ? '--disable-gpu,--disable-software-rasterizer,--no-sandbox'
+  : undefined;
 
 /** Uses the host temporary directory for Chromium's own short-lived files. */
 function agentBrowserTempEnvironment(): NodeJS.ProcessEnv {
-  if (WINDOWS) {
-    return {};
-  }
-  return { TMPDIR: tmpdir() };
+  const temp = WINDOWS
+    ? join(
+        process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'),
+        'Temp',
+      )
+    : '/tmp';
+  return { TEMP: temp, TMP: temp, TMPDIR: temp };
 }
 
 /** Options used to create an isolated environment manager. */
@@ -550,7 +556,13 @@ export class Environment {
     });
     const sessionArgs = hasSession
       ? []
-      : ['--session', AGENT_BROWSER_SESSION];
+      : [
+          '--session',
+          AGENT_BROWSER_SESSION,
+          ...(AGENT_BROWSER_LAUNCH_ARGS
+            ? ['--args', AGENT_BROWSER_LAUNCH_ARGS]
+            : []),
+        ];
     this.run(
       [
         this.node,
@@ -1032,7 +1044,15 @@ export class Environment {
     }
     return {
       command: this.node,
-      args: [entry, '--session', AGENT_BROWSER_SESSION, 'mcp'],
+      args: [
+        entry,
+        '--session',
+        AGENT_BROWSER_SESSION,
+        ...(AGENT_BROWSER_LAUNCH_ARGS
+          ? ['--args', AGENT_BROWSER_LAUNCH_ARGS]
+          : []),
+        'mcp',
+      ],
       env: {
         ...agentBrowserTempEnvironment(),
         AGENT_BROWSER_SOCKET_DIR: join(

@@ -334,6 +334,12 @@ export function readMcpServerConfig(
 
 function parseTomlScalar(raw: string): unknown {
   const value = raw.replace(/,\s*\]$/u, ']').trim();
+  if (value.startsWith('[') && value.endsWith(']')) {
+    return parseTomlArray(value.slice(1, -1));
+  }
+  if (value.startsWith("'") && value.endsWith("'")) {
+    return value.slice(1, -1).replaceAll("''", "'");
+  }
   try {
     return JSON.parse(value) as unknown;
   } catch {
@@ -341,6 +347,49 @@ function parseTomlScalar(raw: string): unknown {
   }
 }
 
+/** Parses the simple comma-separated arrays emitted by Codex MCP config. */
+function parseTomlArray(raw: string): unknown[] | undefined {
+  const values: string[] = [];
+  let current = '';
+  let quote: 'single' | 'double' | undefined;
+  let escaped = false;
+  for (const character of raw) {
+    if (quote === 'double' && escaped) {
+      current += character;
+      escaped = false;
+      continue;
+    }
+    if (quote === 'double' && character === '\\') {
+      current += character;
+      escaped = true;
+      continue;
+    }
+    if (!quote && character === "'") {
+      quote = 'single';
+      current += character;
+    } else if (!quote && character === '"') {
+      quote = 'double';
+      current += character;
+    } else if (quote === 'single' && character === "'") {
+      quote = undefined;
+      current += character;
+    } else if (quote === 'double' && character === '"') {
+      quote = undefined;
+      current += character;
+    } else {
+      current += character;
+    }
+    if (!quote && character === ',') {
+      current = current.slice(0, -1).trim();
+      if (current) values.push(current);
+      current = '';
+    }
+  }
+  if (quote || escaped) return undefined;
+  if (current.trim()) values.push(current.trim());
+  const parsed = values.map((value) => parseTomlScalar(value));
+  return parsed.every((value) => value !== undefined) ? parsed : undefined;
+}
 function lstatSafe(path: string): ReturnType<typeof lstatSync> | undefined {
   try {
     return lstatSync(path);
