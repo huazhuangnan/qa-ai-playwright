@@ -21,12 +21,27 @@ export function hashPassword(password: string): string {
  */
 export function verifyPassword(password: string, encoded: string): boolean {
   const [algorithm, salt, expectedHex] = encoded.split('$');
-  if (algorithm !== 'scrypt' || !salt || !expectedHex) {
+  if (
+    algorithm !== 'scrypt' ||
+    !salt ||
+    !expectedHex ||
+    !/^[0-9a-f]+$/i.test(expectedHex) ||
+    expectedHex.length % 2 !== 0
+  ) {
     return false;
   }
 
   const expected = Buffer.from(expectedHex, 'hex');
-  const actual = scryptSync(password, salt, expected.length);
+  if (expected.length === 0) {
+    return false;
+  }
+
+  let actual: Buffer;
+  try {
+    actual = scryptSync(password, salt, expected.length);
+  } catch {
+    return false;
+  }
   return (
     expected.length === actual.length && timingSafeEqual(expected, actual)
   );

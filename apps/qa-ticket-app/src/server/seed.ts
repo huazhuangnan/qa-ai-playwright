@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 
 import type { TicketPriority, TicketStatus } from '../shared/ticket-contract.ts';
-import { hashPassword } from './auth/password.ts';
+import { hashPassword, verifyPassword } from './auth/password.ts';
 import type { DatabaseContext } from './db/client.ts';
 import {
   auditLogs,
@@ -51,7 +51,7 @@ export function seedDatabase(database: DatabaseContext): SeedSummary {
 
   for (const account of demoUsers) {
     const existing = db
-      .select({ id: users.id })
+      .select({ id: users.id, passwordHash: users.passwordHash })
       .from(users)
       .where(eq(users.username, account.username))
       .get();
@@ -63,6 +63,11 @@ export function seedDatabase(database: DatabaseContext): SeedSummary {
           role: account.role,
           createdAt: now,
         })
+        .run();
+    } else if (!verifyPassword('demo1234', existing.passwordHash)) {
+      db.update(users)
+        .set({ passwordHash: hashPassword('demo1234') })
+        .where(eq(users.id, existing.id))
         .run();
     }
   }

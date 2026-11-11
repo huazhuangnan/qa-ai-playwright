@@ -28,12 +28,14 @@ Python QA 位于 [`qa-ticket-app-suite-python`](../qa-ticket-app-suite-python/RE
 pnpm install --frozen-lockfile
 ```
 
-进入 `apps/qa-ticket-app/`，初始化示例数据并启动服务：
+进入 `apps/qa-ticket-app/`，直接启动开发服务：
 
 ```powershell
-bun run db:seed
 bun run dev
 ```
+
+`dev` 会先自动执行 seed，再启动 API 和页面服务。
+如果只启动 API 或使用其他命令，先执行 `bun run db:seed`。
 
 页面：<http://127.0.0.1:5173>
 

@@ -80,9 +80,11 @@ TypeScript 与 Python 测试分别位于 `../../qa-ticket-app-suite-typescript/`
 在仓库根目录执行 `pnpm install --frozen-lockfile`。进入本应用目录后执行：
 
 ```powershell
-bun run db:seed
 bun run dev
 ```
+
+开发命令会先执行 seed，再启动 API 和页面服务。
+单独启动 API 或使用生产启动命令前，先执行 `bun run db:seed`。
 
 演示账号：
 
@@ -93,3 +95,6 @@ bun run dev
 | `bob` | `demo1234` | 普通成员 |
 
 这些账号只用于本地示例。
+
+重复执行 `bun run db:seed` 会保留用户和工单数据，并将三个演示账号的密码恢复为 `demo1234`。
+如果旧数据库中的账号无法登录，先重新执行 seed，再启动 API 服务。

@@ -8,7 +8,7 @@
     "node": ">=22.18"
   },
   "scripts": {
-    "dev": "concurrently -k -n api,web -c blue,green \"bun run dev:api\" \"bun run dev:web\"",
+    "dev": "bun run db:seed && concurrently -k -n api,web -c blue,green \"bun run dev:api\" \"bun run dev:web\"",
     "dev:api": "node --watch src/server/index.ts",
     "dev:web": "bunx vite --host 127.0.0.1",
     "build": "bunx vite build",
