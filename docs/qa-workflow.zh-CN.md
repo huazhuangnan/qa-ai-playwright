@@ -4,6 +4,7 @@
 
 本仓库是 pnpm workspace。`apps/qa-ticket-app/` 是被测应用。`apps/qa-ticket-app-suite-typescript/` 与 `apps/qa-ticket-app-suite-python/` 是独立 QA 项目。`packages/qa-ai-playwright/src/` 包含 CLI、Skill 和生成模板。公共指南位于 `docs/`。
 
+先阅读[AI 测试整体模型](ai-testing-model.zh-CN.md)了解 AI 的输入、职责路由、测试层级和证据闭环。本页补充一次具体任务如何落地。
 ## 输入与调用
 
 1. 在 `docs/qa/inputs/input-index.md` 登记 PRD、验收标准、环境、角色和接口契约的来源及版本。不要记录凭证值。

@@ -19,6 +19,8 @@ metadata:
 - CI 重试后通过仍标记为 flaky。门禁开启时应阻断流水线。
 - 不索取生产 Token、Cookie 或真实客户数据，证据先脱敏。
 - 无环境则交付分析，明确未重跑，不宣布修复已验证。
+- 每次执行生成稳定 RUN-ID，每个失败记录 CASE-ID、STEP-ID、ASSERT-ID、最后成功步骤、原始错误、实际值、期望值、复现次数和 EVIDENCE-ID。
+- 重试后通过仍标记 flaky；连续失败、证据不足或分类变化必须进入下一次 triage，不得用重试掩盖趋势。
 - 产出两份文档：缺陷报告 `docs/qa/generated/defect.md`、执行报告 `docs/qa/generated/execution-report.md`。
 - 逐项填写模板字段。不省略字段、不写“同上”、不把多条事实塞进一个单元格。
 

@@ -87,6 +87,7 @@ CC Switch 程序位于环境目录，运行后的用户数据仍按上游设计�
 - [Python 指南](docs/python.zh-CN.md)：快速开始、测试和报告
 - [Skills 与 MCP](docs/skills-mcp.zh-CN.md)：组件、来源和作用域
 - [AI 文档与上下文](docs/ai-docs.zh-CN.md)：链接资料、静态导出和上下文控制
+- [AI 测试整体模型](docs/ai-testing-model.zh-CN.md)：整体概念、主流程、Skill 路由、测试层级和证据闭环
 - [从需求到执行](docs/qa-workflow.zh-CN.md)：输入、调用、执行和证据
 - [参考来源](docs/references.zh-CN.md)：官方文档和许可证
 - [版本记录](docs/version-history.zh-CN.md)：组件、验证范围与迁移变化
