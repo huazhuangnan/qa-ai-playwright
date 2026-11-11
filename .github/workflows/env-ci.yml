@@ -15,6 +15,16 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
+      - name: Check tracked text line endings
+        shell: bash
+        run: |
+          if git grep --cached -Il $'\r' -- .; then
+            echo 'Tracked text files must use LF line endings.' >&2
+            exit 1
+          else
+            status=$?
+            if [ "$status" -ne 1 ]; then exit "$status"; fi
+          fi
       - name: Lint repository and template workflows
         shell: bash
         run: |

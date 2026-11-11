@@ -1,5 +1,29 @@
+# Repository text files use UTF-8 with LF line endings.
+* text=auto eol=lf
+
+# Windows entry points are executable with LF on supported runners.
+*.cmd text eol=lf
+*.ps1 text eol=lf
 *.sh text eol=lf
 *.command text eol=lf
 *.py text eol=lf
-*.ps1 text eol=crlf
-*.cmd text eol=crlf
+
+# Binary assets must never be rewritten as text.
+*.7z binary
+*.db binary
+*.db-* binary
+*.gif binary
+*.ico binary
+*.jpeg binary
+*.jpg binary
+*.pdf binary
+*.png binary
+*.sqlite binary
+*.sqlite3 binary
+*.tar binary
+*.tgz binary
+*.wasm binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.zip binary

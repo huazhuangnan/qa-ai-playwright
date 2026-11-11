@@ -72,6 +72,19 @@ bun run test:unit
 `bun run test:ci env` 可执行环境集成套件。
 完整套件仍由 GitHub Actions 运行。
 
+维护测试中的控制台输出采集辅助必须定义在测试文件内，并通过 `tsc --noEmit`。
+跨平台 CI 若在安装后同时报告同一类型错误，先修复共享测试源码，再重新运行三平台验证。
+Unix 启动器读取版本环境文件时必须兼容仓库文件的 CRLF 换行。
+
+## Git 协作约定
+
+仓库可读文本统一使用 UTF-8 和 LF 换行。
+`.gitattributes` 是 Git 检出和提交时的最终约束，`.editorconfig` 统一编辑器默认行为。
+PowerShell 和 Windows CMD 脚本也保持 LF，Windows 运行器可以直接执行。
+二进制文件必须在 `.gitattributes` 中标记为 `binary`，避免换行转换。
+不修改用户全局 `core.autocrlf`；提交前使用 `git diff --check` 检查空白错误。
+GitHub Actions 使用 `git grep --cached` 检查提交中的 CRLF，二进制文件不参与检查。
+
 ## 来源边界
 
 Skill：
