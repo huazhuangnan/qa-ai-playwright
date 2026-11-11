@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { once } from 'node:events';
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
@@ -9,14 +10,16 @@ import type { Readable, Writable } from 'node:stream';
 import {
   readMcpServerConfig,
   type McpServerConfig,
-} from '../packages/qa-ai-playwright/src/cli/shared.ts';
+} from '../packages/qa-cli/cli/shared.ts';
 
 interface JsonRpcMessage {
   id?: number;
   error?: unknown;
   result?: {
     serverInfo?: unknown;
-    tools?: unknown[];
+    tools?: Array<{ name?: string }>;
+    content?: Array<{ type?: string; text?: string }>;
+    isError?: boolean;
   };
 }
 
@@ -33,6 +36,7 @@ async function waitForResponse(
   messages: AsyncIterator<string>,
   requestId: number,
   timeoutMs = 30_000,
+  strict = false,
 ): Promise<NonNullable<JsonRpcMessage['result']>> {
   while (true) {
     const next = messages.next();
@@ -52,6 +56,9 @@ async function waitForResponse(
       try {
         payload = JSON.parse(result.value) as JsonRpcMessage;
       } catch {
+        if (strict) {
+          throw new Error('MCP stdout contained non-JSON output');
+        }
         continue;
       }
       if (payload.id !== requestId) {
@@ -95,7 +102,7 @@ async function smokeServer(
         clientInfo: { name: 'qa-smoke', version: '1.0.0' },
       },
     });
-    const initialized = await waitForResponse(messages, 1);
+    const initialized = await waitForResponse(messages, 1, 30_000, name === 'qa');
     assert.ok(initialized.serverInfo, `${name}: missing serverInfo`);
     send(child, {
       jsonrpc: '2.0',
@@ -107,8 +114,24 @@ async function smokeServer(
       method: 'tools/list',
       params: {},
     });
-    const tools = (await waitForResponse(messages, 2)).tools ?? [];
+    const tools = (await waitForResponse(messages, 2, 30_000, name === 'qa')).tools ?? [];
     assert.ok(tools.length > 0, `${name}: no tools returned`);
+    if (name === 'qa') {
+      assert.ok(tools.some((tool) => tool.name === 'qa_mcp_list'));
+      send(child, {
+        jsonrpc: '2.0', id: 3, method: 'tools/call',
+        params: { name: 'qa_mcp_list', arguments: {} },
+      });
+      const result = await waitForResponse(messages, 3, 30_000, true);
+      assert.notEqual(result.isError, true, 'qa_mcp_list failed');
+      assert.match(JSON.stringify(result.content), /faker/);
+      send(child, {
+        jsonrpc: '2.0', id: 4, method: 'tools/call',
+        params: { name: 'qa_mcp_add', arguments: { name: 'unknown' } },
+      });
+      const failure = await waitForResponse(messages, 4, 30_000, true);
+      assert.equal(failure.isError, true, 'unknown MCP must fail');
+    }
     console.log(`${name}: ${tools.length} tools`);
     return tools.length;
   } finally {
@@ -132,15 +155,20 @@ async function main(): Promise<void> {
   if (!process.env.QA_ROOT) {
     throw new Error('QA_ROOT is required');
   }
-  const config = join(root, 'codex/config.toml');
+  const codexHome = process.env.CODEX_HOME;
+  if (!codexHome) throw new Error('CODEX_HOME is required for isolated MCP smoke tests');
+  const config = join(codexHome, 'config.toml');
+  const realRoot = realpathSync(root);
+  const normalizedRoot = process.platform === 'win32' ? realRoot.toLowerCase() : realRoot;
+  const id = createHash('sha256').update(normalizedRoot).digest('hex').slice(0, 16);
   const state = JSON.parse(
     readFileSync(join(root, 'state.json'), 'utf8'),
   ) as { profile?: string };
   const names = state.profile === 'full'
-    ? ['playwright', 'agent-browser']
-    : ['playwright'];
+    ? ['qa', 'playwright', 'agent-browser']
+    : ['qa', 'playwright'];
   for (const name of names) {
-    const server = readMcpServerConfig(config, name);
+    const server = readMcpServerConfig(config, `qa-${id}-${name}`);
     await smokeServer(name, server, root);
   }
   console.log('MCP initialize and tools/list passed');

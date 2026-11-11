@@ -1,0 +1,8 @@
+{
+  "id": "qa",
+  "version": "0.0.1",
+  "source_type": "builtin",
+  "scope": "environment",
+  "transport": "stdio",
+  "entry": "qa-server.ts"
+}

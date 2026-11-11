@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -17,16 +19,16 @@ import { test } from 'bun:test';
 import {
   Environment,
   type RunOptions,
-} from '../packages/qa-ai-playwright/src/cli/environment.ts';
+} from '../packages/qa-cli/cli/environment.ts';
 import {
   projectInit,
   projectUninstall,
-} from '../packages/qa-ai-playwright/src/cli/project.ts';
+} from '../packages/qa-cli/cli/project.ts';
 import {
   authStatePath,
   configuredAuthRoles,
   normalizeAuthRole,
-} from '../packages/qa-ai-playwright/src/templates/typescript/tests/auth/state.ts';
+} from '../packages/templates/typescript/tests/auth/state.ts';
 import {
   OWNER,
   REPO,
@@ -37,8 +39,8 @@ import {
   templateVersion,
   readMcpServerConfig,
   within,
-} from '../packages/qa-ai-playwright/src/cli/shared.ts';
-import { parseArgs } from '../packages/qa-ai-playwright/src/qa-cli.ts';
+} from '../packages/qa-cli/cli/shared.ts';
+import { parseArgs, uninstallExternalTools, verifiedGlobalPackage } from '../packages/qa-cli/qa-cli.ts';
 
 const temporaryDirectories = new Set<string>();
 process.once('exit', () => {
@@ -47,12 +49,24 @@ process.once('exit', () => {
   }
 });
 
+/** Creates a PATH directory outside the managed root with isolated tool placeholders. */
+function createToolPath(base: string, names = ['bun', 'pnpm']): string {
+  const bin = join(base, 'global tools');
+  mkdirSync(bin, { recursive: true });
+  for (const name of names) {
+    const path = join(bin, WINDOWS ? `${name}.exe` : name);
+    writeFileSync(path, `placeholder ${name}`);
+  }
+  return bin;
+}
+
 /** Creates a managed environment plus placeholder managed Python. */
 function createEnvironment(name = 'environment'): Environment {
   const base = createWorkspace();
+  const bin = createToolPath(base);
   const environment = new Environment({
     root: join(base, name),
-    env: {},
+    env: { PATH: bin, CODEX_HOME: join(base, 'codex') },
   });
   environment.state.stack = 'both';
   environment.save();
@@ -62,15 +76,10 @@ function createEnvironment(name = 'environment'): Environment {
   const record = join(environment.root, 'bootstrap/python-path.txt');
   mkdirSync(join(environment.root, 'bootstrap'), { recursive: true });
   writeFileSync(record, python, 'utf8');
-  mkdirSync(join(environment.node, '..'), { recursive: true });
+  mkdirSync(dirname(environment.node), { recursive: true });
   writeFileSync(environment.node, 'test node placeholder', 'utf8');
-  for (const executable of [environment.bunBin, environment.pnpmBin]) {
-    mkdirSync(join(executable, '..'), { recursive: true });
-    writeFileSync(executable, 'test package manager placeholder', 'utf8');
-  }
   return environment;
 }
-
 /** Creates a test workspace removed when the test exits. */
 function createWorkspace(): string {
   const directory = mkdtempSync(join(tmpdir(), 'qa-lifecycle-'));
@@ -157,7 +166,6 @@ test('caches, browser state and credentials stay inside the environment', () => 
   const environment = createEnvironment();
   const variables = environment.variables();
   for (const key of [
-    'CODEX_HOME',
     'npm_config_cache',
     'BUN_INSTALL_CACHE_DIR',
     'PNPM_HOME',
@@ -170,6 +178,7 @@ test('caches, browser state and credentials stay inside the environment', () => 
     assert.ok(value, key);
     assert.ok(within(value, environment.root), key);
   }
+  assert.equal(variables.CODEX_HOME, dirname(environment.mcpConfig));
   assert.ok(
     (variables.PATH ?? '').split(delimiter).includes(dirname(environment.bunBin)),
   );
@@ -207,105 +216,137 @@ TEMP = 'C:\\Users\\runner\\AppData\\Local\\Temp'
     },
   });
 });
-test('package manager bootstrap allows Bun and pnpm scripts separately', async () => {
+test('PATH discovery reuses existing package managers even with different versions', async () => {
+  const base = createWorkspace();
+  const bin = createToolPath(base, ['bun', 'pnpm', 'codex', 'playwright-cli', 'agent-browser', 'cc-switch']);
+  const environment = new class extends StubEnvironment {
+    override run(command: readonly (string | number)[], options: RunOptions = {}): string | undefined {
+      const result = super.run(command, options);
+      if (options.capture && command[0] === this.bunBin) return '1.0.0';
+      if (options.capture && command[0] === this.pnpmBin) return '9.0.0';
+      return result;
+    }
+  }({ root: join(base, 'environment'), env: { PATH: bin } });
+  environment.save();
+  assert.equal(environment.bunBin, join(bin, WINDOWS ? 'bun.exe' : 'bun'));
+  assert.equal(environment.pnpmBin, join(bin, WINDOWS ? 'pnpm.exe' : 'pnpm'));
+  assert.equal(environment.codexBin, join(bin, WINDOWS ? 'codex.exe' : 'codex'));
+  assert.equal(environment.playwrightCliBin, join(bin, WINDOWS ? 'playwright-cli.exe' : 'playwright-cli'));
+  assert.equal(environment.agentBrowser, join(bin, WINDOWS ? 'agent-browser.exe' : 'agent-browser'));
+  assert.deepEqual(await environment.ensurePackageManagers(), { bun: '1.0.0', pnpm: '9.0.0' });
+  assert.equal(await environment.ensureCcSwitch(), 'unknown');
+  assert.ok(!environment.commands.some((command) => command.includes('install')));
+  for (const name of ['bun', 'pnpm', 'codex', 'playwright-cli', 'agent-browser', 'cc-switch']) {
+    assert.equal(readFileSync(join(bin, WINDOWS ? `${name}.exe` : name), 'utf8'), `placeholder ${name}`);
+  }
+});
+
+test('existing global browser tools keep their installed versions', async () => {
+  const base = createWorkspace();
+  const bin = createToolPath(base, ['playwright-cli', 'agent-browser']);
+  const packages = WINDOWS ? join(bin, 'node_modules') : join(bin, '..', 'lib', 'node_modules');
+  for (const [name, version] of [['@playwright/cli', '0.0.1'], ['agent-browser', '0.0.2']] as const) {
+    const directory = join(packages, name);
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(join(directory, 'package.json'), JSON.stringify({ name, version }));
+  }
+  const environment = new StubEnvironment({ root: join(base, 'environment'), env: { PATH: bin } });
+  assert.equal(await environment.ensurePlaywrightCli(), '0.0.1');
+  assert.equal(await environment.ensureAgentBrowser(), '0.0.2');
+  assert.ok(!environment.commands.some((command) => command.includes('install')));
+  assert.equal(JSON.parse(readFileSync(join(packages, '@playwright/cli/package.json'), 'utf8')).version, '0.0.1');
+  assert.equal(JSON.parse(readFileSync(join(packages, 'agent-browser/package.json'), 'utf8')).version, '0.0.2');
+});
+test('a missing package manager is installed once using the discovered global npm', async () => {
+  const base = createWorkspace();
+  const bin = createToolPath(base, ['npm', 'bun']);
+  const pnpm = join(bin, WINDOWS ? 'pnpm.exe' : 'pnpm');
+  const prefix = WINDOWS ? bin : dirname(bin);
+  const environment = new class extends StubEnvironment {
+    override run(command: readonly (string | number)[], options: RunOptions = {}): string | undefined {
+      const result = super.run(command, options);
+      if (command.includes('prefix')) return prefix;
+      if (command.includes('install') && command.includes('--global')) writeFileSync(pnpm, 'installed pnpm');
+      if (options.capture && command[0] === this.bunBin) return '1.0.0';
+      if (options.capture && command[0] === this.pnpmBin) return '9.0.0';
+      return result;
+    }
+  }({ root: join(base, 'environment'), env: { PATH: bin } });
+  environment.save();
+  assert.deepEqual(await environment.ensurePackageManagers(), { bun: '1.0.0', pnpm: '9.0.0' });
+  assert.deepEqual(await environment.ensurePackageManagers(), { bun: '1.0.0', pnpm: '9.0.0' });
+  const installs = environment.commands.filter((command) => command.includes('install') && command.includes('--global'));
+  assert.equal(installs.length, 1);
+  assert.ok(installs[0]?.includes(`pnpm@${environment.pnpmVersion}`));
+  assert.equal(readFileSync(pnpm, 'utf8'), 'installed pnpm');
+});
+
+test('PATH discovery ignores a non-executable Unix file', () => {
+  if (WINDOWS) return;
+  const base = createWorkspace();
+  const bin = createToolPath(base, ['pnpm']);
+  chmodSync(join(bin, 'pnpm'), 0o644);
+  const environment = new Environment({ root: join(base, 'environment'), env: { PATH: bin } });
+  assert.equal(environment.pnpmBin, '');
+});
+test('PATH-discovered executable runs with its version argument', () => {
+  const base = createWorkspace();
+  const bin = join(base, 'global tools');
+  mkdirSync(bin, { recursive: true });
+  const executable = join(bin, WINDOWS ? 'pnpm.cmd' : 'pnpm');
+  writeFileSync(executable, WINDOWS ? '@echo off\r\necho 9.0.0\r\n' : '#!/bin/sh\nprintf "9.0.0\\n"\n');
+  if (!WINDOWS) chmodSync(executable, 0o755);
+  const environment = new Environment({
+    root: join(base, 'environment'),
+    env: { PATH: bin, ComSpec: process.env.ComSpec, SystemRoot: process.env.SystemRoot },
+  });
+  assert.equal(environment.pnpmBin, executable);
+  assert.equal(environment.pnpm(['--version'], { capture: true }), '9.0.0');
+});
+test('MCP registration preserves a conflicting user configuration', () => {
+  const environment = new StubEnvironment({
+    root: join(createWorkspace(), 'environment'),
+    env: {},
+  });
+  const config = join(createWorkspace(), 'user codex', 'config.toml');
+  Object.defineProperty(environment, 'mcpConfig', { value: config });
+  mkdirSync(dirname(config), { recursive: true });
+  const root = WINDOWS ? environment.root.toLowerCase() : environment.root;
+  const name = 'qa-' + createHash('sha256').update(root).digest('hex').slice(0, 16) + '-playwright';
+  const original = `[mcp_servers.${name}]\ncommand = "user-playwright"\nargs = ["--custom"]\n`;
+  writeFileSync(config, original);
+
+  assert.throws(() => environment.registerMcp(
+    'playwright',
+    { command: 'qa-playwright', args: ['--isolated'] },
+    'external',
+    '0.0.85',
+  ), /already exists|conflict/i);
+  assert.equal(readFileSync(config, 'utf8'), original);
+  assert.ok(!environment.commands.some((command) => command.includes('add') || command.includes('remove')));
+});
+test('uninstall preserves an unowned user MCP registration', () => {
   const environment = new StubEnvironment({
     root: join(createWorkspace(), 'environment'),
     env: {},
   });
   environment.save();
+  const config = join(createWorkspace(), 'user codex', 'config.toml');
+  Object.defineProperty(environment, 'mcpConfig', { value: config });
+  mkdirSync(dirname(config), { recursive: true });
+  const root = WINDOWS ? environment.root.toLowerCase() : environment.root;
+  const name = 'qa-' + createHash('sha256').update(root).digest('hex').slice(0, 16) + '-faker';
+  const original = `[mcp_servers.${name}]\ncommand = "user-faker"\n`;
+  writeFileSync(config, original);
 
-  await assert.rejects(
-    () => environment.ensurePackageManagers(),
-    /Expected Bun 1\.4\.4 and pnpm 12\.18\.0/,
-  );
-  const installs = environment.commands.filter(
-    (command) => command.includes('install') && command.includes('--global'),
-  );
-  assert.equal(installs.length, 2);
-  assert.ok(installs.some((command) =>
-    command.includes('--allow-scripts=bun') &&
-    command.includes('bun@1.4.4')
-  ));
-  assert.ok(installs.some((command) =>
-    command.includes('--allow-scripts=pnpm') &&
-    command.includes('pnpm@12.18.0')
-  ));
-  assert.equal(
-    environment.bunBin,
-    WINDOWS
-      ? join(environment.npmPrefix, 'node_modules/bun/bin/bun.exe')
-      : join(environment.npmBin, 'bun'),
-  );
-});
-
-for (const entryName of ['pnpm.mjs', 'pnpm.cjs']) {
-  test(`${entryName} preserves spaced paths and literal arguments`, () => {
-    const environment = createEnvironment('environment with spaces');
-    // Use the current CI runtime instead of downloading a second Node binary.
-    Object.defineProperty(environment, 'node', { value: process.execPath });
-    const entry = join(
-      environment.npmPrefix,
-      WINDOWS
-        ? `node_modules/pnpm/bin/${entryName}`
-        : `lib/node_modules/pnpm/bin/${entryName}`,
-    );
-    mkdirSync(dirname(entry), { recursive: true });
-    writeFileSync(
-      entry,
-      'console.log(JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd() }));\n',
-    );
-    const args = ['--version', 'value with spaces', 'literal & value'];
-    const output = environment.pnpm(args, { cwd: environment.root, capture: true });
-    assert.deepEqual(JSON.parse(output ?? ''), {
-      args,
-      cwd: realpathSync(environment.root),
-    });
-  });
-}
-
-test('bootstrap and environment check probe pnpm through its JavaScript entry', async () => {
-  const managed = createEnvironment('environment with spaces');
-  const entry = join(
-    managed.npmPrefix,
-    WINDOWS ? 'node_modules/pnpm/bin/pnpm.mjs' : 'lib/node_modules/pnpm/bin/pnpm.mjs',
-  );
-  mkdirSync(dirname(entry), { recursive: true });
-  writeFileSync(entry, 'pnpm ESM placeholder');
-  const environment = new class extends StubEnvironment {
-    override run(
-      command: readonly (string | number)[],
-      options: RunOptions = {},
-    ): string | undefined {
-      const result = super.run(command, options);
-      if (command[0] === this.bunBin) return this.bunVersion;
-      if (String(command[1]).endsWith('pnpm.mjs')) return this.pnpmVersion;
-      return result;
-    }
-  }({ root: managed.root, env: {} });
-
-  assert.deepEqual(await environment.ensurePackageManagers(), {
-    bun: environment.bunVersion,
-    pnpm: environment.pnpmVersion,
-  });
-  assert.ok(!environment.commands.some((command) => command.includes('install')));
-  const capture = captureConsole();
   try {
-    environment.check({
-      stack: 'typescript',
-      profile: 'standard',
-      skipCodex: true,
-      skipSkills: true,
-    });
-  } finally {
-    capture.restore();
+    environment.removeOptionalMcp('faker');
+  } catch {
+    // Refusing to remove an unowned registration is acceptable.
   }
-  assert.match(capture.output(), /pnpm 12\.18\.0/);
-  assert.ok(!environment.commands.some((command) => command[0] === environment.pnpmBin));
-  assert.equal(environment.commands.filter((command) =>
-    command[0] === environment.node && String(command[1]).endsWith('pnpm.mjs')
-  ).length, 3);
+  assert.equal(readFileSync(config, 'utf8'), original);
+  assert.ok(!environment.commands.some((command) => command.includes('remove') || command.includes('uninstall')));
 });
-
 test('environment check rejects a stale uv executable', () => {
   const managed = createEnvironment();
   const environment = new StubEnvironment({
@@ -347,35 +388,35 @@ test('pre-release repository versions stay fixed at 0.0.1', () => {
   assert.equal(packageJson.name, 'qa-ai-playwright');
   assert.equal(packageJson.version, '0.0.1');
   assert.match(
-    readFileSync(join(REPO, 'src/runtime-versions.env'), 'utf8'),
+    readFileSync(join(REPO, 'packages/qa-cli/runtime-versions.env'), 'utf8'),
     /^QA_UV_VERSION=0\.13\.7$/mu,
   );
   assert.match(
-    readFileSync(join(REPO, 'src/runtime-versions.env'), 'utf8'),
+    readFileSync(join(REPO, 'packages/qa-cli/runtime-versions.env'), 'utf8'),
     /^QA_BUN_VERSION=1\.4\.4$/mu,
   );
   assert.match(
-    readFileSync(join(REPO, 'src/runtime-versions.env'), 'utf8'),
+    readFileSync(join(REPO, 'packages/qa-cli/runtime-versions.env'), 'utf8'),
     /^QA_PNPM_VERSION=12\.18\.0$/mu,
   );
 
-  for (const name of readdirSync(join(REPO, 'src/skills/builtin'))) {
+  for (const name of readdirSync(join(REPO, 'packages/skills/builtin'))) {
     const skill = readFileSync(
-      join(REPO, 'src/skills/builtin', name, 'SKILL.md'),
+      join(REPO, 'packages/skills/builtin', name, 'SKILL.md'),
       'utf8',
     );
     assert.match(skill, /^  version: "0\.0\.1"$/m, name);
   }
   assert.match(
     readFileSync(
-      join(REPO, '../../.agents/skills/qa-maintainer/SKILL.md'),
+      join(REPO, '.agents/skills/qa-maintainer/SKILL.md'),
       'utf8',
     ),
     /^  version: "0\.0\.1"$/m,
   );
   for (const stack of ['qa', 'python', 'typescript']) {
     assert.equal(
-      readFileSync(join(REPO, 'src/templates', stack, 'VERSION'), 'utf8').trim(),
+      readFileSync(join(REPO, 'packages/templates', stack, 'VERSION'), 'utf8').trim(),
       '0.0.1',
       stack,
     );
@@ -383,18 +424,18 @@ test('pre-release repository versions stay fixed at 0.0.1', () => {
 });
 
 test('workspace keeps the CLI package and example projects in separate roots', () => {
-  const workspace = resolve(REPO, '../..');
-  assert.ok(existsSync(join(REPO, 'src/bin/qa.sh')));
-  assert.ok(existsSync(join(workspace, 'apps/qa-ticket-app/package.json')));
-  assert.ok(existsSync(join(workspace, 'apps/qa-ticket-app-suite-typescript/package.json')));
-  assert.ok(existsSync(join(workspace, 'apps/qa-ticket-app-suite-python/requirements.in')));
-  assert.ok(existsSync(join(workspace, 'docs/examples/qa-ticket-app/generated/test-cases.md')));
-  assert.notEqual(REPO, workspace);
+  const workspace = REPO;
+  assert.ok(existsSync(join(REPO, 'packages/qa-cli/bin/qa.sh')));
+  assert.ok(existsSync(join(REPO, 'apps/qa-ticket-app/package.json')));
+  assert.ok(existsSync(join(REPO, 'apps/qa-ticket-app-suite-typescript/package.json')));
+  assert.ok(existsSync(join(REPO, 'apps/qa-ticket-app-suite-python/requirements.in')));
+  assert.ok(existsSync(join(REPO, 'apps/qa-ticket-app/docs/qa/generated/test-cases.md')));
+  assert.equal(REPO, workspace);
 });
 
 test('both language templates keep real environment files ignored', () => {
   for (const stack of ['python', 'typescript']) {
-    const template = join(REPO, 'src/templates', stack);
+    const template = join(REPO, 'packages/templates', stack);
     assert.ok(existsSync(join(template, '.env.example')));
     assert.ok(!existsSync(join(template, '.env')));
     assert.ok(!existsSync(join(template, '.env.dev')));
@@ -411,18 +452,18 @@ test('both language templates keep real environment files ignored', () => {
     assert.match(readFileSync(join(template, '.env.stg.example'), 'utf8'), /API_BASE_URL=/);
     assert.match(readFileSync(join(template, '.env.stg.example'), 'utf8'), /QA_AUTH_ROLES=/);
   }
-  assert.ok(existsSync(join(REPO, 'src/templates/python/conftest.py')));
+  assert.ok(existsSync(join(REPO, 'packages/templates/python/conftest.py')));
 });
 
 test('language templates are versioned with lock and fixture support', () => {
   for (const stack of ['python', 'typescript']) {
-    const template = join(REPO, 'src/templates', stack);
+    const template = join(REPO, 'packages/templates', stack);
     assert.match(readFileSync(join(template, 'VERSION'), 'utf8').trim(), /^\d+\.\d+\.\d+$/);
     assert.ok(existsSync(join(template, 'CHANGELOG.md')));
   }
 
   const packageJson = JSON.parse(
-    readFileSync(join(REPO, 'src/templates/typescript/package.json'), 'utf8'),
+    readFileSync(join(REPO, 'packages/templates/typescript/package.json'), 'utf8'),
   ) as {
     engines: { node: string };
     devDependencies: Record<string, string>;
@@ -430,7 +471,7 @@ test('language templates are versioned with lock and fixture support', () => {
   assert.equal(packageJson.engines.node, '>=22');
   assert.ok(!Object.values(packageJson.devDependencies).includes('latest'));
   const playwrightConfig = readFileSync(
-    join(REPO, 'src/templates/typescript/playwright.config.ts'),
+    join(REPO, 'packages/templates/typescript/playwright.config.ts'),
     'utf8',
   );
   assert.match(playwrightConfig, /failOnFlakyTests/);
@@ -440,16 +481,16 @@ test('language templates are versioned with lock and fixture support', () => {
   assert.match(playwrightConfig, /UI_BASE_URL/);
   assert.match(playwrightConfig, /API_BASE_URL/);
   assert.match(playwrightConfig, /PLAYWRIGHT_WEB_SERVER_COMMAND/);
-  assert.ok(existsSync(join(REPO, 'src/templates/typescript/scripts/check_lock.ts')));
-  assert.ok(existsSync(join(REPO, 'src/templates/typescript/pnpm-lock.yaml')));
-  assert.ok(existsSync(join(REPO, 'src/templates/typescript/tests/fixtures/qa.ts')));
-  assert.ok(existsSync(join(REPO, 'src/templates/typescript/tests/auth.setup.ts')));
-  assert.ok(existsSync(join(REPO, 'src/templates/typescript/tests/auth/state.ts')));
-  assert.ok(existsSync(join(REPO, 'src/templates/python/requirements.in')));
-  assert.ok(existsSync(join(REPO, 'src/templates/python/scripts/check_lock.py')));
-  assert.ok(existsSync(join(REPO, 'src/templates/python/scripts/auth_state.py')));
-  assert.ok(existsSync(join(REPO, 'src/templates/python/tests/fixtures/qa.py')));
-  assert.ok(existsSync(join(REPO, 'src/templates/python/tests/fixtures/auth.py')));
+  assert.ok(existsSync(join(REPO, 'packages/templates/typescript/scripts/check_lock.ts')));
+  assert.ok(existsSync(join(REPO, 'packages/templates/typescript/pnpm-lock.yaml')));
+  assert.ok(existsSync(join(REPO, 'packages/templates/typescript/tests/fixtures/qa.ts')));
+  assert.ok(existsSync(join(REPO, 'packages/templates/typescript/tests/auth.setup.ts')));
+  assert.ok(existsSync(join(REPO, 'packages/templates/typescript/tests/auth/state.ts')));
+  assert.ok(existsSync(join(REPO, 'packages/templates/python/requirements.in')));
+  assert.ok(existsSync(join(REPO, 'packages/templates/python/scripts/check_lock.py')));
+  assert.ok(existsSync(join(REPO, 'packages/templates/python/scripts/auth_state.py')));
+  assert.ok(existsSync(join(REPO, 'packages/templates/python/tests/fixtures/qa.py')));
+  assert.ok(existsSync(join(REPO, 'packages/templates/python/tests/fixtures/auth.py')));
 });
 
 test('auth role helpers isolate state paths and role names', () => {
@@ -464,9 +505,16 @@ test('auth role helpers isolate state paths and role names', () => {
   assert.throws(() => normalizeAuthRole('../admin'), /Invalid QA auth role/);
 });
 
+test('Codex CLI manifest records its npm source and executable', () => {
+  const manifest = JSON.parse(readFileSync(join(REPO, 'packages/apps/codex/manifest.json'), 'utf8')) as Record<string, unknown>;
+  assert.equal(manifest.id, 'codex');
+  assert.equal(manifest.package, '@openai/codex');
+  assert.equal(manifest.executable, 'codex');
+  assert.equal(manifest.version_policy, 'installed-or-latest');
+});
 test('CC Switch manifest keeps a pinned release and verified portable assets', () => {
   const manifest = JSON.parse(
-    readFileSync(join(REPO, 'src/apps/cc-switch/manifest.json'), 'utf8'),
+    readFileSync(join(REPO, 'packages/apps/cc-switch/manifest.json'), 'utf8'),
   ) as {
     commit: string;
     version: string;
@@ -478,7 +526,7 @@ test('CC Switch manifest keeps a pinned release and verified portable assets', (
   assert.equal(manifest.scope, 'environment');
   assert.equal(manifest.assets.length, 5);
   assert.match(
-    readFileSync(join(REPO, 'src/runtime-versions.env'), 'utf8'),
+    readFileSync(join(REPO, 'packages/qa-cli/runtime-versions.env'), 'utf8'),
     /^QA_CC_SWITCH_VERSION=4\.0\.28$/mu,
   );
   for (const asset of manifest.assets) {
@@ -494,19 +542,19 @@ test('generated documentation excludes directory introduction files', () => {
     'tasks/README.md',
   ]) {
     assert.ok(
-      !existsSync(join(REPO, 'src/templates/qa', relativePath)),
+      !existsSync(join(REPO, 'packages/templates/qa', relativePath)),
       relativePath,
     );
   }
   const inputIndex = readFileSync(
-    join(REPO, 'src/templates/qa/inputs/input-index.md'),
+    join(REPO, 'packages/templates/qa/inputs/input-index.md'),
     'utf8',
   );
   assert.match(inputIndex, /环境变量登记/);
   assert.match(inputIndex, /UI_BASE_URL/);
   assert.match(inputIndex, /API_BASE_URL/);
   const skillDocs = readFileSync(
-    join(REPO, '../../docs/skills-mcp.zh-CN.md'),
+    join(REPO, 'docs/skills-mcp.zh-CN.md'),
     'utf8',
   );
   assert.match(skillDocs, /\/skills/);
@@ -517,7 +565,7 @@ test('generated documentation excludes directory introduction files', () => {
 test('generated CI workflows expose safety and API gates', () => {
   for (const stack of ['python', 'typescript']) {
     const workflow = readFileSync(
-      join(REPO, 'src/templates', stack, '.github/workflows/qa.yml'),
+      join(REPO, 'packages/templates', stack, '.github/workflows/qa.yml'),
       'utf8',
     );
     assert.match(workflow, /permissions:/);
@@ -536,7 +584,7 @@ test('generated CI workflows expose safety and API gates', () => {
     assert.match(workflow, /check(?::|_)lock/);
   }
   const typescriptWorkflow = readFileSync(
-    join(REPO, 'src/templates/typescript/.github/workflows/qa.yml'),
+    join(REPO, 'packages/templates/typescript/.github/workflows/qa.yml'),
     'utf8',
   );
   assert.match(typescriptWorkflow, /pnpm\/action-setup@v4/);
@@ -545,21 +593,21 @@ test('generated CI workflows expose safety and API gates', () => {
   assert.match(typescriptWorkflow, /pnpm install --frozen-lockfile/);
   assert.match(
     readFileSync(
-      join(REPO, 'src/templates/python/.github/workflows/qa.yml'),
+      join(REPO, 'packages/templates/python/.github/workflows/qa.yml'),
       'utf8',
     ),
     /actions\/setup-python@v6/,
   );
   assert.match(
     readFileSync(
-      join(REPO, 'src/templates/python/.github/workflows/qa.yml'),
+      join(REPO, 'packages/templates/python/.github/workflows/qa.yml'),
       'utf8',
     ),
     /auth_state\.py/,
   );
   assert.match(
     readFileSync(
-      join(REPO, 'src/templates/python/.github/workflows/qa.yml'),
+      join(REPO, 'packages/templates/python/.github/workflows/qa.yml'),
       'utf8',
     ),
     /pip install --require-hashes -r requirements\.lock/u,
@@ -567,13 +615,13 @@ test('generated CI workflows expose safety and API gates', () => {
 });
 
 test('repository and template workflows pin runner images', () => {
-  const rootWorkflows = join(REPO, '../../.github/workflows');
+  const rootWorkflows = join(REPO, '.github/workflows');
   const workflowFiles = [
     ...readdirSync(rootWorkflows)
       .filter((name) => name.endsWith('.yml'))
       .map((name) => join(rootWorkflows, name)),
-    join(REPO, 'src/templates/typescript/.github/workflows/qa.yml'),
-    join(REPO, 'src/templates/python/.github/workflows/qa.yml'),
+    join(REPO, 'packages/templates/typescript/.github/workflows/qa.yml'),
+    join(REPO, 'packages/templates/python/.github/workflows/qa.yml'),
   ];
   for (const file of workflowFiles) {
     const workflow = readFileSync(file, 'utf8');
@@ -590,7 +638,7 @@ test('project uninstall preserves user changes and initialized documentation', a
   const base = createWorkspace();
   const environment = new StubEnvironment({
     root: join(base, 'environment'),
-    env: {},
+    env: { PATH: createToolPath(base) },
   });
   environment.state.stack = 'python';
   environment.save();
@@ -650,11 +698,11 @@ test('project uninstall preserves user changes and initialized documentation', a
   };
   assert.equal(
     marker.qa_template_version,
-    readFileSync(join(REPO, 'src/templates/qa/VERSION'), 'utf8').trim(),
+    readFileSync(join(REPO, 'packages/templates/qa/VERSION'), 'utf8').trim(),
   );
   assert.equal(
     marker.language_template_version,
-    readFileSync(join(REPO, 'src/templates/python/VERSION'), 'utf8').trim(),
+    readFileSync(join(REPO, 'packages/templates/python/VERSION'), 'utf8').trim(),
   );
   assert.ok(existsSync(join(target, 'requirements.in')));
   assert.ok(existsSync(join(target, 'scripts/check_lock.py')));
@@ -673,7 +721,8 @@ test('project uninstall preserves user changes and initialized documentation', a
   const custom = join(target, 'my-notes.md');
   writeFileSync(custom, 'retain', 'utf8');
   await projectUninstall(environment, { target });
-  assert.ok(!existsSync(join(target, '.venv')));
+  assert.equal(readFileSync(join(target, '.venv/owned.txt'), 'utf8'), 'dependency');
+  assert.ok(existsSync(join(target, '.qa-project.json')));
   assert.ok(!existsSync(join(target, 'requirements.in')));
   assert.ok(existsSync(join(target, 'requirements.lock')));
   assert.ok(existsSync(join(target, 'requirements.lock.meta.json')));
@@ -737,7 +786,7 @@ test('project initialization preserves unmanaged and modified Python locks', asy
   for (const mode of ['unmanaged', 'modified'] as const) {
     const base = createWorkspace();
     const managed = createEnvironment();
-    const environment = new StubEnvironment({ root: managed.root, env: {} });
+    const environment = new StubEnvironment({ root: managed.root, env: managed.environment });
     const target = join(base, mode);
     mkdirSync(target);
     const source = join(target, 'requirements.in');
@@ -810,7 +859,7 @@ test('project initialization refuses linked dependency directories', async () =>
     const base = createWorkspace();
     const environment = new StubEnvironment({
       root: join(base, 'environment'),
-      env: {},
+      env: { PATH: createToolPath(base) },
     });
     environment.save();
     const python = join(environment.root, 'runtime/python/python');
@@ -881,6 +930,9 @@ test('--root is accepted in options and remains untouched after run', () => {
     ]).language,
     'python',
   );
+  assert.equal(parseArgs(['project', 'plan', 'qa-project']).action, 'plan');
+  assert.throws(() => parseArgs(['env', 'plan']), /requires/);
+  assert.throws(() => parseArgs(['project', 'plan', 'qa-project', '--browser', 'chromium']), /Unknown option/);
   assert.equal(parseArgs([]).command, 'help');
   assert.throws(
     () => parseArgs(['env', 'init']),
@@ -913,6 +965,117 @@ test('--root is accepted in options and remains untouched after run', () => {
   );
 });
 
+test('external software uninstall requires an explicit supported operation', async () => {
+  const defaultArgs = parseArgs(['env', 'uninstall']);
+  assert.equal(defaultArgs.includeExternal, undefined);
+  const confirmed = parseArgs(['env', 'uninstall', '--include-external']);
+  assert.equal(confirmed.includeExternal, true);
+  assert.throws(() => parseArgs(['env', 'uninstall', '--include-external=false']), /Unknown option/);
+  assert.throws(() => parseArgs(['project', 'uninstall', 'project', '--include-external']), /Unknown option/);
+  assert.throws(() => parseArgs(['env', 'init', 'typescript', '--include-external']), /Unknown option/);
+});
+
+test('external uninstall requires explicit authorization and verifies npm package identity', async () => {
+  const base = createWorkspace();
+  const prefix = join(base, 'global');
+  const packageDir = process.platform === 'win32'
+    ? join(prefix, 'node_modules', '@playwright', 'cli')
+    : join(prefix, 'lib', 'node_modules', '@playwright', 'cli');
+  mkdirSync(packageDir, { recursive: true });
+  writeFileSync(join(packageDir, 'package.json'), JSON.stringify({ name: '@playwright/cli' }));
+  const executable = join(packageDir, 'cli.js');
+  writeFileSync(executable, '');
+  const calls: string[][] = [];
+  const messages: string[] = [];
+  const env = {
+    root: join(base, 'qa-root'),
+    mcpConfig: join(base, 'codex', 'config.toml'),
+    playwrightCliPackage: packageDir,
+    agentBrowserPackage: '',
+    listDiscoveredTools: () => [
+      { name: 'playwright-cli', path: executable, scope: 'system-or-user', source: 'unknown' },
+      { name: 'cc-switch', path: join(base, 'unknown'), scope: 'system-or-user', source: 'unknown' },
+      { name: 'owned', path: base, scope: 'system-or-user', source: 'qa' },
+    ],
+    npm: (args: string[]) => { calls.push(args); return prefix; },
+  } as unknown as Environment;
+  const interaction = { log: (message: string) => messages.push(message) };
+  assert.equal(await uninstallExternalTools(env, false, interaction), true);
+  assert.equal(calls.length, 0);
+  assert.ok(messages.some((message) => message.includes('cc-switch')));
+  assert.ok(!messages.some((message) => message.includes('owned:')));
+  assert.ok(messages.some((message) => message.includes('External software is preserved')));
+  assert.equal(await uninstallExternalTools(env, true, interaction), false);
+  assert.equal(calls.length, 0);
+  assert.ok(messages.some((message) => message.includes('cross-environment usage cannot be verified')));
+  assert.ok(existsSync(executable));
+});
+
+test('external npm package validation rejects linked packages and package roots outside the prefix', () => {
+  const base = createWorkspace();
+  const prefix = join(base, 'global');
+  const externalRoot = join(base, 'external');
+  const externalPackage = join(externalRoot, '@playwright', 'cli');
+  mkdirSync(externalPackage, { recursive: true });
+  writeFileSync(join(externalPackage, 'package.json'), JSON.stringify({ name: '@playwright/cli' }));
+  const executable = join(externalPackage, 'cli.js');
+  writeFileSync(executable, '');
+  const packageRoot = process.platform === 'win32'
+    ? join(prefix, 'node_modules')
+    : join(prefix, 'lib', 'node_modules');
+  const packageDir = join(packageRoot, '@playwright', 'cli');
+  mkdirSync(dirname(packageRoot), { recursive: true });
+  symlinkSync(externalRoot, packageRoot, process.platform === 'win32' ? 'junction' : 'dir');
+  const tool = { name: 'playwright-cli', path: executable, scope: 'system-or-user' as const, source: 'unknown' as const };
+  assert.equal(verifiedGlobalPackage(tool, '@playwright/cli', packageDir, prefix), false);
+
+  // A package link is also rejected when the package root itself stays in the prefix.
+  rmSync(packageRoot);
+  mkdirSync(dirname(packageDir), { recursive: true });
+  const internalPackage = join(packageRoot, 'linked-target');
+  mkdirSync(internalPackage);
+  writeFileSync(join(internalPackage, 'package.json'), JSON.stringify({ name: '@playwright/cli' }));
+  const internalExecutable = join(internalPackage, 'cli.js');
+  writeFileSync(internalExecutable, '');
+  symlinkSync(internalPackage, packageDir, process.platform === 'win32' ? 'junction' : 'dir');
+  assert.equal(verifiedGlobalPackage({ ...tool, path: internalExecutable }, '@playwright/cli', packageDir, prefix), false);
+});
+
+test('external uninstall preserves all software when another root owns an MCP lock', async () => {
+  const base = createWorkspace();
+  const prefix = join(base, 'global');
+  const packageDir = process.platform === 'win32'
+    ? join(prefix, 'node_modules', '@playwright', 'cli')
+    : join(prefix, 'lib', 'node_modules', '@playwright', 'cli');
+  mkdirSync(packageDir, { recursive: true });
+  writeFileSync(join(packageDir, 'package.json'), JSON.stringify({ name: '@playwright/cli' }));
+  const executable = join(packageDir, 'cli.js');
+  writeFileSync(executable, '');
+  const configDir = join(base, 'codex');
+  mkdirSync(configDir);
+  const root = join(base, 'qa-root');
+  const lockPath = join(configDir, 'qa-ai-playwright-mcp.lock.json');
+  writeFileSync(lockPath, JSON.stringify({ servers: { other: { root: join(base, 'other-root') } } }));
+  const calls: string[][] = [];
+  const messages: string[] = [];
+  const env = {
+    root,
+    mcpConfig: join(configDir, 'config.toml'),
+    playwrightCliPackage: packageDir,
+    agentBrowserPackage: '',
+    listDiscoveredTools: () => [
+      { name: 'playwright-cli', path: executable, scope: 'system-or-user', source: 'unknown' },
+      { name: 'cc-switch', path: join(base, 'cc-switch'), scope: 'system-or-user', source: 'unknown' },
+    ],
+    npm: (args: string[]) => { calls.push(args); return prefix; },
+  } as unknown as Environment;
+  const interaction = { log: (message: string) => messages.push(message) };
+  assert.equal(await uninstallExternalTools(env, true, interaction), false);
+  assert.deepEqual(calls, []);
+  assert.ok(messages.some((message) => message.includes('cross-environment usage cannot be verified')));
+  assert.ok(existsSync(executable));
+  assert.ok(existsSync(lockPath));
+});
 test('project commands require an initialized matching environment', async () => {
   const base = createWorkspace();
   const environment = new Environment({

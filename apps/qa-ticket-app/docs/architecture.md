@@ -11,7 +11,7 @@ qa-ticket-app/
 └── docs/             示例应用说明
 ```
 
-QA 文档位于 `../../../docs/examples/qa-ticket-app/`。
+QA 文档位于 `qa/`。
 TypeScript 与 Python 测试分别位于 `../../qa-ticket-app-suite-typescript/` 和 `../../qa-ticket-app-suite-python/`。
 
 ## 运行时

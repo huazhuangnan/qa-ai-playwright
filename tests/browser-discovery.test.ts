@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'bun:test';
 
-import { Environment } from '../packages/qa-ai-playwright/src/cli/environment.ts';
+import { Environment } from '../packages/qa-cli/cli/environment.ts';
 
 for (const layout of [
   'chrome-mac-x64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',

@@ -21,8 +21,8 @@
 <summary>Windows（PowerShell 7 优先，5.1 降级）</summary>
 
 ```powershell
-.\packages\qa-ai-playwright\src\bin\qa.cmd env init python
-.\packages\qa-ai-playwright\src\bin\qa.cmd env check python
+.\packages\qa-cli\bin\qa.cmd env init python
+.\packages\qa-cli\bin\qa.cmd env check python
 ```
 
 </details>
@@ -31,8 +31,8 @@
 <summary>macOS / Linux</summary>
 
 ```bash
-bash packages/qa-ai-playwright/src/bin/qa.sh env init python
-bash packages/qa-ai-playwright/src/bin/qa.sh env check python
+bash packages/qa-cli/bin/qa.sh env init python
+bash packages/qa-cli/bin/qa.sh env check python
 ```
 
 </details>
@@ -43,8 +43,8 @@ bash packages/qa-ai-playwright/src/bin/qa.sh env check python
 <summary>Windows（PowerShell 7 优先，5.1 降级）</summary>
 
 ```powershell
-.\packages\qa-ai-playwright\src\bin\qa.cmd project init .\workspaces\python-qa --language python --browser chromium
-.\packages\qa-ai-playwright\src\bin\qa.cmd project check .\workspaces\python-qa --browser chromium
+.\packages\qa-cli\bin\qa.cmd project init .\workspaces\python-qa --language python --browser chromium
+.\packages\qa-cli\bin\qa.cmd project check .\workspaces\python-qa --browser chromium
 ```
 
 </details>
@@ -53,8 +53,8 @@ bash packages/qa-ai-playwright/src/bin/qa.sh env check python
 <summary>macOS / Linux</summary>
 
 ```bash
-bash packages/qa-ai-playwright/src/bin/qa.sh project init ./workspaces/python-qa --language python --browser chromium
-bash packages/qa-ai-playwright/src/bin/qa.sh project check ./workspaces/python-qa --browser chromium
+bash packages/qa-cli/bin/qa.sh project init ./workspaces/python-qa --language python --browser chromium
+bash packages/qa-cli/bin/qa.sh project check ./workspaces/python-qa --browser chromium
 ```
 
 </details>

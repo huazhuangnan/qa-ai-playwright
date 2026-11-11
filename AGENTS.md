@@ -25,17 +25,17 @@
 
 ## 目录与生成文件
 
-- 使用 pnpm workspace。可运行应用放在 `apps/`，交付包放在 `packages/`。
+- 使用 pnpm workspace 管理示例应用。仓库根目录就是 `qa-ai-playwright` 项目，示例应用放在 `apps/`。
 - 根目录保留 workspace 配置、公共文档、维护测试和 CI。
 - 项目对外名称统一为 `QA + AI + Playwright`。
-- 交付包名为 `qa-ai-playwright`，根维护包名为 `qa-ai-playwright-workspace`。
-- CLI 启动器放 packages/qa-ai-playwright/src/bin/，不提供交互式双击入口。
-- 入口脚本只负责引导、参数转发和退出码处理：解释器选择、解析 `--root`、自举 Node、按退出码 20 删除环境目录。其余业务逻辑集中在 packages/qa-ai-playwright/src/。
+- 仓库根包名为 `qa-ai-playwright`。
+- CLI 启动器放 packages/qa-cli/bin/，不提供交互式双击入口。
+- 入口脚本只负责引导、参数转发和退出码处理：解释器选择、解析 `--root`、自举 Node、按退出码 20 报告环境目录已保留。其余业务逻辑集中在 packages/qa-cli/cli/。
 - 仓库自身的维护实现和测试统一使用 TypeScript。
 - Python 只用于 Python 项目模板、Python 示例 QA 项目和系统能力要求的场景。
 - 根目录提供 package.json、pnpm-lock.yaml 和 tsconfig.json。
 - 维护测试使用 Bun test，代码使用 TSDoc。
-- 程序入口、源码 Skills、交付模板和核心实现统一放在 packages/qa-ai-playwright/src/。
+- 程序入口、MCP、Skills、模板和应用资产分别放在 packages/qa-cli/、packages/mcp/、packages/skills/、packages/templates/ 和 packages/apps/。
 - 文档与测试放在项目根目录，与可交付程序资产分开。
 - Codex 已有的网页搜索、浏览器、文件读取、上下文压缩和文档生成能力不在仓库内重写。
 - 仓库通过 Skills、模板和路由告诉 AI 何时调用这些能力。
@@ -44,18 +44,18 @@
 - 上下文按索引、标题和相关章节逐级读取，确需完整文件时再读全文。
 - 仓库只保存自有 Skill，不保存外部 Skill 的内容。记录其上游来源和安装方式。
 - AI 按任务检查 QA、Bun、pnpm 和其他适用 Skill。会话、全局、环境与项目均不可用时，通过命令安装到业务项目。
-- MCP 来源固定分为 packages/qa-ai-playwright/src/mcp/builtin 和 packages/qa-ai-playwright/src/mcp/external。
-- 安装记录必须写入 scope。环境组件默认 scope 为 environment，按需 Skill 的 scope 为 project。
+- MCP 来源固定分为 packages/mcp/builtin 和 packages/mcp/external。
+- 安装记录必须写入 scope 和来源。系统级工具记录复用或由 QA 安装；按需 Skill 的 scope 为 project。
 - 更新外部 Skill 安装方式时同步核对上游版本、许可证、引用和 CI 预期。
-- 标准模式只安装 Microsoft Playwright CLI。
+- 标准模式检查并准备 Microsoft Playwright CLI。
 - full 模式增加 Agent Browser CLI 和 MCP。QA 与外部 Skill 均按任务安装。
-- 外部应用清单放 packages/qa-ai-playwright/src/apps，保留上游版本、提交、许可证、官方资产和 SHA256。
-- CC Switch 使用固定便携版，无论项目语言都随 env init 安装，安装不写注册表或系统应用目录。
+- 外部应用清单放 packages/apps，保留上游版本、提交、许可证、官方资产和 SHA256。
+- Codex、CC Switch、Bun、pnpm、Playwright CLI、MCP 和 Agent Browser 先检查系统或用户级安装；已有则复用，不覆盖。缺失才全局安装，并在执行安装命令前告知。
 - Agent Browser 复用 Playwright Chromium。socket、截图、下载和流程数据必须留在环境目录。
-- 标准模式注册 Playwright MCP。full 模式再注册 Agent Browser MCP。
-- MCP 必须写入环境内 `CODEX_HOME`，不得修改用户全局 Codex 配置。
-- 默认 MCP 使用固定版本和局部状态。版本、配置、检查与卸载逻辑必须同步。
-- 缓存、局部安装环境、依赖、报告、临时文件和凭证加入 .gitignore；生成项目的忽略规则限定根目录，不能误忽略 packages/qa-ai-playwright/src/skills/ 下的源码。
+- 启用 Codex 时注册内置 QA MCP。标准模式注册 Playwright MCP。full 模式再注册 Agent Browser MCP。
+- MCP 使用用户级 Codex 配置注册，版本、配置、检查与卸载逻辑必须同步。
+- MCP 使用实际安装版本和环境运行状态。安装来源、配置、检查与卸载逻辑必须同步。
+- 缓存、局部安装环境、依赖、报告、临时文件和凭证加入 .gitignore；生成项目的忽略规则限定根目录，不能误忽略 packages/skills/ 下的源码。
 - 本仓库安装和测试统一交给 GitHub Actions，不在维护者本机执行。
 - GitHub Actions 固定明确 runner 标签，不使用 `ubuntu-latest` 或 `macos-latest`。
 
@@ -94,7 +94,7 @@
 - 外部 Skill、MCP 和下载应用记录实际来源与版本，不虚构上游版本。
 - 项目清单记录 QA 文档模板版本和语言模板版本。
 - TypeScript 使用锁定依赖与 `pnpm-lock.yaml`。Python 使用带哈希的 `requirements.lock`。
-- `env init` 在 Node 安装完成后安装固定版本的 Bun 和 pnpm。
+- `env init` 复用已有 Bun 和 pnpm。缺失时安装指定版本，并记录实际使用的版本。
 - 生成项目的安装使用 `pnpm install --frozen-lockfile`。
 - 生成项目的脚本通过 Bun 执行。
 - 生成项目只保留可执行或可填写的模板，不复制重复的目录介绍 README。
@@ -126,10 +126,10 @@
 
 ## 示例应用与 QA 分离
 
-- 全栈示例应用放在 `apps/qa-ticket-app/`，只维护应用、迁移和运行说明。
+- 全栈示例应用放在 `apps/qa-ticket-app/`，维护应用、迁移、运行说明和共享资料。
 - TypeScript QA 项目放在 `apps/qa-ticket-app-suite-typescript/`。
 - Python QA 项目放在 `apps/qa-ticket-app-suite-python/`。
-- 两套项目共享 `docs/examples/qa-ticket-app/` 中的业务需求与 OpenAPI，各处只维护对应语言测试。
+- 业务需求、OpenAPI 和两套项目共享的测试设计放在 `apps/qa-ticket-app/`。各 QA 项目的任务、专属用例映射和执行报告放在各自的 `docs/qa/`。
 - QA 测试通过 HTTP 和浏览器访问示例应用，不导入服务端业务实现。
 - 交互验收、稳定 smoke 和自动回归分别组织，不把所有步骤做成固定菜单。
 

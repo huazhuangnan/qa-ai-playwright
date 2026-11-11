@@ -3,7 +3,7 @@
 ## 流程
 
 - 示例应用和 QA 测试分目录维护。
-- 共享 QA 文档位于 `../../docs/examples/qa-ticket-app/`。
+- 共享业务输入和测试设计位于 `docs/qa/`。各 QA 项目维护自己的执行报告。
 - TypeScript 自动化位于 `../qa-ticket-app-suite-typescript/`。
 - Python 自动化位于 `../qa-ticket-app-suite-python/`。
 - 需求或预期变化时，先更新 QA 文档，再修改实现。

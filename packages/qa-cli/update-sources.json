@@ -1,0 +1,13 @@
+{
+  "qa": { "repository": "", "ref": "" },
+  "sources": [
+    { "name": "bun", "type": "github-release", "target": "oven-sh/bun", "tagPrefix": "bun-v", "currentFrom": "runtime:QA_BUN_VERSION" },
+    { "name": "pnpm", "type": "npm", "target": "pnpm", "currentFrom": "runtime:QA_PNPM_VERSION" },
+    { "name": "uv", "type": "github-release", "target": "astral-sh/uv", "currentFrom": "runtime:QA_UV_VERSION" },
+    { "name": "playwright-cli", "type": "npm", "target": "@playwright/cli", "currentFrom": "runtime:QA_PLAYWRIGHT_CLI_VERSION" },
+    { "name": "playwright-mcp", "type": "npm", "target": "@playwright/mcp", "currentFrom": "mcp:playwright" },
+    { "name": "agent-browser-mcp", "type": "npm", "target": "agent-browser", "currentFrom": "mcp:agent-browser" },
+    { "name": "faker-mcp", "type": "npm", "target": "faker-mcp-server", "currentFrom": "mcp:faker" },
+    { "name": "cc-switch", "type": "github-release", "target": "farion1231/cc-switch", "currentFrom": "app:cc-switch" }
+  ]
+}

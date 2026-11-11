@@ -1,5 +1,5 @@
-name: Remove managed environment
-description: Remove only the marked local environment after the interpreter has exited.
+name: Clean up managed registrations
+description: Remove owned MCP registrations while preserving environment data.
 runs:
   using: composite
   steps:
@@ -7,12 +7,10 @@ runs:
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        & .\packages\qa-ai-playwright\src\bin\qa.cmd env uninstall
+        & .\packages\qa-cli\bin\qa.cmd env uninstall
         if ($LASTEXITCODE) { exit $LASTEXITCODE }
-        if (Test-Path -LiteralPath $env:QA_ROOT) { throw 'Environment not removed' }
     - name: Cleanup (Unix)
       if: runner.os != 'Windows'
       shell: bash
       run: |
-        bash packages/qa-ai-playwright/src/bin/qa.sh env uninstall
-        test ! -e "$QA_ROOT"
+        bash packages/qa-cli/bin/qa.sh env uninstall

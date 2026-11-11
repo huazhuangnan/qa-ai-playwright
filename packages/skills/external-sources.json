@@ -1,0 +1,50 @@
+[
+  {
+    "name": "playwright-cli",
+    "repository": "microsoft/playwright-cli",
+    "ref": "",
+    "path": "skills/playwright-cli",
+    "commit": "06b55b69f61b2b943ac88c95ebc94f942b1c3f4a",
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "agent-browser",
+    "repository": "vercel-labs/agent-browser",
+    "ref": "",
+    "path": "skills/agent-browser",
+    "commit": "f423bb090ccdcadd0de587dd77eed3430d93a306",
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "webapp-testing",
+    "repository": "anthropics/skills",
+    "ref": "",
+    "path": "skills/webapp-testing",
+    "commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "playwright-best-practices",
+    "repository": "currents-dev/playwright-best-practices-skill",
+    "ref": "",
+    "path": "playwright-best-practices",
+    "commit": "0b75b5835a87de1fdd202ba965f3bc5a27738fdf",
+    "license": "MIT"
+  },
+  {
+    "name": "bun-runtime",
+    "repository": "affaan-m/ECC",
+    "ref": "",
+    "path": "skills/bun-runtime",
+    "commit": "db7f2a6fd5b013d56ec0ba0cfc547ba77baddbce",
+    "license": "MIT"
+  },
+  {
+    "name": "pnpm",
+    "repository": "antfu/skills",
+    "ref": "",
+    "path": "skills/pnpm",
+    "commit": "5cae97ca87e0dcfb5a192cd2cbf8b83a9f769e8f",
+    "license": "MIT"
+  }
+]

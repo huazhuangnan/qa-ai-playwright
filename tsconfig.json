@@ -14,5 +14,5 @@
     "strict": true,
     "types": ["node", "bun"]
   },
-  "include": ["packages/qa-ai-playwright/src/qa-cli.ts", "packages/qa-ai-playwright/src/cli/**/*.ts", "tests/*.ts", "scripts/*.ts"]
+  "include": ["packages/qa-cli/qa-cli.ts", "packages/qa-cli/**/*.ts", "packages/mcp/builtin/**/*.ts", "tests/*.ts", "scripts/*.ts"]
 }

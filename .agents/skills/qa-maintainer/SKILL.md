@@ -12,16 +12,16 @@ metadata:
 ## 资产边界
 
 - 项目对外名称统一为 QA + AI + Playwright。
-- pnpm workspace 使用 apps/ 和 packages/。交付包根目录为 packages/qa-ai-playwright/。
+- pnpm workspace 管理 apps/ 中的示例项目。仓库根目录为 QA 项目根目录。
 - CLI 的 REPO 和 QA_REPO 指向交付包根目录。
 - npm 名称使用 qa-ai-playwright。
 - .agents/skills/ 只放维护本仓库的 Skills；它们不随 env init 交付。
-- packages/qa-ai-playwright/src/ 放程序入口、核心实现、运行时配置、用户 Skills 和交付模板。
-- packages/qa-ai-playwright/src/bin/ 只放跨平台命令行入口。
+- packages/ 放程序入口、核心实现、运行时配置、用户 Skills 和交付模板。
+- packages/qa-cli/bin/ 只放跨平台命令行入口。
 - 仓库自身维护实现和测试统一使用 TypeScript。
 - Python 用于 Python 项目模板、Python 示例 QA 和系统能力要求的场景。
 - 工单示例的 TypeScript 与 Python QA 分别位于 apps/qa-ticket-app-suite-typescript/ 和 apps/qa-ticket-app-suite-python/。
-- 两套工单 QA 共享 docs/examples/qa-ticket-app/ 下的需求、索引、计划和报告。
+- 工单应用维护共享业务输入和测试设计。各 QA 项目在自己的 docs/qa/ 下维护专属任务、用例映射和执行报告。
 - 根目录使用 package.json、pnpm-lock.yaml 和 tsconfig.json。
 - 维护测试使用 Bun test。TypeScript 使用 TSDoc。
 - Codex 已有的网页搜索、浏览器、文件读取、上下文压缩和文档生成能力不在仓库内重写。
@@ -31,32 +31,32 @@ metadata:
 - 上下文按索引、标题和相关章节逐级读取，确需完整文件时再读全文。
 - 资料归档或静态导出需要 qa-docs 时，按需检查并加载。
 - 不因链接处理新增爬虫、搜索服务、tokenizer 或静态站生成器。
-- packages/qa-ai-playwright/src/skills/builtin/ 放仓库自己创建和维护的 Skills。
+- packages/skills/builtin/ 放仓库自己创建和维护的 Skills。
 - 外部 Skill 不随仓库交付。AI 按 qa-core 规则检查并按需安装到业务项目。
-- packages/qa-ai-playwright/src/mcp/builtin/ 和 packages/qa-ai-playwright/src/mcp/external/ 分别保存自建和下载的 MCP 清单。
-- MCP 安装到隔离环境。QA 和外部 Skill 按任务检查，缺失时安装到业务项目。
-- 标准模式只安装 Playwright CLI 和 Playwright MCP。
+- packages/mcp/builtin/ 和 packages/mcp/external/ 分别保存自建和下载的 MCP 清单。
+- 软件和 MCP 优先复用系统或用户级安装。缺失时才全局安装，并在执行命令前提示。QA 和外部 Skill 按任务检查，缺失时安装到业务项目。
+- 标准模式安装 Playwright CLI 和 Playwright MCP。启用 Codex 时注册内置 QA MCP。
 - full 模式增加 Agent Browser CLI 和 Agent Browser MCP。qa-docs 按需安装。
-- 业务项目级配置放项目目录，全局用户配置由用户自行管理；CLI 不写全局。
-- `playwright-cli` 来自 Microsoft 官方仓库，默认与固定版本的 `@playwright/cli` 一起安装。
+- 业务项目级配置放项目目录。MCP 注册使用用户级 Codex 配置，保留用户已有配置。
+- `playwright-cli` 来自 Microsoft 官方仓库。已有时复用，缺失时安装清单版本。
 - `agent-browser` 来自 Vercel 官方仓库，仅 full 模式安装。
 - 外部 Skill 来源、固定提交和安装命令保存在 qa-core 的引用文件中。
-- packages/qa-ai-playwright/src/apps/ 保存官方桌面应用清单、许可证和固定资产哈希。
-- CC Switch v4.0.28 使用 portable 资产，随所有语言方案安装。
+- packages/apps/ 保存官方桌面应用清单、许可证和固定资产哈希。
+- CC Switch 优先复用已有安装。缺失时使用清单中的官方资产安装到用户级共享目录。
 - Agent Browser 复用 Playwright Chromium，不另建用户级浏览器缓存。
-- 默认 Codex 环境安装固定版本的 `@playwright/mcp`。
-- MCP server 默认是 `playwright`，full 模式增加 `agent-browser`。
-- 两个 MCP 使用局部 Chromium。浏览器、输出和配置均限制在环境根目录。
+- 默认使用已有 `@playwright/mcp`，缺失时安装清单版本。
+- 启用 Codex 时默认注册 `qa`。标准模式注册 `playwright`，full 模式增加 `agent-browser`。
+- 浏览器和运行输出保持在环境根目录。MCP 程序和注册可跨环境复用。
 - qa-core 路由到职责及语言适配。跨作用域按名称重新定位 QA Skill，不假设同级目录。
 - 公共规则集中在 qa-core/references/common-workflow.md。
 - qa-business-guide 负责解释陌生业务和指导下一步操作。
 - 包不能依赖维护人员的私有路径。
 - QA Skill 按名称在会话、项目、环境和全局中查找。跨作用域引用按名称重新定位。
-- packages/qa-ai-playwright/src/templates/python、packages/qa-ai-playwright/src/templates/typescript 放运行器项目。
-- packages/qa-ai-playwright/src/templates/qa 放复制到项目 docs/qa 的工作模板。输入、AI 任务和生成文档分别位于 inputs/、tasks/、generated/。
-- packages/qa-ai-playwright/src/templates/qa/VERSION 与 CHANGELOG.md 管理模板版本。项目初始化记录实际使用的 qa_template_version。
-- QA Skill 缺失时从 packages/qa-ai-playwright/src/skills/builtin/ 安装到业务项目。保留旧环境内容和锁记录。
-- CLI 不使用交互提示或菜单。环境与项目命令使用位置参数，缺少输入时直接失败。
+- packages/templates/python、packages/templates/typescript 放运行器项目。
+- packages/templates/qa 放复制到项目 docs/qa 的工作模板。输入、AI 任务和生成文档分别位于 inputs/、tasks/、generated/。
+- packages/templates/qa/VERSION 与 CHANGELOG.md 管理模板版本。项目初始化记录实际使用的 qa_template_version。
+- QA Skill 缺失时从 packages/skills/builtin/ 安装到业务项目。保留旧环境内容和锁记录。
+- CLI 不使用交互菜单。环境与项目命令使用位置参数。卸载非 QA 安装的软件前必须明确征得用户同意。
 - project 命令执行前检查环境已初始化且语言匹配。
 - 更新外部 Skill 安装方式时同步核对上游提交、许可证和安装锁定文件。
 - 更新 MCP 时同步 `QA_PLAYWRIGHT_MCP_VERSION`、安装配置、CI 断言和文档。
@@ -72,7 +72,7 @@ metadata:
 - API 测试使用显式门禁。CI 归档证据并限制权限、超时和并发。
 - 生成项目 CI 分离 PR 快速验证与夜间或手动完整矩阵。
 - 测试用 smoke、regression、contract、integration 标签区分执行范围。
-- 仓库根目录的 .gitignore 只按根目录限定生成环境和示例项目，并全局忽略依赖、缓存、报告、凭证和临时文件；不能用宽泛的目录名误忽略 packages/qa-ai-playwright/src/skills/ 源码或模板。
+- 仓库根目录的 .gitignore 只按根目录限定生成环境和示例项目，并全局忽略依赖、缓存、报告、凭证和临时文件；不能用宽泛的目录名误忽略 packages/skills/ 源码或模板。
 
 ## 版本与验证
 

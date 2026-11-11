@@ -1,0 +1,54 @@
+name: Component update checks
+on:
+  push:
+    paths:
+      - 'packages/qa-cli/update-sources.json'
+      - 'packages/qa-cli/runtime-versions.env'
+      - 'package.json'
+      - 'packages/mcp/**'
+      - 'packages/apps/**'
+      - 'packages/skills/external-sources.json'
+      - 'packages/skills/builtin/**'
+      - 'packages/qa-cli/**'
+      - 'packages/qa-cli/qa-cli.ts'
+      - 'packages/qa-cli/bin/**'
+      - 'tests/skill-updates.test.ts'
+      - 'tests/update-check.test.ts'
+      - '.github/actions/bootstrap/action.yml'
+      - '.github/workflows/skill-updates.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: component-update-checks
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      QA_ROOT: ${{ github.workspace }}/workspaces/skill-update-check
+      GITHUB_TOKEN: ${{ github.token }}
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/bootstrap
+        with:
+          stack: typescript
+          skills: 'false'
+      - name: Check component update sources
+        shell: bash
+        run: |
+          set -o pipefail
+          bash packages/qa-cli/bin/qa.sh run bun packages/qa-cli/qa-cli.ts update check | tee skill-updates.txt
+      - name: Publish check results
+        if: always()
+        shell: bash
+        run: |
+          if [ -f skill-updates.txt ]; then
+            printf '## Component update checks\n\n```text\n' >> "$GITHUB_STEP_SUMMARY"
+            cat skill-updates.txt >> "$GITHUB_STEP_SUMMARY"
+            printf '\n```\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: ./.github/actions/cleanup
+        if: always()

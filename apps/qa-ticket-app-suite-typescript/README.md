@@ -6,14 +6,14 @@
 
 ## 文档
 
-共享文档位于 `../../docs/examples/qa-ticket-app/`：
+共享资料位于 `../qa-ticket-app/docs/qa/`。本项目的任务和历史报告位于 `docs/qa/`：
 
-1. [需求输入](../../docs/examples/qa-ticket-app/inputs/requirements.md)
-2. [交互任务](../../docs/examples/qa-ticket-app/tasks/interactive-demo.md)
-3. [测试计划](../../docs/examples/qa-ticket-app/generated/test-plan.md)
-4. [测试用例](../../docs/examples/qa-ticket-app/generated/test-cases.md)
-5. [执行报告](../../docs/examples/qa-ticket-app/generated/execution-report.md)
-6. [缺陷报告](../../docs/examples/qa-ticket-app/generated/defect.md)
+1. [需求输入](../qa-ticket-app/docs/qa/inputs/requirements.md)
+2. [交互任务](docs/qa/tasks/interactive-demo.md)
+3. [测试计划](../qa-ticket-app/docs/qa/generated/test-plan.md)
+4. [测试用例](../qa-ticket-app/docs/qa/generated/test-cases.md)及[自动化映射](docs/qa/generated/test-mapping.md)
+5. [执行报告](docs/qa/generated/execution-report.md)
+6. [缺陷报告](docs/qa/generated/defect.md)
 
 ## 执行
 

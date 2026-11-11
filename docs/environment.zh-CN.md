@@ -1,6 +1,7 @@
 # 环境初始化
 
-本页说明运行时、项目生成、目录和卸载。
+本页说明环境与项目的初始化、检查、目录和卸载。
+工具优先复用系统或用户级安装。环境目录保存环境状态、缓存和运行输出。MCP 注册使用用户级 Codex 配置。
 测试代码与报告命令见对应的 [TypeScript](typescript.zh-CN.md) 和 [Python](python.zh-CN.md) 指南。
 
 ## Windows
@@ -19,7 +20,7 @@ Windows 的启动顺序如下：
 - macOS 14 Sonoma 或更高。
 - Debian 12/13 或 Ubuntu 22.04/24.04/26.04。
 - x86-64 或 arm64。
-- 首次安装需要访问 Node、Bun、pnpm、Python 包和浏览器下载域名。
+- 首次安装需要访问 Node、共享工具包、Python 包和浏览器下载域名。
 
 Linux/macOS 的引导脚本需要 Bash、tar、gzip、curl 或 wget、SHA256 工具。
 不支持 musl/Alpine。
@@ -29,30 +30,37 @@ Linux/macOS 的引导脚本需要 Bash、tar、gzip、curl 或 wget、SHA256 工
 
 | 阶段 | 命令 | 结果 |
 | --- | --- | --- |
-| 环境 | `env init <语言>` | Node、Bun、pnpm、Codex、Playwright MCP、CC Switch 和缓存 |
+| 环境 | `env init <语言>` | 共享工具检查、QA MCP、环境状态、缓存和输出 |
 | 检查 | `env check <语言>` | 检查版本、核心组件和 CC Switch |
 | 项目 | `project init <目录> --language <语言>` | 模板、依赖和浏览器 |
-| 测试 | `project check <目录>` | 功能和浏览器自检 |
+| 检查 | `project check <目录>` | 项目依赖锁、测试和浏览器检查 |
 
 以下命令在仓库根目录执行。
 
 ```powershell
-.\packages\qa-ai-playwright\src\bin\qa.cmd env init typescript
-.\packages\qa-ai-playwright\src\bin\qa.cmd env check typescript
-.\packages\qa-ai-playwright\src\bin\qa.cmd project init .\workspaces\my-qa --language typescript
-.\packages\qa-ai-playwright\src\bin\qa.cmd project check .\workspaces\my-qa
+.\packages\qa-cli\bin\qa.cmd env init typescript
+.\packages\qa-cli\bin\qa.cmd env check typescript
+.\packages\qa-cli\bin\qa.cmd project init .\workspaces\my-qa --language typescript
+.\packages\qa-cli\bin\qa.cmd project check .\workspaces\my-qa
 ```
 
 ```bash
-bash packages/qa-ai-playwright/src/bin/qa.sh env init python
-bash packages/qa-ai-playwright/src/bin/qa.sh env check python
-bash packages/qa-ai-playwright/src/bin/qa.sh project init ./workspaces/python-qa --language python
-bash packages/qa-ai-playwright/src/bin/qa.sh project check ./workspaces/python-qa
+bash packages/qa-cli/bin/qa.sh env init python
+bash packages/qa-cli/bin/qa.sh env check python
+bash packages/qa-cli/bin/qa.sh project init ./workspaces/python-qa --language python
+bash packages/qa-cli/bin/qa.sh project check ./workspaces/python-qa
 ```
 
 `project` 要求先完成对应语言的 `env init`。
-`env init` 使用环境内 Node 安装固定版本的 Bun 和 pnpm。
+`env init` 优先复用系统或用户级工具。缺失时，按组件安装到共享位置或环境目录。安装前输出将执行的命令。
 扩展包使用 `env init <语言> --full`。
+
+### 使用 Codex 准备环境
+
+执行测试前，Codex 应先确认项目语言、环境根目录和所需组件，再使用 QA MCP 或 CLI 检查环境。
+环境缺失或语言不匹配时，使用交付包启动器和相同根目录执行对应语言的 `env init`。安装缺失的共享工具前应告知用户。
+初始化后再次执行相同条件的 `env check`。检查通过后再继续依赖该环境的测试。
+找不到启动器、缺少必要参数或初始化失败时，报告原因，不声称安装或测试通过。
 
 ### 命令输出示例
 
@@ -64,9 +72,23 @@ Project ready: ［项目目录］. QA templates: ［版本］. Language template
 ```
 
 `env check` 输出运行时信息，并在末尾输出包含 `root`、`missing` 和 `versions` 的 JSON 对象。
-`missing` 为空表示所选环境组件检查通过，不代表业务测试通过。检查会验证固定版本、启动器和实际 JavaScript 入口。命令成功返回 0，存在缺失项返回 1。
+`missing` 为空表示所选环境组件检查通过，不代表业务测试通过。检查会验证可用程序、实际版本和所需入口。命令成功返回 0，存在缺失项返回 1。
 重复初始化时，`KEEP` 表示保留已有项目文件。
 测试结果与证据位置见[从需求到执行](qa-workflow.zh-CN.md#可观察的执行示例)。
+
+## 生命周期管理
+
+以下是当前支持的操作。使用相同的 `--root` 定位环境。项目命令要求环境已经初始化，且语言与项目匹配。
+
+- `env init <语言>`：准备所选环境，复用已发现的工具并安装缺失组件。重新执行可补齐缺失项并更新环境状态。它不是通用升级或回滚命令。
+- `env check <语言>`：只读检查所选环境的组件、版本和配置。它不自动安装、升级或删除组件。检查时使用与初始化一致的语言和选项。
+- `project init <目录> --language <语言>`：创建或重新初始化项目，准备模板、依赖和所选浏览器。已有项目文件会保留。重新初始化不等同于模板升级。
+- `project check <目录>`：检查项目依赖锁并运行项目测试，包括浏览器检查。TypeScript 项目还会进行类型检查。此命令会运行测试，并非只读的环境检查。
+- `project uninstall <目录>`：删除项目记录中的未修改模板文件。保留修改过的文件、未跟踪文件和依赖目录。存在受管保留项时保留项目记录，方便再次执行。
+- `env uninstall`：清理当前环境拥有且可安全识别的 MCP 注册。环境目录及其中的数据默认保留。外部软件的处理见下方卸载说明。
+
+`project plan <目录>` 只读比较受管文件记录、当前项目文件和交付模板。计划列出可更新、已修改、缺失、新增、已移除和未知文件。它不会写入项目。Python 初始化生成的 `requirements.lock` 和元数据尚未包含在计划中，需要另行检查。
+目前没有独立的环境或项目 `upgrade`、`repair`、`rollback` 命令。计划不执行模板升级。重新执行初始化只能用于现有的补齐行为，不能保证迁移、快照或失败回滚。
 
 ## 参数
 
@@ -78,13 +100,13 @@ Project ready: ［项目目录］. QA templates: ［版本］. Language template
 | `--language python/typescript` | 选择新项目语言 |
 | `--browser chromium/firefox/webkit/all/none` | 选择项目浏览器 |
 | `--skip-codex` | 不安装 Codex 和声明需要 Codex 的 MCP |
-| `--skip-skills` | 跳过 Playwright CLI、浏览器辅助 CLI 和 MCP；不影响 Skill 按需检查 |
+| `--skip-skills` | 跳过 Playwright CLI、浏览器辅助 CLI 和浏览器 MCP；不影响 QA MCP 和 Skill 按需检查 |
 | `--with-deps` | Linux 安装浏览器系统库 |
 
 `--language` 也可写作 `--语言`。
 `--skip-skills` 不会跳过 CC Switch。
 
-环境初始化使用固定的运行时和工具版本。
+环境初始化复用已有工具版本。缺失时使用配置中的版本安装。
 CI 的 `latest` 对应当前默认版本，`compatible` 对应仍需支持的兼容版本。
 `--full` 只在需要 Agent Browser CLI 或 Agent Browser MCP 时使用。
 版本变化、安装逻辑变化或平台变化会触发对应 CI 验证。
@@ -138,14 +160,15 @@ CI 的 `latest` 对应当前默认版本，`compatible` 对应仍需支持的兼
 
 | 路径 | 内容 |
 | --- | --- |
-| `<root>/runtime/` | Python 和 Node |
-| `<root>/tools/npm/` | Codex、Bun、pnpm 和下载的浏览器 CLI |
-| `<root>/tools/cc-switch/` | 固定版本 CC Switch 桌面程序 |
+| `<root>/runtime/` | 旧环境运行时或项目状态 |
+| 用户级 `CODEX_HOME` | Codex 配置、MCP 注册和 MCP 锁记录 |
+| npm 全局前缀 | 缺失时安装的 Codex、Bun、pnpm、Playwright CLI、Playwright MCP 和 Agent Browser |
+| 用户级共享目录 | 缺失时安装的 Node 和 CC Switch |
 | `<root>/bin/cc-switch` | CC Switch 启动包装器 |
 | `<root>/codex/skills/` | 旧环境可能保留的 Skills |
-| `<root>/codex/config.toml` | 环境级 MCP 配置 |
 | `<root>/cache/` | npm、pnpm、Bun、pip、uv 和浏览器缓存 |
-| `<root>/state.json` | 实际安装版本 |
+| `<root>/state.json` | 实际复用或安装的工具路径和版本 |
+| `<root>/mcp-output/` | Playwright MCP 输出 |
 | `<root>/activate.ps1` / `activate.sh` | 当前 shell 的激活文件 |
 
 激活 PowerShell 7 或 Windows PowerShell 5.1：
@@ -163,29 +186,31 @@ source .qa-env/activate.sh
 启动 CC Switch：
 
 ```powershell
-.\packages\qa-ai-playwright\src\bin\qa.cmd run cc-switch
+.\packages\qa-cli\bin\qa.cmd run cc-switch
 ```
 
-程序文件只写入环境目录。
+程序优先复用系统或用户级安装。缺失时，按组件安装到 npm 全局前缀、用户级共享目录或环境目录。多个 QA 环境可复用共享工具。
 运行后，CC Switch 仍按上游设计使用用户主目录的 `~/.cc-switch` 数据目录。
-安装器只处理环境内文件。
+CC Switch 共享应用不会随环境卸载。
 
 ## 卸载
 
 ```powershell
-.\packages\qa-ai-playwright\src\bin\qa.cmd project uninstall .\workspaces\my-qa
-.\packages\qa-ai-playwright\src\bin\qa.cmd env uninstall
+.\packages\qa-cli\bin\qa.cmd project uninstall .\workspaces\my-qa
+.\packages\qa-cli\bin\qa.cmd env uninstall
 ```
 
 执行前会校验所有权和路径边界。
-项目卸载删除受管理依赖和未修改模板，保留用户修改与未跟踪文件。
-环境卸载删除环境内的运行时、缓存、Skills、MCP 配置和本地 Codex 登录状态。
+项目卸载删除未修改模板，保留 `.venv`、`node_modules`、用户修改与未跟踪文件。确认依赖目录无需保留后，可自行删除。
+环境卸载保留环境目录、初始化标记及其中的数据。它只清理可确认属于该环境的 MCP 注册。确认目录无需保留后，可自行删除。
+环境卸载默认保留发现的非 QA 安装软件，不进行交互询问。
+`env uninstall --include-external` 当前会拒绝执行。现有记录不能证明外部软件未被其他环境使用。请使用软件原有的安装工具自行管理。
 
 ## 故障排查
 
 | 现象 | 处理 |
 | --- | --- |
-| PowerShell 策略阻止脚本 | 使用 `packages/qa-ai-playwright/src/bin/qa.cmd`，它只为该进程设置 Bypass |
+| PowerShell 策略阻止脚本 | 使用 `packages/qa-cli/bin/qa.cmd`，它只为该进程设置 Bypass |
 | 下载失败 | 检查代理、受信证书、磁盘和报错域名 |
 | Node 自举提示 release file was not found | 确认 `SHASUMS256.txt` 含目标平台的 `.tar.gz` 包；脚本按文件后缀匹配 |
 | Windows 提示 Bun 或 pnpm missing | 重新执行 `env init`；Bun 使用 `bun.exe`，pnpm 安装脚本单独放行 |

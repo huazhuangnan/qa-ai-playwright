@@ -9,10 +9,11 @@
 
 | 输入 | 位置 |
 | --- | --- |
-| 输入索引 | [`input-index.md`](../../docs/examples/qa-ticket-app/inputs/input-index.md) |
-| 产品需求 | [`requirements.md`](../../docs/examples/qa-ticket-app/inputs/requirements.md) |
-| 测试计划 | [`test-plan.md`](../../docs/examples/qa-ticket-app/generated/test-plan.md) |
-| 测试用例 | [`test-cases.md`](../../docs/examples/qa-ticket-app/generated/test-cases.md) |
+| 输入索引 | [`input-index.md`](../qa-ticket-app/docs/qa/inputs/input-index.md) |
+| 产品需求 | [`requirements.md`](../qa-ticket-app/docs/qa/inputs/requirements.md) |
+| 测试计划 | [`test-plan.md`](../qa-ticket-app/docs/qa/generated/test-plan.md) |
+| 测试用例 | [`test-cases.md`](../qa-ticket-app/docs/qa/generated/test-cases.md) |
+| 自动化映射 | [test-mapping.md](docs/qa/generated/test-mapping.md) |
 | OpenAPI | [`openapi.json`](../qa-ticket-app/src/server/openapi.json) |
 
 ## 准备

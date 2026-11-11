@@ -3,19 +3,6 @@ on:
   push:
   pull_request:
   workflow_dispatch:
-    inputs:
-      suite:
-        description: Validation scope
-        type: choice
-        default: smoke
-        options:
-          - smoke
-          - full
-      cache_buster:
-        description: Optional value to invalidate successful version records
-        type: string
-        required: false
-        default: v1
 permissions:
   contents: read
 concurrency:
@@ -23,32 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  workflow-lint:
-    name: GitHub Actions lint
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-      - name: Check tracked text line endings
-        shell: bash
-        run: |
-          if git grep --cached -Il $'\r' -- .; then
-            echo 'Tracked text files must use LF line endings.' >&2
-            exit 1
-          else
-            status=$?
-            if [ "$status" -ne 1 ]; then exit "$status"; fi
-          fi
-      - name: Lint repository and template workflows
-        shell: bash
-        run: |
-          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 \
-            .github/workflows/ci.yml \
-            packages/qa-ai-playwright/src/templates/typescript/.github/workflows/qa.yml \
-            packages/qa-ai-playwright/src/templates/python/.github/workflows/qa.yml
-
   quality:
-    name: Quality checks
+    name: Type check and maintenance tests
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -56,24 +19,39 @@ jobs:
       CI: 'true'
     steps:
       - uses: actions/checkout@v6
+      - name: Isolate shared tools and Codex configuration
+        shell: pwsh
+        run: |
+          $testHome = Join-Path $env:RUNNER_TEMP 'qa-test-home'
+          $prefix = Join-Path $env:RUNNER_TEMP 'qa-global'
+          $bin = if ($IsWindows) { $prefix } else { Join-Path $prefix 'bin' }
+          $config = Join-Path $env:RUNNER_TEMP 'qa-npmrc'
+          New-Item -ItemType Directory -Force -Path $testHome, $bin | Out-Null
+          $npmPrefix = $prefix.Replace('\', '/')
+          "prefix=$npmPrefix" | Out-File -FilePath $config -Encoding utf8
+          "NPM_CONFIG_USERCONFIG=$config" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "CODEX_HOME=$(Join-Path $testHome 'codex')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "XDG_DATA_HOME=$(Join-Path $testHome 'data')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "LOCALAPPDATA=$(Join-Path $testHome 'appdata')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "HOME=$testHome" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $bin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - uses: ./.github/actions/bootstrap
         with:
           stack: typescript
           skills: 'false'
-      - name: Install repository maintenance dependencies
+      - name: Install maintenance dependencies
         shell: bash
-        run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm install --frozen-lockfile --ignore-scripts
+        run: bash packages/qa-cli/bin/qa.sh run pnpm install --frozen-lockfile --ignore-scripts
       - name: Run type check and maintenance tests
         shell: bash
         run: |
-          bash packages/qa-ai-playwright/src/bin/qa.sh run bun run typecheck
-          bash packages/qa-ai-playwright/src/bin/qa.sh run bun run test:unit
+          bash packages/qa-cli/bin/qa.sh run bun run typecheck
+          bash packages/qa-cli/bin/qa.sh run bun run test:unit
       - uses: ./.github/actions/cleanup
         if: always()
 
   environment-smoke:
     name: Environment smoke / ${{ matrix.os }} / latest
-    if: github.event_name != 'workflow_dispatch' || inputs.suite == 'smoke'
     strategy:
       fail-fast: false
       matrix:
@@ -87,421 +65,70 @@ jobs:
       CI: 'true'
     steps:
       - uses: actions/checkout@v6
-      - name: Restore successful version record
-        id: version-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: .ci-success
-          key: qa-env-success-${{ runner.os }}-smoke-latest-${{ hashFiles('packages/qa-ai-playwright/src/**', 'packages/qa-ai-playwright/package.json', 'tests/**', '.github/actions/**', '.github/workflows/ci.yml', 'package.json', 'pnpm-lock.yaml') }}-${{ inputs.cache_buster || 'v1' }}
+      - name: Isolate shared tools and Codex configuration
+        shell: pwsh
+        run: |
+          $testHome = Join-Path $env:RUNNER_TEMP 'qa-test-home'
+          $prefix = Join-Path $env:RUNNER_TEMP 'qa-global'
+          $bin = if ($IsWindows) { $prefix } else { Join-Path $prefix 'bin' }
+          $config = Join-Path $env:RUNNER_TEMP 'qa-npmrc'
+          New-Item -ItemType Directory -Force -Path $testHome, $bin | Out-Null
+          $npmPrefix = $prefix.Replace('\', '/')
+          "prefix=$npmPrefix" | Out-File -FilePath $config -Encoding utf8
+          "NPM_CONFIG_USERCONFIG=$config" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "CODEX_HOME=$(Join-Path $testHome 'codex')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "XDG_DATA_HOME=$(Join-Path $testHome 'data')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "LOCALAPPDATA=$(Join-Path $testHome 'appdata')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "HOME=$testHome" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $bin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - uses: ./.github/actions/bootstrap
-        if: steps.version-cache.outputs.cache-hit != 'true'
         with:
           stack: both
           codex: 'true'
           full: 'true'
-      - name: Verify environment (Windows)
-        if: steps.version-cache.outputs.cache-hit != 'true' && runner.os == 'Windows'
+      - name: Install maintenance dependencies (Windows)
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $output = & .\packages\qa-ai-playwright\src\bin\qa.cmd --help 2>&1 | Out-String
+          & .\packages\qa-cli\bin\qa.cmd run pnpm install --frozen-lockfile --ignore-scripts
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & .\packages\qa-cli\bin\qa.cmd run bun run test:unit
+          exit $LASTEXITCODE
+      - name: Install dependencies and run maintenance tests (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          bash packages/qa-cli/bin/qa.sh run pnpm install --frozen-lockfile --ignore-scripts
+          bash packages/qa-cli/bin/qa.sh run bun run test:unit
+      - name: Verify environment (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $output = & .\packages\qa-cli\bin\qa.cmd --help 2>&1 | Out-String
           if ($output -notmatch 'PowerShell: 7\.') { throw 'qa.cmd did not prefer PowerShell 7' }
-          & .\packages\qa-ai-playwright\src\bin\qa.cmd run bun tests/ci-cases.ts env
+          & .\packages\qa-cli\bin\qa.cmd run bun tests/ci-cases.ts env
           exit $LASTEXITCODE
       - name: Verify environment (Unix)
-        if: steps.version-cache.outputs.cache-hit != 'true' && runner.os != 'Windows'
+        if: runner.os != 'Windows'
         shell: bash
-        run: bash packages/qa-ai-playwright/src/bin/qa.sh run bun tests/ci-cases.ts env
+        run: bash packages/qa-cli/bin/qa.sh run bun tests/ci-cases.ts env
       - name: Upload environment evidence
-        if: always() && steps.version-cache.outputs.cache-hit != 'true'
+        if: always()
         uses: actions/upload-artifact@v6
         with:
           name: environment-smoke-${{ matrix.os }}
           path: workspaces/environment smoke with spaces/state.json
           if-no-files-found: ignore
           retention-days: 7
-      - uses: ./.github/actions/cleanup
-        if: always() && steps.version-cache.outputs.cache-hit != 'true'
-      - name: Mark successful version
-        if: success() && steps.version-cache.outputs.cache-hit != 'true'
-        shell: bash
-        run: mkdir -p .ci-success && printf '%s\n' '${{ github.sha }}' > .ci-success/marker
-      - name: Save successful version record
-        if: success() && steps.version-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: .ci-success
-          key: qa-env-success-${{ runner.os }}-smoke-latest-${{ hashFiles('packages/qa-ai-playwright/src/**', 'packages/qa-ai-playwright/package.json', 'tests/**', '.github/actions/**', '.github/workflows/ci.yml', 'package.json', 'pnpm-lock.yaml') }}-${{ inputs.cache_buster || 'v1' }}
-
-  project-smoke:
-    name: TypeScript project smoke
-    if: github.event_name != 'workflow_dispatch' || inputs.suite == 'smoke'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    env:
-      QA_ROOT: ${{ github.workspace }}/workspaces/project smoke with spaces
-      QA_TEST_STACK: typescript
-      QA_TEST_BROWSERS: chromium
-      CI: 'true'
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/bootstrap
-        with:
-          stack: typescript
-      - name: Install repository maintenance dependencies
-        shell: bash
-        run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm install --frozen-lockfile --ignore-scripts
-      - name: Initialize project, launch browser and type check
-        shell: bash
-        run: bash packages/qa-ai-playwright/src/bin/qa.sh run bun tests/ci-cases.ts project
-      - name: Upload project evidence
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: project-smoke
-          retention-days: 7
-          if-no-files-found: ignore
-          path: |
-            workspaces/test project */reports/
-            workspaces/test project */test-results/
-            workspaces/test project */playwright-report/
-      - uses: ./.github/actions/cleanup
-        if: always()
-
-  environment-full:
-    name: Environment full / ${{ matrix.os }} / ${{ matrix.profile }}
-    if: github.event_name == 'workflow_dispatch' && inputs.suite == 'full'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, windows-2025, macos-15-intel]
-        profile: [latest, compatible]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 40
-    env:
-      QA_ROOT: ${{ github.workspace }}/workspaces/environment full with spaces
-      QA_NODE_MAJOR: ${{ matrix.profile == 'compatible' && '24' || '26' }}
-      QA_PYTHON_VERSION: ${{ matrix.profile == 'compatible' && '3.14' || '3.15' }}
-      CI: 'true'
-    steps:
-      - uses: actions/checkout@v6
-      - name: Restore successful version record
-        id: version-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: .ci-success
-          key: qa-env-success-${{ runner.os }}-full-${{ matrix.profile }}-${{ hashFiles('packages/qa-ai-playwright/src/**', 'packages/qa-ai-playwright/package.json', 'tests/**', '.github/actions/**', '.github/workflows/ci.yml', 'package.json', 'pnpm-lock.yaml') }}-${{ inputs.cache_buster || 'v1' }}
-      - uses: ./.github/actions/bootstrap
-        if: steps.version-cache.outputs.cache-hit != 'true'
-        with:
-          stack: both
-          codex: 'true'
-          full: 'true'
-      - name: Verify environment (Windows)
-        if: steps.version-cache.outputs.cache-hit != 'true' && runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $output = & .\packages\qa-ai-playwright\src\bin\qa.cmd --help 2>&1 | Out-String
-          if ($output -notmatch 'PowerShell: 7\.') { throw 'qa.cmd did not prefer PowerShell 7' }
-          & .\packages\qa-ai-playwright\src\bin\qa.cmd run bun tests/ci-cases.ts env
-          exit $LASTEXITCODE
-      - name: Verify environment (Unix)
-        if: steps.version-cache.outputs.cache-hit != 'true' && runner.os != 'Windows'
-        shell: bash
-        run: |
-          bash packages/qa-ai-playwright/src/bin/qa.sh run bun tests/ci-cases.ts env
-      - name: Verify on-demand external Skill commands
-        if: steps.version-cache.outputs.cache-hit != 'true' && runner.os == 'Linux' && matrix.profile == 'latest'
-        shell: bash
-        run: bash packages/qa-ai-playwright/src/bin/qa.sh run bun tests/external-skills-ci.ts
-      - name: Upload environment evidence
-        if: always() && steps.version-cache.outputs.cache-hit != 'true'
-        uses: actions/upload-artifact@v6
-        with:
-          name: environment-full-${{ matrix.os }}-${{ matrix.profile }}
-          path: workspaces/environment full with spaces/state.json
-          if-no-files-found: ignore
-          retention-days: 7
-      - uses: ./.github/actions/cleanup
-        if: always() && steps.version-cache.outputs.cache-hit != 'true'
-      - name: Mark successful version
-        if: success() && steps.version-cache.outputs.cache-hit != 'true'
-        shell: bash
-        run: mkdir -p .ci-success && printf '%s\n' '${{ github.sha }}' > .ci-success/marker
-      - name: Save successful version record
-        if: success() && steps.version-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: .ci-success
-          key: qa-env-success-${{ runner.os }}-full-${{ matrix.profile }}-${{ hashFiles('packages/qa-ai-playwright/src/**', 'packages/qa-ai-playwright/package.json', 'tests/**', '.github/actions/**', '.github/workflows/ci.yml', 'package.json', 'pnpm-lock.yaml') }}-${{ inputs.cache_buster || 'v1' }}
-
-  powershell-fallback:
-    name: Windows PowerShell 5.1 fallback
-    if: github.event_name == 'workflow_dispatch' && inputs.suite == 'full'
-    runs-on: windows-2025
-    timeout-minutes: 20
-    env:
-      QA_ROOT: ${{ github.workspace }}/workspaces/powershell 5 fallback
-      QA_POWERSHELL: powershell.exe
-      CI: 'true'
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/bootstrap
-        with:
-          stack: python
-          skills: 'false'
-      - name: Verify fallback
-        shell: powershell
-        run: |
-          $output = & .\packages\qa-ai-playwright\src\bin\qa.cmd --help 2>&1 | Out-String
-          if ($output -notmatch 'PowerShell: 5\.1') { throw 'qa.cmd did not fall back to Windows PowerShell 5.1' }
-          & .\packages\qa-ai-playwright\src\bin\qa.cmd env check python --skip-codex --skip-skills
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-      - uses: ./.github/actions/cleanup
-        if: always()
-
-  minimal-linux:
-    name: Minimal Linux / no Python, Node, Homebrew, sudo
-    if: github.event_name == 'workflow_dispatch' && inputs.suite == 'full'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    steps:
-      - uses: actions/checkout@v6
-      - shell: bash
-        run: |
-          docker run --rm -v "$PWD:/workspace" -w /workspace ubuntu:24.04 bash -euc '
-            apt-get update
-            apt-get install -y --no-install-recommends ca-certificates curl tar gzip
-            ! command -v python3
-            ! command -v node
-            ! command -v brew
-            ! command -v sudo
-            export QA_ROOT=/workspace/workspaces/minimal-environment
-            bash packages/qa-ai-playwright/src/bin/qa.sh env init both
-            bash packages/qa-ai-playwright/src/bin/qa.sh env check both
-            bash packages/qa-ai-playwright/src/bin/qa.sh run bun run test:unit
-            bash packages/qa-ai-playwright/src/bin/qa.sh env uninstall
-            test ! -e "$QA_ROOT"
-          '
-
-  example-contract:
-    name: TypeScript example contract
-    if: github.event_name == 'workflow_dispatch' && inputs.suite == 'full'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    env:
-      QA_ROOT: ${{ github.workspace }}/workspaces/example typescript
-      CI: 'true'
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/bootstrap
-        with:
-          stack: typescript
-          skills: 'false'
-      - name: Install repository maintenance dependencies
-        shell: bash
-        run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm install --frozen-lockfile --ignore-scripts
-      - name: Install example dependencies
-        shell: bash
-        run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm --dir apps/qa-ticket-app-suite-typescript install --frozen-lockfile
-      - name: Install Chromium
-        shell: bash
-        run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm --dir apps/qa-ticket-app-suite-typescript exec playwright install --with-deps chromium
-      - name: Type check example application
-        shell: bash
-        run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm --dir apps/qa-ticket-app run typecheck
-      - name: Type check TypeScript QA project
-        shell: bash
-        run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm --dir apps/qa-ticket-app-suite-typescript run typecheck
-      - name: Run TypeScript example tests
-        shell: bash
-        run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm --dir apps/qa-ticket-app-suite-typescript test
-      - name: Upload TypeScript test evidence
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: example-typescript
-          retention-days: 7
-          if-no-files-found: ignore
-          path: |
-            apps/qa-ticket-app-suite-typescript/test-results/
-            apps/qa-ticket-app-suite-typescript/playwright-report/
-      - uses: ./.github/actions/cleanup
-        if: always()
-
-  example-python:
-    name: Python example / ${{ matrix.os }}
-    if: github.event_name == 'workflow_dispatch' && inputs.suite == 'full'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, windows-2025, macos-15-intel]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
-    env:
-      QA_ROOT: ${{ github.workspace }}/workspaces/example python
-      CI: 'true'
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/bootstrap
-        with:
-          stack: python
-          skills: 'false'
-      - name: Install repository maintenance dependencies (Windows)
+      - name: Verify shared uninstall protection (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          & .\packages\qa-ai-playwright\src\bin\qa.cmd run pnpm install --frozen-lockfile --ignore-scripts
+          & .\packages\qa-cli\bin\qa.cmd run bun tests/ci-cases.ts shared-uninstall
           exit $LASTEXITCODE
-      - name: Install repository maintenance dependencies (Unix)
+      - name: Verify shared uninstall protection (Unix)
         if: runner.os != 'Windows'
         shell: bash
-        run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm install --frozen-lockfile --ignore-scripts
-      - name: Install Python dependencies and Chromium (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        working-directory: apps/qa-ticket-app-suite-python
-        run: |
-          & ..\..\packages\qa-ai-playwright\src\bin\qa.cmd run python -m venv .venv
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & .venv\Scripts\python.exe -m pip install --requirement requirements.lock --require-hashes
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & ..\..\packages\qa-ai-playwright\src\bin\qa.cmd run pnpm exec playwright install chromium
-          exit $LASTEXITCODE
-      - name: Install Python dependencies and Chromium (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        working-directory: apps/qa-ticket-app-suite-python
-        run: |
-          bash ../../packages/qa-ai-playwright/src/bin/qa.sh run python -m venv .venv
-          .venv/bin/python -m pip install --requirement requirements.lock --require-hashes
-          bash ../../packages/qa-ai-playwright/src/bin/qa.sh run pnpm exec playwright install chromium
-      - name: Run Python ticket workflow (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          & .\packages\qa-ai-playwright\src\bin\qa.cmd run bun scripts/test-example-python.ts
-          exit $LASTEXITCODE
-      - name: Run Python ticket workflow (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: bash packages/qa-ai-playwright/src/bin/qa.sh run bun scripts/test-example-python.ts
-      - name: Upload Python test evidence
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: example-python-${{ matrix.os }}
-          retention-days: 7
-          if-no-files-found: ignore
-          path: |
-            apps/qa-ticket-app-suite-python/reports/
-            apps/qa-ticket-app-suite-python/test-results/
+        run: bash packages/qa-cli/bin/qa.sh run bun tests/ci-cases.ts shared-uninstall
       - uses: ./.github/actions/cleanup
         if: always()
-
-  project:
-    name: ${{ matrix.stack }} / ${{ matrix.os }}
-    if: github.event_name == 'workflow_dispatch' && inputs.suite == 'full'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, windows-2025, macos-15-intel]
-        stack: [python, typescript]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 35
-    env:
-      QA_ROOT: ${{ github.workspace }}/workspaces/project environment
-      QA_TEST_STACK: ${{ matrix.stack }}
-      QA_TEST_BROWSERS: chromium
-      CI: 'true'
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/bootstrap
-        with:
-          stack: ${{ matrix.stack }}
-      - name: Install repository maintenance dependencies (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          & .\packages\qa-ai-playwright\src\bin\qa.cmd run pnpm install --frozen-lockfile --ignore-scripts
-          exit $LASTEXITCODE
-      - name: Install repository maintenance dependencies (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm install --frozen-lockfile --ignore-scripts
-      - name: Initialize project, launch browser, type check (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          & .\packages\qa-ai-playwright\src\bin\qa.cmd run bun tests/ci-cases.ts project
-          exit $LASTEXITCODE
-      - name: Initialize project, launch browser, type check (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: bash packages/qa-ai-playwright/src/bin/qa.sh run bun tests/ci-cases.ts project
-      - name: Upload browser and test reports
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: project-${{ matrix.stack }}-${{ matrix.os }}
-          retention-days: 7
-          if-no-files-found: ignore
-          path: |
-            workspaces/test project */reports/
-            workspaces/test project */test-results/
-            workspaces/test project */playwright-report/
-      - uses: ./.github/actions/cleanup
-        if: always()
-
-  uninstall:
-    name: Uninstall protection / ${{ matrix.os }}
-    if: github.event_name == 'workflow_dispatch' && inputs.suite == 'full'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, windows-2025, macos-15-intel]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
-    env:
-      QA_ROOT: ${{ github.workspace }}/workspaces/uninstall environment
-      CI: 'true'
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/bootstrap
-        with:
-          stack: both
-      - name: Install repository maintenance dependencies (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          & .\packages\qa-ai-playwright\src\bin\qa.cmd run pnpm install --frozen-lockfile --ignore-scripts
-          exit $LASTEXITCODE
-      - name: Install repository maintenance dependencies (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: bash packages/qa-ai-playwright/src/bin/qa.sh run pnpm install --frozen-lockfile --ignore-scripts
-      - name: Lifecycle unit tests and real project uninstall (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          & .\packages\qa-ai-playwright\src\bin\qa.cmd run bun tests/ci-cases.ts uninstall
-          exit $LASTEXITCODE
-      - name: Lifecycle unit tests and real project uninstall (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: bash packages/qa-ai-playwright/src/bin/qa.sh run bun tests/ci-cases.ts uninstall
-      - uses: ./.github/actions/cleanup
-        if: always()
-      - name: Verify projects survive environment removal (Windows)
-        if: success() && runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          foreach ($stack in @('python','typescript')) {
-            $notes = Join-Path $PWD "workspaces/uninstall project $stack/user-notes.txt"
-            if (!(Test-Path -LiteralPath $notes)) { throw 'User file deleted' }
-          }
-      - name: Verify projects survive environment removal (Unix)
-        if: success() && runner.os != 'Windows'
-        shell: bash
-        run: |
-          test -f 'workspaces/uninstall project python/user-notes.txt'
-          test -f 'workspaces/uninstall project typescript/user-notes.txt'

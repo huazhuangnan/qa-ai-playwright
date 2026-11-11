@@ -75,6 +75,6 @@ AI 使用以下顺序读取：
 
 ## 相关规则
 
-- [QA 通用规则](../packages/qa-ai-playwright/src/skills/builtin/qa-core/SKILL.md)
-- [qa-docs Skill](../packages/qa-ai-playwright/src/skills/builtin/qa-docs/SKILL.md)
-- [输入清单](../packages/qa-ai-playwright/src/skills/builtin/qa-core/references/input-checklist.md)
+- [QA 通用规则](../packages/skills/builtin/qa-core/SKILL.md)
+- [qa-docs Skill](../packages/skills/builtin/qa-docs/SKILL.md)
+- [输入清单](../packages/skills/builtin/qa-core/references/input-checklist.md)

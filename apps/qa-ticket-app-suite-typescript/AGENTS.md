@@ -4,13 +4,14 @@
 
 - 被测应用位于 `../qa-ticket-app/`。
 - 本目录只维护测试、fixtures 和 QA 文档。
-- 两套示例共享的业务输入、计划和用例位于 `../../docs/examples/qa-ticket-app/`。
+- 专属任务、用例映射和执行报告放在本项目 `docs/qa/`。
+- 两套示例共享的业务输入、计划和用例位于 `../qa-ticket-app/docs/qa/`。
 - 测试通过 HTTP 和浏览器访问应用。
 - 测试不导入示例应用的业务实现。
 
 ## 执行
 
-- 新需求先更新 `../../docs/examples/qa-ticket-app/`。
+- 新需求先更新 `../qa-ticket-app/docs/qa/`。
 - 定位器优先 role、label 和可见文本。
 - 独立用例使用独立页面和 API context。
 - 复杂业务流程使用 `test.step` 记录操作与可观察结果。

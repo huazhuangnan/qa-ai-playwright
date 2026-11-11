@@ -6,6 +6,26 @@
       "check": "记录业务目标、前置、步骤、逐步可观察结果、清理及用例与代码映射；生成代码包含业务注释或 docstring，复杂流程使用可辨识步骤；给出执行命令和证据位置，不虚构运行结果。"
     },
     {
+      "id": "qa-environment-missing",
+      "prompt": "请运行 TypeScript QA 测试。项目和 QA CLI 路径已知，指定环境根目录未初始化。qa-setup 和 QA_REPO 均不可用。",
+      "check": "尝试查找 qa-setup；不可用时使用已知交付包启动器；确认语言、根目录和所需组件，用 QA MCP 或 CLI 检查；环境缺失时先告知将安装的共享工具，使用相同根目录执行 env init typescript，再以相同条件执行 env check；检查通过后才运行测试，分别报告检查和测试结果。"
+    },
+    {
+      "id": "qa-environment-ready",
+      "prompt": "请运行 Python QA 测试。指定环境已初始化且检查通过。",
+      "check": "确认项目语言、根目录和所需组件并复用已有环境；不重复安装；继续执行测试并报告实际结果。"
+    },
+    {
+      "id": "qa-environment-init-failed",
+      "prompt": "请运行 QA 测试。环境检查发现语言不匹配，初始化因网络错误失败。",
+      "check": "按实际错误报告初始化失败；不声称环境就绪或测试通过，不执行依赖该环境的测试；继续不依赖环境的工作。"
+    },
+    {
+      "id": "qa-environment-source-unavailable",
+      "prompt": "请运行 QA 测试。没有可用的 QA MCP，找不到 QA CLI 启动器，也不知道环境根目录。",
+      "check": "说明缺少启动器和环境根目录，不猜测路径或声称已初始化；获取必要信息后再检查和准备环境。"
+    },
+    {
       "id": "runtime-skill-global-reuse",
       "prompt": "我要维护 pnpm workspace。全局已有可用的 pnpm Skill，但项目没有。",
       "check": "即使不是 QA 任务也检查并读取全局 pnpm Skill，不向项目或全局安装，不新建安装记录；Bun、pnpm 工具版本仍独立由环境管理。"

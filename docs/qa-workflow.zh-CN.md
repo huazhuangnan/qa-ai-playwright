@@ -2,9 +2,10 @@
 
 [使用人员](../README.md) | [维护人员](maintenance.zh-CN.md)
 
-本仓库是 pnpm workspace。`apps/qa-ticket-app/` 是被测应用。`apps/qa-ticket-app-suite-typescript/` 与 `apps/qa-ticket-app-suite-python/` 是独立 QA 项目。`packages/qa-ai-playwright/src/` 包含 CLI、Skill 和生成模板。公共指南位于 `docs/`。
+本仓库是 pnpm workspace。`apps/qa-ticket-app/` 是被测应用。`apps/qa-ticket-app-suite-typescript/` 与 `apps/qa-ticket-app-suite-python/` 是独立 QA 项目。`packages/` 包含 CLI、Skill 和生成模板。公共指南位于 `docs/`。
 
 先阅读[AI 测试整体模型](ai-testing-model.zh-CN.md)了解 AI 的输入、职责路由、测试层级和证据闭环。本页补充一次具体任务如何落地。
+
 ## 输入与调用
 
 1. 在 `docs/qa/inputs/input-index.md` 登记 PRD、验收标准、环境、角色和接口契约的来源及版本。不要记录凭证值。
@@ -20,18 +21,18 @@
 
 | 环节 | 文件 | 作用 |
 | --- | --- | --- |
-| 输入索引 | [input-index.md](examples/qa-ticket-app/inputs/input-index.md) | 定位需求、环境和契约 |
-| 需求 | [requirements.md](examples/qa-ticket-app/inputs/requirements.md) | 工单角色、字段、状态和权限 |
+| 输入索引 | [input-index.md](../apps/qa-ticket-app/docs/qa/inputs/input-index.md) | 定位需求、环境和契约 |
+| 需求 | [requirements.md](../apps/qa-ticket-app/docs/qa/inputs/requirements.md) | 工单角色、字段、状态和权限 |
 | 接口契约 | [openapi.json](../apps/qa-ticket-app/src/server/openapi.json) | 请求、认证和响应定义 |
-| 计划与用例 | [test-plan.md](examples/qa-ticket-app/generated/test-plan.md)、[test-cases.md](examples/qa-ticket-app/generated/test-cases.md) | 共享范围和可观察预期 |
+| 计划与用例 | [test-plan.md](../apps/qa-ticket-app/docs/qa/generated/test-plan.md)、[test-cases.md](../apps/qa-ticket-app/docs/qa/generated/test-cases.md) | 共享范围和可观察预期 |
 | TypeScript 自动化 | [openapi.spec.ts](../apps/qa-ticket-app-suite-typescript/tests/api/openapi.spec.ts) | Playwright Test 契约与业务流程 |
 | Python 自动化 | [test_ticket_flow.py](../apps/qa-ticket-app-suite-python/tests/test_ticket_flow.py) | pytest 契约与浏览器流程 |
-| 历史报告 | [execution-report.md](examples/qa-ticket-app/generated/execution-report.md) | 先前结果，不能代替当前执行 |
+| TypeScript 历史报告 | [execution-report.md](../apps/qa-ticket-app-suite-typescript/docs/qa/generated/execution-report.md) | 先前结果，不能代替当前执行 |
 
 选择 `apps/qa-ticket-app-suite-typescript/` 或 `apps/qa-ticket-app-suite-python/` 作为 AI 工作目录，可提供以下任务：
 
 ```text
-读取 docs/examples/qa-ticket-app/inputs/input-index.md 中的需求和 OpenAPI 契约。
+读取 ../qa-ticket-app/docs/qa/inputs/input-index.md 中的需求和 OpenAPI 契约。
 针对 POST /api/tickets，整理角色、输入、认证和预期状态码。
 先对照需求列出待确认项，再检查现有测试和覆盖缺口。
 只使用本地测试环境。运行契约测试，记录命令、结果、清理和证据路径。

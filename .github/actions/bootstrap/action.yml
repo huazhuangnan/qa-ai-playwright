@@ -29,10 +29,10 @@ runs:
         if ($env:WITH_CODEX -ne 'true') { $options += '--skip-codex' }
         if ($env:WITH_SKILLS -ne 'true') { $options += '--skip-skills' }
         if ($env:WITH_FULL -eq 'true') { $options += '--full' }
-        & .\packages\qa-ai-playwright\src\bin\qa.cmd --root $env:QA_ROOT env check @options
+        & .\packages\qa-cli\bin\qa.cmd --root $env:QA_ROOT env check @options
         if ($LASTEXITCODE -ne 1) { throw 'Fresh check should report missing environment' }
         if (Test-Path -LiteralPath $env:QA_ROOT) { throw 'Check created files' }
-        & .\packages\qa-ai-playwright\src\bin\qa.cmd --root $env:QA_ROOT env init @options
+        & .\packages\qa-cli\bin\qa.cmd --root $env:QA_ROOT env init @options
         exit $LASTEXITCODE
     - name: Cold check and bootstrap (system Bash)
       if: runner.os != 'Windows'
@@ -48,9 +48,9 @@ runs:
         if [[ "$WITH_SKILLS" != true ]]; then options+=(--skip-skills); fi
         if [[ "$WITH_FULL" == true ]]; then options+=(--full); fi
         set +e
-        bash packages/qa-ai-playwright/src/bin/qa.sh --root "$QA_ROOT" env check "${options[@]}"
+        bash packages/qa-cli/bin/qa.sh --root "$QA_ROOT" env check "${options[@]}"
         code=$?
         set -e
         test "$code" -eq 1
         test ! -e "$QA_ROOT"
-        bash packages/qa-ai-playwright/src/bin/qa.sh --root "$QA_ROOT" env init "${options[@]}"
+        bash packages/qa-cli/bin/qa.sh --root "$QA_ROOT" env init "${options[@]}"

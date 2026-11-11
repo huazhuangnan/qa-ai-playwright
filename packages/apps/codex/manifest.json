@@ -1,0 +1,8 @@
+{
+  "id": "codex",
+  "source_type": "external",
+  "package": "@openai/codex",
+  "executable": "codex",
+  "install_scope": "system-or-user",
+  "version_policy": "installed-or-latest"
+}

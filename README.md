@@ -9,18 +9,18 @@
 Windows 优先使用 PowerShell 7；未安装时自动降级到 Windows PowerShell 5.1。
 
 ```powershell
-.\packages\qa-ai-playwright\src\bin\qa.cmd env init typescript
-.\packages\qa-ai-playwright\src\bin\qa.cmd project init my-qa --language typescript
+.\packages\qa-cli\bin\qa.cmd env init typescript
+.\packages\qa-cli\bin\qa.cmd project init my-qa --language typescript
 ```
 
 macOS / Linux / WSL：
 
 ```bash
-bash packages/qa-ai-playwright/src/bin/qa.sh env init typescript
-bash packages/qa-ai-playwright/src/bin/qa.sh project init my-qa --language typescript
+bash packages/qa-cli/bin/qa.sh env init typescript
+bash packages/qa-cli/bin/qa.sh project init my-qa --language typescript
 ```
 
-首次运行需联网；CLI 会在隔离环境中安装 Python 和 Node。
+首次运行可能需要联网。CLI 优先复用系统已有工具，并在缺失时提示安装。Python 测试环境仍由 QA 管理。
 
 环境位于当前目录 `.qa-env`。测试项目必须放在环境目录之外。
 完整参数和目录说明见[环境初始化](docs/environment.zh-CN.md)。
@@ -44,7 +44,7 @@ Python 示例使用 `requirements.lock` 和 Playwright Python。
 
 仓库是 pnpm monorepo：
 
-- `packages/qa-ai-playwright/`：CLI、自有 Skills 和项目模板。
+- `packages/`：按 CLI、MCP、Skills、模板和应用资产划分的项目能力。
 - `apps/qa-ticket-app/`：全栈示例应用。
 - `apps/qa-ticket-app-suite-typescript/`：TypeScript QA 项目。
 - `apps/qa-ticket-app-suite-python/`：Python QA 项目。
@@ -69,16 +69,17 @@ Python 示例使用 `requirements.lock` 和 Playwright Python。
 
 ## 安装范围
 
-默认只写隔离的 `environment` 作用域。
-MCP 配置写入 `<root>/codex/config.toml`。
+工具优先复用系统或用户级安装。QA 环境保存运行状态和缓存。
+MCP 注册写入用户级 `CODEX_HOME`，各 QA 环境使用独立的注册名称。
 
-环境 CLI 默认安装 Playwright CLI 和 Playwright MCP。
+环境 CLI 默认安装 Playwright CLI，并注册 QA MCP 和 Playwright MCP。
 `env init <语言> --full` 只在需要 Agent Browser CLI 或 MCP 时使用。
-QA、Bun、pnpm 和其他 Skill 由 AI 按任务检查。缺失时安装到业务项目，不写全局配置。
+QA、Bun、pnpm 和其他 Skill 由 AI 按任务检查。缺失的 Skill 安装到业务项目。
 不熟悉业务时使用 `$qa-business-guide` 获取步骤、边界和下一步。
-所有语言方案都会安装 CC Switch。可用 `qa.cmd run cc-switch` 启动。
-CC Switch 程序位于环境目录，运行后的用户数据仍按上游设计写入 `~/.cc-switch`。
-来源分类、项目级与全局级边界见 [Skills 与 MCP](docs/skills-mcp.zh-CN.md)。
+所有语言方案都会检查 CC Switch。已有时复用，缺失时安装到用户级共享目录。
+CC Switch 用户数据仍按上游设计写入 `~/.cc-switch`。
+环境和项目分别通过 `env init/check/uninstall` 与 `project init/check/uninstall` 管理。`mcp list/add/remove` 管理可选 MCP。`update check` 检查来源更新。升级、修复和回滚命令仍在规划。
+来源和作用域见 [Skills 与 MCP](docs/skills-mcp.zh-CN.md)。管理范围和待确认事项见 [QA CLI 管理能力 TODO](docs/qa-cli-management-todo.zh-CN.md)。
 
 ## 文档
 
@@ -93,6 +94,6 @@ CC Switch 程序位于环境目录，运行后的用户数据仍按上游设计�
 - [版本记录](docs/version-history.zh-CN.md)：组件、验证范围与迁移变化
 - [维护指南](docs/maintenance.zh-CN.md)：实现、版本、发布、CI 矩阵与验证缓存
 - [全栈示例](apps/qa-ticket-app/README.md)：Hono、Drizzle、SQLite、React 和 shadcn/ui
-- [示例 QA 文档](docs/examples/qa-ticket-app/inputs/input-index.md)：共享需求、契约、计划和报告
+- [示例 QA 文档](apps/qa-ticket-app/docs/qa/inputs/input-index.md)：共享需求、契约与测试设计
 - [TypeScript 示例 QA](apps/qa-ticket-app-suite-typescript/README.md)：Playwright Test、fixtures 和 E2E
 - [Python 示例 QA](apps/qa-ticket-app-suite-python/README.md)：pytest、requests 和 pytest-playwright

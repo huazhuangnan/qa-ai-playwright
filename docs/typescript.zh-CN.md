@@ -21,8 +21,8 @@
 <summary>Windows（PowerShell 7 优先，5.1 降级）</summary>
 
 ```powershell
-.\packages\qa-ai-playwright\src\bin\qa.cmd env init typescript
-.\packages\qa-ai-playwright\src\bin\qa.cmd env check typescript
+.\packages\qa-cli\bin\qa.cmd env init typescript
+.\packages\qa-cli\bin\qa.cmd env check typescript
 ```
 
 </details>
@@ -31,8 +31,8 @@
 <summary>macOS / Linux</summary>
 
 ```bash
-bash packages/qa-ai-playwright/src/bin/qa.sh env init typescript
-bash packages/qa-ai-playwright/src/bin/qa.sh env check typescript
+bash packages/qa-cli/bin/qa.sh env init typescript
+bash packages/qa-cli/bin/qa.sh env check typescript
 ```
 
 </details>
@@ -43,8 +43,8 @@ bash packages/qa-ai-playwright/src/bin/qa.sh env check typescript
 <summary>Windows（PowerShell 7 优先，5.1 降级）</summary>
 
 ```powershell
-.\packages\qa-ai-playwright\src\bin\qa.cmd project init .\workspaces\my-qa --language typescript --browser chromium
-.\packages\qa-ai-playwright\src\bin\qa.cmd project check .\workspaces\my-qa --browser chromium
+.\packages\qa-cli\bin\qa.cmd project init .\workspaces\my-qa --language typescript --browser chromium
+.\packages\qa-cli\bin\qa.cmd project check .\workspaces\my-qa --browser chromium
 ```
 
 </details>
@@ -53,8 +53,8 @@ bash packages/qa-ai-playwright/src/bin/qa.sh env check typescript
 <summary>macOS / Linux</summary>
 
 ```bash
-bash packages/qa-ai-playwright/src/bin/qa.sh project init ./workspaces/my-qa --language typescript --browser chromium
-bash packages/qa-ai-playwright/src/bin/qa.sh project check ./workspaces/my-qa --browser chromium
+bash packages/qa-cli/bin/qa.sh project init ./workspaces/my-qa --language typescript --browser chromium
+bash packages/qa-cli/bin/qa.sh project check ./workspaces/my-qa --browser chromium
 ```
 
 </details>

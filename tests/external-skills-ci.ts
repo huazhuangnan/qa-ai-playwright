@@ -9,7 +9,7 @@ assert.ok(root, 'QA_ROOT is required');
 const project = join(resolve(root), 'external-skill-ci');
 mkdirSync(project, { recursive: true });
 const reference = readFileSync(
-  'packages/qa-ai-playwright/src/skills/builtin/qa-core/references/external-skills.md',
+  'packages/skills/builtin/qa-core/references/external-skills.md',
   'utf8',
 );
 const commands = [...reference.matchAll(/`(bunx skills@[^`]+)`/gu)]
@@ -40,7 +40,7 @@ for (const command of commands) {
 
 // QA Skills are installed one at a time from the local delivery package.
 for (const name of ['qa-core', 'qa-api']) {
-  const source = resolve('packages/qa-ai-playwright/src/skills/builtin', name);
+  const source = resolve('packages/skills/builtin', name);
   const result = spawnSync(process.execPath, [
     'x', 'skills@1.7.6', 'add', source, '--skill', name,
     '--agent', 'codex', '--copy', '--yes',
