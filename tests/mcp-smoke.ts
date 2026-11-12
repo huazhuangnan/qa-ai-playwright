@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import { readFileSync, realpathSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import type { Readable, Writable } from 'node:stream';
@@ -11,6 +12,8 @@ import {
   readMcpServerConfig,
   type McpServerConfig,
 } from '../packages/qa-cli/cli/shared.ts';
+
+const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 interface JsonRpcMessage {
   id?: number;
@@ -80,11 +83,10 @@ async function waitForResponse(
 async function smokeServer(
   name: string,
   server: McpServerConfig,
-  root: string,
 ): Promise<number> {
   assert.ok(server.command, `${name} command is missing`);
   const child = spawn(server.command, server.args ?? [], {
-    cwd: root,
+    cwd: REPO,
     env: { ...process.env, ...(server.env ?? {}) },
     stdio: ['pipe', 'pipe', 'inherit'],
     windowsHide: true,
@@ -125,7 +127,7 @@ async function smokeServer(
         params: { name: 'qa_mcp_list', arguments: {} },
       });
       const result = await waitForResponse(messages, 3, 30_000, true);
-      assert.notEqual(result.isError, true, 'qa_mcp_list failed');
+      assert.notEqual(result.isError, true, `qa_mcp_list failed: ${JSON.stringify(result.content)}`);
       assert.match(JSON.stringify(result.content), /faker/);
       send(child, {
         jsonrpc: '2.0', id: 4, method: 'tools/call',
@@ -171,7 +173,7 @@ async function main(): Promise<void> {
     : ['qa', 'playwright'];
   for (const name of names) {
     const server = readMcpServerConfig(config, `qa-${id}-${name}`);
-    await smokeServer(name, server, root);
+    await smokeServer(name, server);
   }
   console.log('MCP initialize and tools/list passed');
 }
