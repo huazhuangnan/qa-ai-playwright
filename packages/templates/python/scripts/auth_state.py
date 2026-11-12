@@ -54,7 +54,6 @@ def main() -> int:
 
     base_url = (
         os.getenv("UI_BASE_URL", "").strip()
-        or os.getenv("BASE_URL", "").strip()
     )
     login_path = os.getenv("QA_AUTH_LOGIN_PATH", "/login").strip()
     username_selector = os.getenv("QA_AUTH_USERNAME_SELECTOR", "").strip()

@@ -307,6 +307,9 @@ export function projectCheck(
   if (overlapsEnvironment(target, env.root)) {
     throw new Error('Project overlaps environment');
   }
+  if (!state.last_successful_init) {
+    throw new Error('Project initialization is incomplete; rerun project init with the same target');
+  }
   env.requireInitialized(state.stack);
   const configured = env.environment.QA_BROWSER_CHANNEL;
   if (!args.browser && configured !== undefined && configured !== '' && configured !== 'chrome' && configured !== 'msedge') {
@@ -315,7 +318,7 @@ export function projectCheck(
   const selected: Exclude<Browser, 'all' | 'none'> = args.browser ?? (
     configured === 'chrome' || configured === 'msedge'
       ? configured
-      : state.last_successful_init?.browser === 'chrome' || state.last_successful_init?.browser === 'msedge'
+      : state.last_successful_init.browser === 'chrome' || state.last_successful_init.browser === 'msedge'
         ? state.last_successful_init.browser
         : 'chromium'
   );

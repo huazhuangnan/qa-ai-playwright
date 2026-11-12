@@ -94,6 +94,7 @@ export function projectUpgradePlan(env: Environment, targetInput: string): Proje
   const markerHash = digest(join(requested, '.qa-project.json'));
   const { target, state } = projectMarker(requested);
   if (state.stack !== 'python' && state.stack !== 'typescript') throw new Error('Invalid project stack');
+  if (!state.last_successful_init) throw new Error('Project initialization is incomplete; rerun project init');
   env.requireInitialized(state.stack);
   if (!state.files || typeof state.files !== 'object' || Array.isArray(state.files)) throw new Error('Invalid project file records');
   const languageRoot = join(env.repo, 'packages/templates', state.stack);

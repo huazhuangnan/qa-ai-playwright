@@ -36,10 +36,11 @@ metadata:
 
 ## 说明
 
-- 默认安装 Codex、Playwright CLI 和所选语言运行环境。
+- 默认安装 Codex、Playwright CLI、CC Switch 和所选语言运行环境。
 - 环境初始化在 Node 完成后检查 Bun 和 pnpm。已有兼容版本时复用，缺失时安装配置版本。
 - `--full` 增加 Agent Browser CLI 和 MCP。
-- 仅在指定 `--with-cc-switch` 时检查 CC Switch。已有时复用，缺失时安装配置的便携版。
+- CC Switch 默认检查并准备。已有时复用，缺失时安装配置的便携版。
+- 仅在指定 `--skip-cc-switch` 时跳过 CC Switch。
 - CC Switch 不写注册表或系统应用目录，安装器不自动启动程序。
 - 启用 Codex 时注册 `qa` MCP。未跳过浏览器工具时注册 Playwright MCP；`--full` 再准备并注册 Agent Browser。
 - `qa-core` 的专项参考按任务使用。Skills 不随环境初始化安装。
@@ -49,17 +50,16 @@ metadata:
 - 版本由 packages/qa-cli/runtime-versions.env 管理。
 - 项目包含 `.env.example`。复制为 `.env` 后自动加载，真实 `.env` 不提交。
 - 示例提供 `QA_ENV`、`UI_BASE_URL`、`API_BASE_URL` 和基础适配项。
-- `BASE_URL` 只作兼容回退。
 - 项目清单记录 QA 文档模板和语言模板版本。依赖锁文件必须保留并提交。
 - 修改 `QA_ENV` 可切换 `.env.dev`、`.env.stg` 等环境文件。系统和 CI 变量优先。
-- 项目变量登记到 `docs/qa/inputs/input-index.md`，不要只依赖 `BASE_URL`。
+- 项目变量登记到 `docs/qa/inputs/input-index.md`。
 - 重复执行保持已有文件。跳过组件时，检查传相同 skip 参数。
 
 ## 示例
 
 - 初始化环境：`env init <python|typescript|both>`。
 - 扩展环境：`env init <python|typescript|both> --full`。
-- 需要 CC Switch 时：`env init <python|typescript|both> --with-cc-switch`。
+- 跳过 CC Switch：`env init <python|typescript|both> --skip-cc-switch`。
 - 初始化项目：`project init <目录> --language <python|typescript>`。
 - 检查：`env check <python|typescript|both>`；`project check <目录>`。
 - 运行：`run python ...`、`run pnpm ...`、`run bun ...`、`run codex ...`、`run cc-switch`。

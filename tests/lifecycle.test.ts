@@ -448,14 +448,14 @@ test('failed initialization retains recovery options and blocks project use', as
     override async ensureNode(): Promise<string> { throw new Error('node unavailable'); }
   }({ root: join(base, 'environment'), env: { PATH: '' } });
   environment.state.stack = 'typescript';
-  await assert.rejects(environment.init({ stack: 'typescript', profile: 'standard', skipCodex: true, skipSkills: true, withCcSwitch: true }), /node unavailable/);
+  await assert.rejects(environment.init({ stack: 'typescript', profile: 'standard', skipCodex: true, skipSkills: true }), /node unavailable/);
   const state = JSON.parse(readFileSync(environment.stateFile, 'utf8'));
   assert.equal(state.init_status, 'initializing');
-  assert.equal(state.init_options.withCcSwitch, true);
+  assert.equal(state.init_options.skipCcSwitch, false);
   assert.throws(() => environment.requireInitialized('typescript'), /initialization is incomplete/);
 });
 
-test('CC Switch is prepared only when explicitly requested', async () => {
+test('CC Switch is prepared by default and can be skipped', async () => {
   const base = createWorkspace();
   class InitEnvironment extends StubEnvironment {
     ccCalls = 0;
@@ -467,12 +467,12 @@ test('CC Switch is prepared only when explicitly requested', async () => {
   const options = { stack: 'typescript' as const, profile: 'standard' as const, skipCodex: true, skipSkills: true };
   const standard = new InitEnvironment({ root: join(base, 'standard'), env: { PATH: '' } });
   await standard.init(options);
-  assert.equal(standard.ccCalls, 0);
-  assert.equal((standard.state.components as { cc_switch: boolean }).cc_switch, false);
-  const withCc = new InitEnvironment({ root: join(base, 'with-cc'), env: { PATH: '' } });
-  await withCc.init({ ...options, withCcSwitch: true });
-  assert.equal(withCc.ccCalls, 1);
-  assert.equal((withCc.state.components as { cc_switch: boolean }).cc_switch, true);
+  assert.equal(standard.ccCalls, 1);
+  assert.equal((standard.state.components as { cc_switch: boolean }).cc_switch, true);
+  const skipped = new InitEnvironment({ root: join(base, 'skip-cc'), env: { PATH: '' } });
+  await skipped.init({ ...options, skipCcSwitch: true });
+  assert.equal(skipped.ccCalls, 0);
+  assert.equal((skipped.state.components as { cc_switch: boolean }).cc_switch, false);
 });
 
 test('initializing another language retains both project languages', async () => {
@@ -484,7 +484,7 @@ test('initializing another language retains both project languages', async () =>
     override activate(): void { /* No shell activation is needed for this test. */ }
   }
   const environment = new LanguageEnvironment({ root: join(base, 'env'), env: { PATH: '' } });
-  const options = { profile: 'standard' as const, skipCodex: true, skipSkills: true };
+  const options = { profile: 'standard' as const, skipCodex: true, skipSkills: true, skipCcSwitch: true };
   await environment.init({ ...options, stack: 'typescript' });
   await assert.rejects(environment.init({ ...options, stack: 'invalid' as 'python' }), /Invalid stack/);
   await environment.init({ ...options, stack: 'python' });
@@ -513,7 +513,7 @@ test('full mode without Codex reuses or installs an isolated browser', async () 
       return super.run(command, options);
     }
   }
-  const options = { stack: 'typescript' as const, profile: 'full' as const, skipCodex: true, skipSkills: false };
+  const options = { stack: 'typescript' as const, profile: 'full' as const, skipCodex: true, skipSkills: false, skipCcSwitch: true };
   const reused = new FullEnvironment({ root: join(base, 'reuse'), env: { PATH: bin } });
   reused.browser = { channel: 'chrome', path: join(base, 'existing chrome'), scope: 'system-or-user' };
   await reused.init(options);
@@ -777,6 +777,8 @@ test('both language templates keep real environment files ignored', () => {
     assert.match(readFileSync(join(template, '.env.stg.example'), 'utf8'), /UI_BASE_URL=/);
     assert.match(readFileSync(join(template, '.env.stg.example'), 'utf8'), /API_BASE_URL=/);
     assert.match(readFileSync(join(template, '.env.stg.example'), 'utf8'), /QA_AUTH_ROLES=/);
+    assert.doesNotMatch(readFileSync(join(template, '.env.dev.example'), 'utf8'), /\bBASE_URL\b/);
+    assert.doesNotMatch(readFileSync(join(template, '.env.stg.example'), 'utf8'), /\bBASE_URL\b/);
   }
   assert.ok(existsSync(join(REPO, 'packages/templates/python/conftest.py')));
 });
@@ -806,6 +808,7 @@ test('language templates are versioned with lock and fixture support', () => {
   assert.match(playwrightConfig, /dependencies: \['auth-setup'\]/);
   assert.match(playwrightConfig, /UI_BASE_URL/);
   assert.match(playwrightConfig, /API_BASE_URL/);
+  assert.doesNotMatch(playwrightConfig, /\bBASE_URL\b/);
   assert.match(playwrightConfig, /PLAYWRIGHT_WEB_SERVER_COMMAND/);
   assert.ok(existsSync(join(REPO, 'packages/templates/typescript/scripts/check_lock.ts')));
   assert.ok(existsSync(join(REPO, 'packages/templates/typescript/pnpm-lock.yaml')));

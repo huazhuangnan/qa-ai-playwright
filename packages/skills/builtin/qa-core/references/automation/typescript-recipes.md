@@ -22,7 +22,7 @@ Playwright 使用 Node.js 运行。
 怀疑并行污染时比较单 worker 与默认配置；复现偶现失败可对目标用例少量重复，次数根据成本决定。单 worker 通过只提供线索，不证明修好了。重试后通过仍记录 flaky。
 
 常见判断：连接拒绝先查服务与地址；locator 多匹配先限制范围；点击后无结果查用户可见状态及请求证据；并行时冲突检查账号/唯一数据；只在 CI 失败比较浏览器、依赖、时区和资源。
-API 门禁设置 `REQUIRE_API_TESTS=1` 后，缺少 API_BASE_URL 和 BASE_URL 必须失败。
+API 门禁设置 `REQUIRE_API_TESTS=1` 后，缺少 `API_BASE_URL` 必须失败。
 创建或修改数据的测试使用 `uniqueId`、`cleanup` 和 `requireWriteAccess` fixtures。
 
 稳定断言示例：

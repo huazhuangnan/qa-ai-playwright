@@ -85,9 +85,9 @@ marker="$root/.qa-managed"
 first=${1:-help}
 if [[ "$first" == help || "$first" == --help || "$first" == -h ]]; then
   cat <<'EOF'
-qa env init <python|typescript|both> [--full] [--with-cc-switch]
+qa env init <python|typescript|both> [--full] [--skip-cc-switch]
 qa env list
-qa env check <python|typescript|both> [--full] [--with-cc-switch]
+qa env check <python|typescript|both> [--full] [--skip-cc-switch]
 qa env repair
 qa env plan uv
 qa env upgrade uv  # manual-only guidance; no automatic upgrade

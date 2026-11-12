@@ -1,6 +1,6 @@
 # AI 测试整体模型
 
-[使用人员](../../README.md) | [从需求到执行](qa-workflow.zh-CN.md)
+[使用文档](README.md) | [维护文档](https://github.com/huazhuangnan/qa-ai-playwright/blob/main/docs/maintainers/README.md)
 
 本页说明 QA + AI + Playwright 的整体工作方式。它回答三个问题：AI 读取什么、如何决定测试动作、如何把结果变成可追踪证据。
 

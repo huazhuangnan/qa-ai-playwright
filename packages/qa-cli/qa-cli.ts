@@ -246,14 +246,14 @@ export function runCommand(env: Environment, initial: string[]): number {
 
 function helpText(): string {
   return [
-    'qa env init <python|typescript|both> [--full] [--with-cc-switch]',
+    'qa env init <python|typescript|both> [--full] [--skip-cc-switch]',
     'qa env list',
     'qa env repair',
     'qa env plan uv',
     'qa env upgrade uv  (manual-only guidance; no automatic upgrade)',
     'qa env snapshots uv',
     'qa env rollback <snapshot>',
-    'qa env check <python|typescript|both> [--full] [--with-cc-switch]',
+    'qa env check <python|typescript|both> [--full] [--skip-cc-switch]',
     'qa env uninstall',
     'qa project init <project> --language <python|typescript> [--browser <name>]',
     '  --language alias: --语言',

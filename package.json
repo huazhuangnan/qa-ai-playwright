@@ -17,7 +17,7 @@
     "upstream:sync": "bun scripts/sync-upstream.ts",
     "test:example:python": "bun scripts/test-example-python.ts",
     "test:example:typescript": "pnpm --filter qa-ticket-app-suite-typescript test",
-    "test:unit": "bun test --max-concurrency=1 tests/lifecycle.test.ts tests/package-layout.test.ts tests/project-uninstall-safety.test.ts tests/project-upgrade-plan.test.ts tests/project-init-record.test.ts tests/template-status.test.ts tests/browser-discovery.test.ts tests/mcp-browser-migration.test.ts tests/skill-updates.test.ts tests/update-check.test.ts tests/mcp-status.test.ts tests/skills-manager.test.ts tests/environment-commands.test.ts tests/environment-upgrade.test.ts",
+    "test:unit": "bun test --max-concurrency=1 tests/lifecycle.test.ts tests/package-layout.test.ts tests/project-uninstall-safety.test.ts tests/project-upgrade-plan.test.ts tests/project-init-record.test.ts tests/template-status.test.ts tests/browser-discovery.test.ts tests/skill-updates.test.ts tests/update-check.test.ts tests/mcp-status.test.ts tests/skills-manager.test.ts tests/environment-commands.test.ts tests/environment-upgrade.test.ts",
     "test:ci": "bun tests/ci-cases.ts"
   },
   "devDependencies": {

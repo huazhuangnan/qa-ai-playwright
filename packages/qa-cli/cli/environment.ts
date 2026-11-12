@@ -1,5 +1,4 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import {
   accessSync,
   constants,
@@ -101,8 +100,7 @@ export interface EnvironmentInitOptions {
   profile: SkillProfile;
   skipCodex: boolean;
   skipSkills: boolean;
-  withCcSwitch?: boolean;
-  environmentName?: string;
+  skipCcSwitch?: boolean;
 }
 
 /** Options accepted by `env check`. */
@@ -111,7 +109,7 @@ export interface EnvironmentCheckOptions {
   profile: SkillProfile;
   skipCodex: boolean;
   skipSkills: boolean;
-  withCcSwitch?: boolean;
+  skipCcSwitch?: boolean;
 }
 
 /** Options for one child process invocation. */
@@ -931,7 +929,7 @@ export class Environment {
     }
     if (existsSync(this.uv)) {
       const recordedHash = this.state.uv_sha256;
-      if (recordedHash !== undefined && (typeof recordedHash !== 'string' || !/^[a-f0-9]{64}$/u.test(recordedHash) || digest(this.uv) !== recordedHash)) {
+      if (typeof recordedHash !== 'string' || !/^[a-f0-9]{64}$/u.test(recordedHash) || digest(this.uv) !== recordedHash) {
         throw new Error('Cannot use uv: ownership hash is mismatched. Back up and move the existing uv manually, then rerun env init.');
       }
       try {
@@ -942,9 +940,6 @@ export class Environment {
         }
       } catch {
         // Preserve an existing executable when its version cannot be verified.
-      }
-      if (typeof recordedHash !== 'string' || !/^[a-f0-9]{64}$/u.test(recordedHash) || digest(this.uv) !== recordedHash) {
-        throw new Error('Cannot replace uv: ownership hash is missing or mismatched. Back up and move the existing uv manually, then rerun env init.');
       }
       throw new Error('Installed uv differs from the configured version or cannot be verified; use qa env plan uv, update it manually, then run qa env check');
     }
@@ -1245,7 +1240,7 @@ export class Environment {
     const manifest = mcpManifest(name, 'external', this.repo);
     if (manifest.optional !== true) throw new Error(`MCP ${name} is not an on-demand server`);
     const servers = this.objectValue(this.readSharedMcpLock().servers);
-    const serverName = this.existingMcpName(name, servers);
+    const serverName = this.mcpName(name);
     const record = this.objectValue(servers[serverName]);
     const present = this.hasMcpConfig(serverName);
     const hasRecord = Object.keys(record).length > 0;
@@ -1374,7 +1369,7 @@ export class Environment {
     this.withMcpLock(() => {
       const lock = this.readSharedMcpLock();
       const servers = this.objectValue(lock.servers);
-      const serverName = this.existingMcpName(name, servers);
+      const serverName = this.mcpName(name);
       const record = this.objectValue(servers[serverName]);
       if (record.scope !== 'user' || record.root !== this.root || record.package !== manifest.package || record.source_type !== 'external') {
         throw new Error(`Preserving MCP ${serverName}: no matching QA installation record`);
@@ -1411,7 +1406,7 @@ export class Environment {
         });
         for (const [index, [serverName, value]] of entries.entries()) {
           const record = this.objectValue(value);
-          if (typeof record.name !== 'string' || (this.mcpName(record.name) !== serverName && this.legacyMcpName(record.name) !== serverName) || !record.snapshot) {
+          if (typeof record.name !== 'string' || this.mcpName(record.name) !== serverName || !record.snapshot) {
             result.preserved.push({ name: serverName, reason: 'Invalid or incomplete ownership record' });
             continue;
           }
@@ -1576,27 +1571,9 @@ export class Environment {
    * @param sourceType - Reviewed source group.
    * @param version - Expected package version.
    */
-  /** Builds a readable registration name from the recorded environment name. */
+  /** Builds the user-level MCP registration name. */
   private mcpName(name: string): string {
-    const options = this.objectValue(this.state.init_options);
-    const suffix = typeof options.environmentName === 'string' ? `-${options.environmentName}` : '';
-    return name === 'qa' ? `qa${suffix}` : `qa${suffix}-${name}`;
-  }
-
-  /** Finds the registration name used by older versions. */
-  private legacyMcpName(name: string): string {
-    const root = WINDOWS ? this.root.toLowerCase() : this.root;
-    const id = createHash('sha256').update(root).digest('hex').slice(0, 16);
-    return `qa-${id}-${name}`;
-  }
-
-  /** Keeps legacy optional registrations manageable until they are migrated. */
-  private existingMcpName(name: string, servers: Record<string, unknown>): string {
-    const current = this.mcpName(name);
-    const legacy = this.legacyMcpName(name);
-    if (!this.hasMcpConfig(current) && !Object.keys(this.objectValue(servers[current])).length
-      && this.objectValue(servers[legacy]).root === this.root) return legacy;
-    return current;
+    return name === 'qa' ? 'qa' : `qa-${name}`;
   }
 
   private sharedMcpLockPath(): string {
@@ -1676,31 +1653,6 @@ export class Environment {
       && keys(left.env) === keys(right.env);
   }
 
-  /** Restricts automatic re-registration to the selected browser executable. */
-  private browserPathOnlyChange(name: string, previous: McpServerConfig, expected: McpServerConfig): boolean {
-    if (name === 'playwright') {
-      const oldArgs = [...(previous.args ?? [])];
-      const newArgs = [...(expected.args ?? [])];
-      const oldIndex = oldArgs.indexOf('--executable-path');
-      const newIndex = newArgs.indexOf('--executable-path');
-      if (oldIndex < 0 && newIndex >= 0 && newArgs.lastIndexOf('--executable-path') === newIndex && newArgs[newIndex + 1]) {
-        newArgs.splice(newIndex, 2);
-        return this.sameMcpConfig(previous, { ...expected, args: newArgs });
-      }
-      if (oldIndex < 0 || oldIndex !== newIndex || oldArgs.lastIndexOf('--executable-path') !== oldIndex
-        || newArgs.lastIndexOf('--executable-path') !== newIndex || !oldArgs[oldIndex + 1] || !newArgs[newIndex + 1]) return false;
-      oldArgs[oldIndex + 1] = newArgs[newIndex + 1] ?? '';
-      return this.sameMcpConfig({ ...previous, args: oldArgs }, expected);
-    }
-    if (name === 'agent-browser') {
-      const key = 'AGENT_BROWSER_EXECUTABLE_PATH';
-      const nextPath = expected.env?.[key];
-      if (!nextPath) return false;
-      return this.sameMcpConfig({ ...previous, env: { ...previous.env, [key]: nextPath } }, expected);
-    }
-    return false;
-  }
-
   registerMcp(name: string, expected: McpServerConfig, sourceType: SkillSource, version: string): void {
     const manifest = mcpManifest(name, sourceType, this.repo);
     if (sourceType === 'builtin' && manifest.version !== version) throw new Error(`MCP manifest version mismatch for ${name}`);
@@ -1708,39 +1660,23 @@ export class Environment {
       const lock = this.readSharedMcpLock();
       const servers = this.objectValue(lock.servers);
       const serverName = this.mcpName(name);
-      const legacyName = this.legacyMcpName(name);
-      const legacy = this.objectValue(servers[legacyName]);
-      const hasLegacy = Object.keys(legacy).length > 0;
-      if (!hasLegacy && this.hasMcpConfig(legacyName)) throw new Error(`Preserving MCP ${legacyName}: no matching QA ownership record`);
-      if (hasLegacy && (legacy.scope !== 'user' || legacy.root !== this.root || legacy.name !== name
-        || legacy.source_type !== sourceType || legacy.manifest !== `packages/mcp/${sourceType}/${name}.json`
-        || typeof legacy.snapshot !== 'string' || !legacy.snapshot
-        || (!this.sameMcpConfig(this.objectValue(legacy.config) as McpServerConfig, expected)
-          && !this.browserPathOnlyChange(name, this.objectValue(legacy.config) as McpServerConfig, expected))
-        || (this.hasMcpConfig(legacyName) && (!this.sameMcpConfig(readMcpServerConfig(this.mcpConfig, legacyName), this.objectValue(legacy.config) as McpServerConfig)
-          || legacy.snapshot !== this.mcpConfigSnapshot(legacyName))))) {
-        throw new Error(`Preserving MCP ${legacyName}: registration differs from its QA record`);
-      }
       const record = this.objectValue(servers[serverName]);
       const present = this.hasMcpConfig(serverName);
       const recorded = this.objectValue(record.config) as McpServerConfig;
       const owned = record.scope === 'user' && record.root === this.root && record.name === name
         && record.source_type === sourceType && record.manifest === `packages/mcp/${sourceType}/${name}.json`
         && typeof record.snapshot === 'string' && !!record.snapshot;
-      const browserMigration = owned && this.browserPathOnlyChange(name, recorded, expected);
       if (present) {
         if (!owned || !this.sameMcpConfig(readMcpServerConfig(this.mcpConfig, serverName), recorded)
           || !record.snapshot || record.snapshot !== this.mcpConfigSnapshot(serverName)) {
           throw new Error(`MCP ${serverName} already exists or differs from its QA record; preserve it and resolve the conflict manually`);
         }
         if (!this.sameMcpConfig(recorded, expected)) {
-          if (!browserMigration) throw new Error(`MCP ${serverName} differs from its QA record; preserve it and resolve the conflict manually`);
-          this.codex(['mcp', 'remove', serverName]);
-          if (this.hasMcpConfig(serverName)) throw new Error(`MCP ${serverName} is still present after removal`);
+          throw new Error(`MCP ${serverName} differs from the current configuration; remove it manually and rerun initialization`);
         } else console.log(`KEEP MCP ${serverName}`);
       }
       if (!this.hasMcpConfig(serverName)) {
-        if (Object.keys(record).length && (!owned || (!this.sameMcpConfig(recorded, expected) && !browserMigration))) {
+        if (Object.keys(record).length && (!owned || !this.sameMcpConfig(recorded, expected))) {
           throw new Error(`MCP ${serverName} has a conflicting QA ownership record`);
         }
         const command = ['mcp', 'add', serverName];
@@ -1769,14 +1705,6 @@ export class Environment {
       };
       lock.servers = servers;
       atomicJson(this.sharedMcpLockPath(), lock);
-      if (hasLegacy) {
-        if (this.hasMcpConfig(legacyName)) {
-          this.codex(['mcp', 'remove', legacyName]);
-          if (this.hasMcpConfig(legacyName)) throw new Error(`MCP ${legacyName} is still present after removal`);
-        }
-        delete servers[legacyName];
-        atomicJson(this.sharedMcpLockPath(), lock);
-      }
     });
   }
   /**
@@ -1827,24 +1755,15 @@ export class Environment {
     if (!['python', 'typescript', 'both'].includes(options.stack)) {
       throw new Error('Invalid stack');
     }
+    options = { ...options, skipCcSwitch: options.skipCcSwitch === true };
     const previousStack = this.state.init_status === 'ready' ? this.state.stack : undefined;
     const stack = previousStack && previousStack !== options.stack ? 'both' : options.stack;
     options = { ...options, stack };
     const profile = options.profile;
 
-    const previous = this.objectValue(this.state.init_options);
-    const previousName = typeof previous.environmentName === 'string' ? previous.environmentName : undefined;
-    if (options.environmentName !== undefined && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(options.environmentName)) throw new Error('Invalid environment name');
-    if (previousName && options.environmentName && previousName !== options.environmentName) throw new Error('Environment name cannot be changed by init');
-    if (!previousName && options.environmentName && this.hasMcpConfig('qa')) {
-      const lock = this.readSharedMcpLock();
-      if (this.objectValue(this.objectValue(lock.servers).qa).root === this.root) throw new Error('Environment name cannot be changed by init');
-    }
-    options = { ...options, environmentName: options.environmentName ?? previousName };
-
     this.state.schema = 1;
     this.state.init_status = 'initializing';
-    this.state.init_options = { ...options, withCcSwitch: options.withCcSwitch === true };
+    this.state.init_options = { ...options };
     this.save();
     mkdirSync(join(this.root, 'tmp'), { recursive: true });
     if (profile === 'full' && !options.skipSkills) {
@@ -1878,7 +1797,7 @@ export class Environment {
       this.state.uv =
         this.run([this.uv, '--version'], { capture: true }) ?? '';
       this.recordInstallation('python', { status: 'ready', source: 'unknown', scope: 'environment', path: python, version });
-      this.recordInstallation('uv', { status: 'ready', source: typeof this.state.uv_sha256 === 'string' ? 'qa' : 'unknown', scope: 'environment', path: this.uv, version: this.state.uv });
+      this.recordInstallation('uv', { status: 'ready', source: 'qa', scope: 'environment', path: this.uv, version: this.state.uv });
     }
 
     this.state.node = await this.ensureNode();
@@ -1886,7 +1805,7 @@ export class Environment {
     const packageManagers = await this.ensurePackageManagers();
     this.state.bun = packageManagers.bun;
     this.state.pnpm = packageManagers.pnpm;
-    if (options.withCcSwitch) {
+    if (!options.skipCcSwitch) {
       this.state.cc_switch = await this.ensureCcSwitch();
       this.state.cc_switch_version = this.state.cc_switch;
       const cc = this.objectValue(this.state.cc_switch_installation);
@@ -1960,7 +1879,8 @@ export class Environment {
       agent_browser: profile === 'full' && !options.skipSkills,
       agent_browser_mcp:
         profile === 'full' && !options.skipCodex && !options.skipSkills,
-      cc_switch: options.withCcSwitch === true,
+      cc_switch: !options.skipCcSwitch,
+      cc_switch_skipped: options.skipCcSwitch === true,
     };
     this.state.policy = {
       profile,
@@ -1979,7 +1899,7 @@ export class Environment {
     console.log(
       `Ready. Local activation files: ${join(this.root, 'activate.ps1')} / activate.sh`,
     );
-    if (options.withCcSwitch) console.log(`CC Switch ${this.state.cc_switch} is available at ${this.findCcSwitch() ?? "unknown"}`);
+    if (!options.skipCcSwitch) console.log(`CC Switch ${this.state.cc_switch} is available at ${this.findCcSwitch() ?? "unknown"}`);
     if (!options.skipCodex) {
       console.log(
         'Codex uses the selected user CODEX_HOME and its shared credentials.',
@@ -2007,6 +1927,7 @@ export class Environment {
   /** Probes components while preserving the caller's cache and temporary paths. */
   private checkComponents(options: EnvironmentCheckOptions): number {
     const missing: string[] = [];
+    const skipCcSwitch = options.skipCcSwitch === true;
     if (this.state.init_status === 'initializing' || this.state.init_status === 'uninstalled') {
       missing.push('environment-initialization');
     }
@@ -2064,7 +1985,7 @@ export class Environment {
         missing.push(name);
       }
     }
-    if ((options.withCcSwitch ?? this.objectValue(this.state.components).cc_switch === true) && !this.findCcSwitch()) {
+    if (!skipCcSwitch && !this.findCcSwitch()) {
       missing.push('cc-switch');
     }
 

@@ -1,6 +1,6 @@
 # 公共架构与边界
 
-[使用人员](../../README.md) | [QA 工作流](qa-workflow.zh-CN.md)
+[使用文档](README.md) | [维护文档](https://github.com/huazhuangnan/qa-ai-playwright/blob/main/docs/maintainers/README.md)
 
 适用对象：业务项目 QA 开发与维护人员。阅读顺序：先看分层与依赖方向，再看数据、清理和证据边界。
 

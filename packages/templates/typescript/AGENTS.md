@@ -12,7 +12,6 @@
 - 当前任务已读取的 QA Skill 直接复用，不重复加载。
 - 执行依赖 QA 环境的测试前，按名称查找并读取 `qa-setup`。确认语言、环境根目录和所需组件，先用 QA MCP 或 CLI 检查。环境缺失或语言不匹配时，用交付包的 `packages/qa-cli/bin/qa.cmd` 或 `packages/qa-cli/bin/qa.sh` 执行 `env init`，再用相同条件执行 `env check`。安装缺失的共享工具前告知用户。找不到启动器或必要信息时报告阻塞。
 - 处理 Bun 运行、脚本或测试时检查 `bun-runtime`。处理 pnpm 配置、依赖、锁文件或 workspace 时检查 `pnpm`。这些检查不限于 QA 任务。
-- 复用的旧版 `qa-core` 可能缺少 Bun、pnpm 路由。需要安装外部 Skill 时，读取 `QA_REPO/packages/skills/builtin/qa-core/references/external-skills.md`。`QA_REPO` 未设置时先激活 QA 环境。
 - 每个 Skill 单独检查：当前会话、项目 `.agents/skills/`、`CODEX_HOME/skills/`、`~/.codex/skills/`、`~/.agents/skills/`。已有可用项直接读取，不安装或覆盖。
 - 跨作用域的 QA Skill 的同级链接不一定存在。按 Skill 名称重新查找，缺失时只安装所需项。
 - 缺少 QA Skill 时，从本仓库 `QA_REPO/packages/skills/builtin/` 对应目录安装到业务项目。先激活 QA 环境以设置 `QA_REPO`。找不到源或安装失败时报告，不伪造成功。
@@ -32,7 +31,7 @@
 - 用 `QA_ENV` 选择 `.env.<环境>` 文件。各环境文件使用相同的变量名。
 - 优先复用可用的系统浏览器。使用 `QA_BROWSER_CHANNEL=chrome` 或 `msedge` 选择对应通道。自定义安装位置使用 `QA_BROWSER_EXECUTABLE_PATH`。通道为空时，路径指向系统 Chromium；路径也为空时使用 Playwright 管理的 Chromium。
 - `QA_ENV`、`UI_BASE_URL` 和 `API_BASE_URL` 是基础示例。项目变量按契约增加并登记到 `docs/qa/inputs/input-index.md`。
-- UI 与 API 地址不同时分别配置。`BASE_URL` 仅用于兼容旧项目。
+- UI 与 API 地址分别使用 `UI_BASE_URL` 和 `API_BASE_URL`。
 - 依赖维护在 `package.json`。使用 pnpm 安装并提交 `pnpm-lock.yaml`。
 - 脚本使用 Bun 执行。Playwright 运行在 Node.js 上。
 - 不使用 npm 管理项目依赖。
@@ -41,7 +40,7 @@
 - `REQUIRE_API_TESTS=1` 时缺少环境配置直接失败，跳过的 API 不计为覆盖。
 - 多角色 UI 登录态使用 `QA_AUTH_ROLES` 与 `auth-setup` project 生成。
 - 状态文件位于 `playwright/.auth/<role>.json`，不得提交。
-- `QA_AUTH_STATE` 保留为单个手工状态文件的兼容入口。
+- `QA_AUTH_STATE` 可读取单个手工生成的浏览器登录状态。
 - 同一用例切换角色使用 `loginAs` fixture，不复用可变共享会话。
 - 使用 `unit`、`smoke`、`regression`、`contract`、`integration` 标签区分执行范围。
 - Agent 生成前审阅计划和业务预期，生成后运行测试并审查 diff。

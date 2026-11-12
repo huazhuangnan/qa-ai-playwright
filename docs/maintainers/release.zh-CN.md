@@ -1,6 +1,6 @@
 # Release 发布指南
 
-[使用人员](../../README.md) | **维护人员**
+[使用文档](../users/README.md) | [维护文档](README.md)
 
 本页说明 GitHub Release 的版本、资产和说明来源。
 
@@ -24,7 +24,7 @@ Package 工作流检查治理文件未进入用户包，并验证两种语言的
 - 发布流程、资产清单和验收门禁写在 [维护指南](maintenance.zh-CN.md)。
 - 每个版本面向使用人员的变更说明写在 `docs/releases/v<版本>.md`。
 - GitHub Release 正文由该版本文件和 GitHub 自动生成的变更组成。
-- 长期兼容性、迁移和历史记录同步写入 [版本记录](version-history.zh-CN.md)。
+- 版本历史同步写入 [版本记录](version-history.zh-CN.md)。
 
 ## 版本说明格式
 
@@ -82,6 +82,6 @@ GitHub 还会自动显示 `Source code (zip)` 和 `Source code (tar.gz)`。
 手动运行时可以启用 `publish_release` 发布 Release，并启用
 `force_overwrite` 更新同名 Release。Release 标签由根 `package.json` 的版本生成，格式为 `v<版本>`。
 同名 Release 已存在且未启用覆盖时，发布步骤会失败并保留原 Release。
-启用覆盖时会替换同名用户包和校验文件，并清理旧的 `-user.zip`、`-developer.zip` 拆分包。
+启用覆盖时替换同名用户包和校验文件。
 
 主 CI 只允许同一个 Tag 发布一次。若同名 Release 已存在，检查 job 会成功完成，发布 job 会跳过并保留原 Release，不会覆盖或重复上传。

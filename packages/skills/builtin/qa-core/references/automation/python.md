@@ -15,7 +15,7 @@
 - 生成测试用 docstring 说明业务目标和关键前置条件。复杂流程用简短注释标明准备、操作、断言和清理，失败时也清理数据。
 - 项目根目录 `conftest.py` 自动加载 `.env`。系统和 CI 环境变量优先。
 - `QA_ENV` 选择 `.env.<环境>` 文件，各环境文件使用相同变量名。
-- API 默认使用 `API_BASE_URL`，`BASE_URL` 仅作兼容回退。
+- API 默认使用 `API_BASE_URL`。
 - API 用 requests.Session fixture，显式超时并关闭 session。
 - 认证由环境变量或 fixture 注入。requests 与浏览器不自动共享会话。
 - 多角色 UI 状态用 `scripts/auth_state.py` 生成，同一用例用 `login_as` 隔离 context。

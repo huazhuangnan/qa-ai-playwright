@@ -141,7 +141,7 @@ export const test = base.extend<QaFixtures>({
       throw new Error('QA_API_TIMEOUT must be a positive number');
     }
     const context = await playwright.request.newContext({
-      baseURL: process.env.API_BASE_URL || process.env.BASE_URL,
+      baseURL: process.env.API_BASE_URL,
       timeout: timeoutSeconds * 1_000,
       extraHTTPHeaders: token
         ? { [header]: `${scheme} ${token}`.trim() }

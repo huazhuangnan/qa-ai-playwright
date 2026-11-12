@@ -175,14 +175,8 @@ async function environmentCase(): Promise<void> {
   );
   assert.equal(updatedMcpLock.servers[mcpName('faker')], undefined);
 
-  assert.ok(!existsSync(join(ROOT, 'codex/skills/qa-core')));
-  const legacy = join(ROOT, 'codex/skills/qa-python/SKILL.md');
-  const lock = join(ROOT, 'codex/skills.lock.json');
-  mkdirSync(dirname(legacy), { recursive: true });
-  writeFileSync(legacy, 'preserve existing Skill', 'utf8');
-  writeFileSync(lock, '{"schema":1,"skills":{"qa-python":{"scope":"environment"}}}', 'utf8');
-  const before = readFileSync(lock);
-  const repeat = spawnSync(launcher[0] as string, [...launcher.slice(1), 'env', 'init', 'both', '--full', '--with-cc-switch'], {
+  assert.ok(!existsSync(join(ROOT, 'codex/skills')));
+  const repeat = spawnSync(launcher[0] as string, [...launcher.slice(1), 'env', 'init', 'both', '--full'], {
     cwd: REPO,
     env: process.env,
     encoding: 'utf8',
@@ -191,9 +185,7 @@ async function environmentCase(): Promise<void> {
   assert.doesNotMatch(repeat.stdout, /Installing missing global tool|Downloading CC Switch|Installing CC Switch into shared user directory/);
   qa(['env', 'check', 'both', '--full']);
   const after = readJson<EnvironmentState>(join(ROOT, 'state.json'));
-  assert.equal(readFileSync(legacy, 'utf8'), 'preserve existing Skill');
-  assert.deepEqual(readFileSync(lock), before);
-  assert.ok(!existsSync(join(ROOT, 'codex/skills/qa-core')));
+  assert.ok(!existsSync(join(ROOT, 'codex/skills')));
   for (const key of [
     'node',
     'python',

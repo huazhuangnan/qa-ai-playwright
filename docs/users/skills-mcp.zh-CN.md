@@ -1,6 +1,6 @@
 # Skills 与 MCP
 
-[使用人员](../../README.md)
+[使用文档](README.md) | [维护文档](https://github.com/huazhuangnan/qa-ai-playwright/blob/main/docs/maintainers/README.md)
 
 Skill 帮助 Codex 按任务理解需求、设计和执行测试。MCP 提供浏览器等工具。
 
@@ -26,8 +26,6 @@ npx -y skills@1.8.1 add https://github.com/huazhuangnan/qa-ai-playwright --skill
 也可以省略 `--skill`，在列表中选择。
 安装到当前项目后，重新打开 Codex 会话，使用 `/skills` 查看。
 安装器的用法见 [skills 官方文档](https://github.com/vercel-labs/skills)。
-旧版安装过多个 QA Skill 的项目需要重新安装 `qa-core`。
-旧目录不会自动删除，以免误删用户修改。
 
 需要 Codex 按统一规则管理 QA CLI 环境时，另行安装：
 

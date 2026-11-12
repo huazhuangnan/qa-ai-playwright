@@ -1,6 +1,6 @@
 # AI 文档发现与静态化
 
-[使用人员](../../README.md)
+[使用文档](README.md) | [维护文档](https://github.com/huazhuangnan/qa-ai-playwright/blob/main/docs/maintainers/README.md)
 
 本页说明如何让 AI 处理外部文档和减少上下文占用。
 底层网页、浏览器、压缩和文档生成能力由 Codex 提供。

@@ -28,6 +28,7 @@ test('boolean switches reject inline values', () => {
     ['env', 'check', 'typescript', '--skip-codex=false'],
     ['env', 'check', 'typescript', '--skip-skills=false'],
     ['env', 'init', 'typescript', '--with-cc-switch=false'],
+    ['env', 'init', 'typescript', '--skip-cc-switch=false'],
     ['project', 'init', 'example', '--language', 'typescript', '--with-deps=false'],
   ]) {
     assert.throws(() => parseArgs(args), /Unknown option/);

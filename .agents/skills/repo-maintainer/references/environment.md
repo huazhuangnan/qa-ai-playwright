@@ -9,7 +9,8 @@
 - 不重写 Codex 已有的搜索、浏览器、文件读取、压缩和文档能力。
 - MCP 分为 `packages/mcp/builtin/` 和 `packages/mcp/external/`。
 - 工具和 MCP 先复用，缺失时才安装。安装前说明范围。
-- 标准模式准备 Playwright CLI、QA MCP 和 Playwright MCP。`--full` 增加 Agent Browser CLI 和 MCP。
+- 标准模式准备 Playwright CLI、QA MCP、Playwright MCP 和 CC Switch。`--full` 增加 Agent Browser CLI 和 MCP。
+- CC Switch 默认准备，`--skip-cc-switch` 显式跳过。
 - 浏览器优先复用已有兼容版本，确认缺失后才下载。登录态使用独立上下文。
 - MCP 写入用户级 Codex 配置。保留同名冲突和用户配置。
 - 安装记录包含 scope、来源、版本、路径和所有权。

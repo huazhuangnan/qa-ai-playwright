@@ -15,7 +15,7 @@
 - 生成测试写明业务目标和关键前置条件。复杂流程用业务化 `test.step`，注释说明准备、操作、断言和清理。公共辅助写 TSDoc。
 - Playwright 配置自动加载项目根目录 `.env`。系统和 CI 环境变量优先。
 - `QA_ENV` 选择 `.env.<环境>` 文件，各环境文件使用相同变量名。
-- UI 和 API 分别使用 `UI_BASE_URL` 与 `API_BASE_URL`，`BASE_URL` 仅作兼容回退。
+- UI 和 API 分别使用 `UI_BASE_URL` 与 `API_BASE_URL`。
 - API 用 request fixture。独立 request 与 page 不共享 Cookie，需要时显式 storageState 或 page.request。
 - 使用模板提供的 API、认证、唯一数据和 LIFO 清理 fixtures。
 - 依赖使用 pnpm 从 pnpm-lock.yaml 安装。

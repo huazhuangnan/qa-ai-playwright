@@ -1,5 +1,8 @@
 # QA + AI + Playwright
 
+[QA 使用文档](docs/users/README.md) | [QA 维护文档](https://github.com/huazhuangnan/qa-ai-playwright/blob/main/docs/maintainers/README.md)
+
+维护者文档仅存在于源码仓库，不随使用者包发布。
 帮助使用 Codex 完成 QA 任务。
 CLI 用于准备环境和项目，Skills 与 MCP 协助测试设计、执行和结果分析。
 
@@ -75,18 +78,6 @@ Codex 会识别输入并预览测试计划。
 - **浏览器**：优先复用已有兼容浏览器。确认缺失后才下载。
 - **Skill**：QA 任务安装 `qa-core`，环境管理使用 `qa-setup`。Bun、pnpm 等 Skill 按任务复用。
 - **MCP**：默认注册 QA MCP 和 Playwright MCP。
-- **CC Switch**：仅在添加 `--with-cc-switch` 时准备。
+- **CC Switch**：默认准备。不需要时添加 `--skip-cc-switch`。
 
 详细范围见[环境初始化](docs/users/environment.zh-CN.md)和 [Skills 与 MCP](docs/users/skills-mcp.zh-CN.md)。
-
-## 文档
-
-- [环境初始化](docs/users/environment.zh-CN.md)：系统要求、参数、目录和卸载
-- [TypeScript 指南](docs/users/typescript.zh-CN.md)：快速开始、测试和报告
-- [Python 指南](docs/users/python.zh-CN.md)：快速开始、测试和报告
-- [代码风格与架构规范](docs/users/code-style-architecture.zh-CN.md)：跨语言边界、分层和语言差异
-- [Skills 与 MCP](docs/users/skills-mcp.zh-CN.md)：组件、来源和作用域
-- [AI 文档与上下文](docs/users/ai-docs.zh-CN.md)：链接资料、静态导出和上下文控制
-- [AI 测试整体模型](docs/users/ai-testing-model.zh-CN.md)：主流程、Skill 路由、测试层级和证据闭环
-- [测试设计与生成](docs/users/test-design.zh-CN.md)：场景选择、源码运行、可维护代码和专项边界
-- [从需求到执行](docs/users/qa-workflow.zh-CN.md)：输入、调用、执行和证据

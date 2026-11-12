@@ -1,6 +1,6 @@
 # QA + AI + Playwright 维护指南
 
-[使用人员](../../README.md) | **维护人员**
+[使用文档](../users/README.md) | [维护文档](README.md)
 
 本页面向仓库维护者。
 内容包括架构、不可变约束、发布门禁和回滚流程。
@@ -32,7 +32,7 @@ Skill 与 MCP 的来源、生命周期和维护规则见[维护参考](skills-mc
 qa.cmd / qa.sh  →  发现或引导 Node
       │
       ▼
-packages/qa-cli/bootstrap.ts  →  Node 兼容入口
+packages/qa-cli/bootstrap.ts  →  Node/Bun 入口
       │
       ▼
 packages/qa-cli/qa-cli.ts    →  命令分派
@@ -52,7 +52,7 @@ packages/qa-cli/qa-cli.ts    →  命令分派
 ```
 
 - **入口**：平台入口只负责引导和参数转发。业务逻辑集中在 `packages/qa-cli/cli/`。
-- **全局命令**：使用 `install.ps1` 或 `install.sh` 安装用户级 `qa` 命令。源码包启动器、`Set-Alias` 和 `session.sh` 仅作旧会话兼容入口。
+- **全局命令**：使用 `install.ps1` 或 `install.sh` 安装用户级 `qa` 命令。源码包启动器和 `session.sh` 用于开发或当前会话。
 - **运行时**：平台入口使用 Node 22.18 或更高版本。QA MCP 和项目维护脚本使用 Bun。
 - **分派**：环境、项目、Skill 和 MCP 共用 `qa` 命令。QA MCP 复用同一分派。
 - **名称**：项目对外名称为 `QA + AI + Playwright`，根包名为 `qa-ai-playwright`。
@@ -72,14 +72,6 @@ packages/qa-cli/qa-cli.ts    →  命令分派
 示例应用和 QA 项目独立维护。测试只通过 HTTP 和浏览器访问应用。
 CLI 中的 `REPO` 和 `QA_REPO` 指向仓库根目录。安装记录中的源码路径相对该目录。
 
-旧启动器 `packages/qa-ai-playwright/src/bin/` 已迁移到 `packages/qa-cli/bin/`。迁移旧环境时：
-
-1. 退出旧激活脚本，检查 shell 中的 `CODEX_HOME`。
-2. 使用新入口执行 `env init`。新激活脚本将 `QA_REPO` 指向仓库根目录。
-3. 如果旧 MCP 注册产生冲突，核对注册和 QA 锁记录。只手动处理已确认由 QA 管理的条目。
-
-重跑会保留已有 Skill 和项目文件。旧环境与项目数据、旧 `codex/config.toml` 和 `mcp.lock.json` 不会自动迁移。
-
 ## 生命周期管理
 
 | 对象 | 当前命令 | 当前作用 |
@@ -95,15 +87,15 @@ CLI 中的 `REPO` 和 `QA_REPO` 指向仓库根目录。安装记录中的源码
 QA MCP 使用对应 CLI 操作，并传递退出码和输出。升级相关工具只检测并返回人工操作建议，不安装、替换或修改版本。
 
 `env init` 可重复执行。它补齐缺失组件，并保留已有项目文件和受保护的用户配置。
-重复初始化不等同于完整的版本升级迁移。
+重复初始化不等同于模板升级。
 项目模板提供只读升级检测和修复。环境修复沿用已记录配置。
 共享工具和 MCP 的通用升级及快照回滚不在这些命令中执行。
 
 - **更新检查**：不安装组件，也不修改来源清单、锁记录或已安装文件。
 - **MCP 状态**：分别报告注册、所有权和共享包。包版本取自实际发现的包元数据。未记录全局 npm 位置时报告未知。
 - **MCP 修复**：需要完整的本环境所有权记录。缺失共享包按记录版本补装。注册已修改、共享包损坏或所有权未知时停止。
-- **浏览器迁移**：注册、所有权记录和配置快照一致，且差异仅限浏览器配置时才更新注册。无法确认时保留原配置并报告。
-- **迁移中断**：旧注册已移除而新注册尚未写入时，可按原配置重跑。新注册已写入但所有权记录未更新时，需要人工核对。处理残留的并发保护目录前，先确认没有其他初始化进程。
+- **注册更新**：当前配置、所有权记录和注册快照必须一致；不一致时保留原配置并报告。
+- **更新中断**：先确认没有其他初始化进程，再按当前配置重跑。
 - **卸载**：项目卸载保留依赖目录。环境卸载保留环境目录和共享软件，只清理可确认归属的 MCP 注册。
 - **软件所有权**：升级和卸载只处理 `source=qa` 且路径匹配的记录。普通复用观察标记为未知，不继承旧 QA 所有权。用户或系统已有软件只复用和保留。
 
@@ -112,7 +104,7 @@ QA MCP 使用对应 CLI 操作，并传递退出码和输出。升级相关工�
 
 ## 浏览器 CLI 入口与 CI 组织
 
-- **Playwright CLI**：从安装包 `package.json` 的 `bin` 字段解析入口。安装校验、`qa run playwright-cli` 和 CI 检查使用同一入口。不能拼接旧版 `cli.js` 路径。
+- **Playwright CLI**：从安装包 `package.json` 的 `bin` 字段解析入口。安装校验、`qa run playwright-cli` 和 CI 检查使用同一入口。
 - **浏览器检查**：发现阶段只检查可执行文件存在且可访问。CI 的启动检查只验证所测组合。
 - **Agent Browser**：socket 使用环境根目录下的短目录 `s`，默认会话名为 `qa`。截图、下载、流程、配置和 socket 留在环境目录。
 - **Chromium 临时文件**：使用系统临时目录，避免 Unix socket 路径超出 103 字节。Windows 设置 `TEMP`、`TMP` 和 `TMPDIR`。Unix 使用 `/tmp`。
@@ -122,7 +114,7 @@ QA MCP 使用对应 CLI 操作，并传递退出码和输出。升级相关工�
 - **触发**：代码、配置、模板行为、测试和工作流变更启动主 CI。纯文档变更不启动，手动运行不受路径过滤影响。
 - **覆盖**：验证三平台全局命令安装、升级和卸载、环境、项目生成与检查、共享卸载保护和维护单元测试。
 - **项目 smoke**：覆盖 TypeScript、Python、带空格路径和 Chromium 检查。失败时归档可用证据；未生成证据时查看 Actions 日志。
-- **暂未执行**：项目卸载集成、lint、示例业务测试和兼容版本专项验证。
+- **暂未执行**：项目卸载集成、lint 和示例业务测试。
 - **平台差异**：通过复合 Action 和统一启动器处理。
 
 ## 维护语言
@@ -155,7 +147,7 @@ TypeScript 与 Python 分别使用各自的类型、fixture 和运行器约定�
 
 维护测试中的控制台输出采集辅助必须定义在测试文件内，并通过 `tsc --noEmit`。
 跨平台 CI 若在安装后同时报告同一类型错误，先修复共享测试源码，再重新运行三平台验证。
-Unix 启动器读取版本环境文件时必须兼容仓库文件的 CRLF 换行。
+Unix 启动器必须正确读取仓库文件的 CRLF 换行。
 
 ## Git 协作约定
 
@@ -208,7 +200,6 @@ CLI 面向直接操作，Skills 负责按任务选择工具和解释结果。
 | --- | --- | --- | --- |
 | `global` | 用户 Skill 目录 | 用户 Codex 配置 | 复用或按需准备 |
 | `project` | 项目 `.agents/skills/` | 项目自己的 Codex 配置 | AI 按需安装 Skill |
-| `environment` | 旧环境 `<root>/codex/skills/` | `<root>/codex/config.toml` | 只兼容旧环境，不再作为新工具安装目标 |
 
 环境 CLI 默认使用 `global` 工具和 MCP 配置。AI 按需安装 QA 与外部 Skill 到项目。
 锁文件必须记录 `scope`、`source_type`、来源路径和实际版本。
@@ -226,7 +217,6 @@ CLI 面向直接操作，Skills 负责按任务选择工具和解释结果。
 - 环境缓存、socket、输出和项目凭证保存在环境或项目边界内；共享工具文件不随环境卸载。
 - `QA_ENV` 选择环境。
 - `UI_BASE_URL` 和 `API_BASE_URL` 分离页面与接口入口。
-- `BASE_URL` 只作兼容回退。
 - 项目变量名登记到 `docs/qa/inputs/input-index.md`。
 - 外部资料精简副本放 `docs/qa/inputs/external/`。
 - 外部资料记录来源、抓取时间、版本或哈希、敏感级别和使用范围。
@@ -240,15 +230,13 @@ CLI 面向直接操作，Skills 负责按任务选择工具和解释结果。
 | 文件 | 所有权 | 关键字段 |
 | --- | --- | --- |
 | `<root>/state.json` | CLI | 运行时版本、组件、policy |
-| `<root>/codex/skills.lock.json` | 旧环境 | 已安装 Skill 的来源、scope、版本和文件 SHA256 |
 | 用户级 `CODEX_HOME/qa-ai-playwright-mcp.lock.json` | CLI | 按环境记录 MCP 清单、配置快照、来源、scope 和版本 |
 | 用户级 `CODEX_HOME/config.toml` | 用户与 CLI | 共享 Codex 与 MCP 配置 |
 | `<project>/.qa-project.json` | CLI | 项目所有权、模板版本、文件校验值 |
 | `<project>/pnpm-lock.yaml` | 项目 | Node 依赖锁 |
 | `<project>/requirements.lock` | 项目 | 跨平台解析的 Python 哈希依赖锁 |
 
-修改锁文件格式时，必须提供迁移策略和回滚策略。
-旧环境的 Skill 文件和锁记录保留。环境检查不要求 Skill。
+锁文件格式变化时同步更新校验和测试。
 回滚前备份环境目录及业务项目的 Skill 安装记录。
 
 ## 配置与版本
@@ -285,7 +273,7 @@ Skill 使用 SemVer。
 Skill 使用 `packages/skills/external-sources.json`。
 
 npm 和 Release 来源从运行时、MCP 和应用清单读取固定版本。
-候选版本不同只代表变化，不代表兼容或可安全升级。
+候选版本不同只代表变化，不代表可以安全升级。
 Release 资产和哈希仍需人工审查。
 检查不读取实际安装版本。
 Node 和 Python 的版本策略尚未配置，报告 `unconfigured`。
@@ -407,13 +395,12 @@ Tag 必须与根 `package.json` 的版本一致。
 6. 运行目标项目的测试并保留 Trace、JUnit 和截图。
 
 浏览器下载完成后仍提示安装不完整时，检查可执行文件识别规则。
-macOS 新版使用 `Google Chrome for Testing`，旧版使用 `Chromium`。
+macOS 需要识别 `Google Chrome for Testing` 和 `Chromium` 两种完整安装。
 完整 Chromium 检查不能仅凭 Headless Shell 存在就放行。
 
 Windows 中 pnpm 安装后仍显示 `missing` 时，检查是否直接启动了 `pnpm.cmd`。
 CLI 应使用环境内 Node 执行 pnpm 的 JavaScript 入口。
-pnpm 12 使用 `bin/pnpm.mjs`。旧版回退到 `bin/pnpm.cjs`。
 版本探测与项目命令使用相同调用路径，避免探测结果不一致。
 
-详细版本和迁移历史见[版本记录](version-history.zh-CN.md)。
+详细版本历史见[版本记录](version-history.zh-CN.md)。
 框架来源与许可证见[参考来源](references.zh-CN.md)。

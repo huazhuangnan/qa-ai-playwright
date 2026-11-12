@@ -1,6 +1,6 @@
 # TypeScript 使用指南
 
-[使用人员](../../README.md)
+[使用文档](README.md) | [维护文档](https://github.com/huazhuangnan/qa-ai-playwright/blob/main/docs/maintainers/README.md)
 
 **TypeScript** | [Python](python.zh-CN.md)
 
@@ -95,7 +95,6 @@ cd workspaces/my-qa
 | `QA_ENV` | 选择环境 |
 | `UI_BASE_URL` | 页面入口 |
 | `API_BASE_URL` | API fixture 入口 |
-| `BASE_URL` | 兼容回退入口 |
 | `PLAYWRIGHT_WEB_SERVER_COMMAND` | 配置本地服务启动命令 |
 | `QA_AUTH_STATE` | 指向未提交的 UI 登录态文件 |
 
@@ -173,9 +172,9 @@ bunx tsc --noEmit
 执行前检查以下配置：
 
 - **API 门禁**：先完成业务接入。API 测试默认跳过。
-  CI 手动门禁设置 `REQUIRE_API_TESTS=1`。缺少 `API_BASE_URL` 和 `BASE_URL` 时门禁失败。
+  CI 手动门禁设置 `REQUIRE_API_TESTS=1`。缺少 `API_BASE_URL` 时门禁失败。
   在 GitHub Actions 手动运行工作流时，选择 `QA_ENV` 并启用 `run_api`。
-- **环境与认证**：模板演示 `QA_API_BASE_URL`、`QA_BASE_URL` 和 `QA_API_TOKEN`。
+- **环境与认证**：模板演示 `QA_API_BASE_URL` 和 `QA_API_TOKEN`。
   按项目变量扩展工作流 `env` 和仓库 secrets。不要假设所有项目只使用这几个 secret。
   API 认证适配支持 `QA_API_TOKEN`、`QA_API_TOKEN_HEADER` 和 `QA_API_AUTH_SCHEME`。
   账号、Cookie、OAuth、多租户或业务资源变量按项目实现。

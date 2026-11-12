@@ -9,12 +9,17 @@ export async function executeEnvironment(
   env: Environment,
   preserveSharedSoftware: (env: Environment) => Promise<boolean>,
 ): Promise<number> {
+  const recorded = env.state.init_options as Partial<EnvironmentInitOptions> | undefined;
+  const recordedSkipCcSwitch = recorded?.skipCcSwitch === true
+    || (env.state.components as { cc_switch_skipped?: unknown } | undefined)?.cc_switch_skipped === true;
+  const skipCcSwitch = args.skipCcSwitch
+    ?? (args.action === 'check' ? recordedSkipCcSwitch : false);
   const options: EnvironmentInitOptions = {
     stack: args.stack ?? 'typescript',
     profile: args.full ? 'full' : 'standard',
     skipCodex: args.skipCodex ?? false,
     skipSkills: args.skipSkills ?? false,
-    withCcSwitch: args.withCcSwitch,
+    skipCcSwitch,
   };
   if (args.action === 'repair') {
     if (!existsSync(env.marker) || !existsSync(env.stateFile)
@@ -23,22 +28,28 @@ export async function executeEnvironment(
       || readFileSync(env.marker, 'utf8').trim() !== OWNER) {
       throw new Error('Cannot repair: environment ownership or state is missing');
     }
-    const recorded = env.state.init_options as Partial<EnvironmentInitOptions> | undefined;
     if (recorded && (recorded.stack === 'python' || recorded.stack === 'typescript' || recorded.stack === 'both')
       && (recorded.profile === 'standard' || recorded.profile === 'full')
       && typeof recorded.skipCodex === 'boolean' && typeof recorded.skipSkills === 'boolean'
-      && (recorded.withCcSwitch === undefined || typeof recorded.withCcSwitch === 'boolean')) {
-      return env.init({ ...recorded, stack: recorded.stack, profile: recorded.profile, skipCodex: recorded.skipCodex, skipSkills: recorded.skipSkills, withCcSwitch: recorded.withCcSwitch ?? false });
+      && (recorded.skipCcSwitch === undefined || typeof recorded.skipCcSwitch === 'boolean')) {
+      const skip = recorded.skipCcSwitch === true;
+      return env.init({ ...recorded, stack: recorded.stack, profile: recorded.profile, skipCodex: recorded.skipCodex, skipSkills: recorded.skipSkills, skipCcSwitch: skip });
     }
     const stack = env.state.stack;
     const profile = env.state.profile;
-    const components = env.state.components as { codex?: unknown; browser_tools?: unknown; cc_switch?: unknown } | undefined;
+    const components = env.state.components as {
+      codex?: unknown;
+      browser_tools?: unknown;
+      cc_switch?: unknown;
+      cc_switch_skipped?: unknown;
+    } | undefined;
     if ((stack !== 'python' && stack !== 'typescript' && stack !== 'both')
       || (profile !== 'standard' && profile !== 'full')
       || typeof components?.codex !== 'boolean' || typeof components.browser_tools !== 'boolean') {
       throw new Error('Cannot repair: environment configuration is incomplete; use env init with explicit options');
     }
-    return env.init({ stack, profile, skipCodex: !components.codex, skipSkills: !components.browser_tools, withCcSwitch: components.cc_switch === true });
+    const skipCcSwitch = components.cc_switch_skipped === true;
+    return env.init({ stack, profile, skipCodex: !components.codex, skipSkills: !components.browser_tools, skipCcSwitch });
   }
   if (args.action === 'init') return env.init(options);
   if (args.action === 'check') {
@@ -69,12 +80,13 @@ export function executeDoctor(env: Environment): number {
     browser_tools?: boolean;
     agent_browser?: boolean;
     cc_switch?: boolean;
+    cc_switch_skipped?: boolean;
   };
   return env.check({
     stack: (env.state.stack ?? 'both') as Stack,
     profile: env.state.profile === 'full' || components.agent_browser ? 'full' : 'standard',
     skipCodex: !components.codex,
     skipSkills: !(components.browser_tools ?? components.skills ?? true),
-    withCcSwitch: components.cc_switch === true,
+    skipCcSwitch: components.cc_switch_skipped === true,
   });
 }

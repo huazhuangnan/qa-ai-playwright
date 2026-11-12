@@ -17,7 +17,6 @@
 
 - `QA_ENV` 选择 `.env.<环境>`。
 - `UI_BASE_URL` 和 `API_BASE_URL` 分别指向页面和接口。
-- `BASE_URL` 只作兼容回退。
 - 进程环境和 CI 配置优先于本地文件。
 - 凭证使用环境变量、CI secret 或密钥系统。
 - TypeScript 依赖使用 pnpm 与 `pnpm-lock.yaml`。

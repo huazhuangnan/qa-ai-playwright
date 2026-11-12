@@ -28,7 +28,16 @@ function fixture(stack: 'python' | 'typescript' = 'typescript') {
   mkdirSync(root, { recursive: true });
   const calls: string[] = [];
   const env = { repo, root, requireInitialized: (value: string) => calls.push(value) } as unknown as Environment;
-  const marker = (files: Record<string, unknown>): void => put(join(target, '.qa-project.json'), JSON.stringify({ owner: OWNER, target, stack, files, directories: [], qa_template_version: '0.0.1', language_template_version: '0.0.1' }));
+  const marker = (files: Record<string, unknown>): void => put(join(target, '.qa-project.json'), JSON.stringify({
+    owner: OWNER,
+    target,
+    stack,
+    files,
+    directories: [],
+    qa_template_version: '0.0.1',
+    language_template_version: '0.0.1',
+    last_successful_init: { browser: 'chromium', browser_system_dependencies_requested: false },
+  }));
   return { base, target, language, qa, put, marker, env, calls };
 }
 

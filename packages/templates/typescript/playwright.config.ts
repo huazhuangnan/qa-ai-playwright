@@ -42,8 +42,8 @@ function loadProjectEnvironment(): string {
 }
 
 const qaEnvironment = loadProjectEnvironment();
-const uiBaseUrl = process.env.UI_BASE_URL || process.env.BASE_URL;
-const apiBaseUrl = process.env.API_BASE_URL || process.env.BASE_URL;
+const uiBaseUrl = process.env.UI_BASE_URL;
+const apiBaseUrl = process.env.API_BASE_URL;
 const webServerCommand = process.env.PLAYWRIGHT_WEB_SERVER_COMMAND;
 const configuredAuthState = process.env.QA_AUTH_STATE;
 const authRoles = configuredAuthRoles();

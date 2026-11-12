@@ -17,7 +17,7 @@ export interface ParsedArguments {
   full?: boolean;
   skipCodex?: boolean;
   skipSkills?: boolean;
-  withCcSwitch?: boolean;
+  skipCcSwitch?: boolean;
   target?: string;
   snapshotId?: string;
   language?: 'python' | 'typescript';
@@ -178,8 +178,8 @@ export function parseArgs(
         parsed.skipCodex = true;
       } else if (command === 'env' && (action === 'init' || action === 'check') && name === '--skip-skills' && inline === undefined) {
         parsed.skipSkills = true;
-      } else if (command === 'env' && (action === 'init' || action === 'check') && name === '--with-cc-switch' && inline === undefined) {
-        parsed.withCcSwitch = true;
+      } else if (command === 'env' && (action === 'init' || action === 'check') && name === '--skip-cc-switch' && inline === undefined) {
+        parsed.skipCcSwitch = true;
       } else if (
         command === 'env'
         && (action === 'init' || action === 'check')

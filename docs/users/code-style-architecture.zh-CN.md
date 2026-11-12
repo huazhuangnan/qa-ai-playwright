@@ -1,6 +1,6 @@
 # 代码风格与架构规范
 
-[使用人员](../../README.md) | [QA 工作流](qa-workflow.zh-CN.md)
+[使用文档](README.md) | [维护文档](https://github.com/huazhuangnan/qa-ai-playwright/blob/main/docs/maintainers/README.md)
 
 适用对象：业务项目 QA 开发与维护人员。
 

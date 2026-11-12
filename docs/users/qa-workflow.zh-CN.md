@@ -1,6 +1,6 @@
 # 从需求到执行
 
-[使用人员](../../README.md)
+[使用文档](README.md) | [维护文档](https://github.com/huazhuangnan/qa-ai-playwright/blob/main/docs/maintainers/README.md)
 
 QA 环境与每个测试项目分开管理。
 测试项目包含测试代码、环境配置和 `docs/qa/` 下的需求、任务与报告。

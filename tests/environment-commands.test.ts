@@ -43,7 +43,13 @@ test('environment repair restores recorded configuration even when Bun and pnpm 
     env.init = async (options) => { selected = options; return 0; };
     const result = await executeEnvironment({ command: 'env', action: 'repair', root: env.root }, env, async () => true);
     assert.equal(result, 0);
-    assert.deepEqual(selected, { stack: 'python', profile: 'full', skipCodex: true, skipSkills: false, withCcSwitch: false });
+    assert.deepEqual(selected, {
+      stack: 'python',
+      profile: 'full',
+      skipCodex: true,
+      skipSkills: false,
+      skipCcSwitch: false,
+    });
   } finally {
     rmSync(base, { recursive: true, force: true });
   }
@@ -63,7 +69,13 @@ test('repair resumes interrupted options and successful uninstall invalidates th
   const base = mkdtempSync(join(tmpdir(), 'qa-env-resume-'));
   try {
     const env = new Environment({ root: join(base, 'environment'), env: { PATH: '' } });
-    const options: EnvironmentInitOptions = { stack: 'typescript', profile: 'full', skipCodex: true, skipSkills: false, withCcSwitch: true };
+    const options: EnvironmentInitOptions = {
+      stack: 'typescript',
+      profile: 'full',
+      skipCodex: true,
+      skipSkills: false,
+      skipCcSwitch: true,
+    };
     Object.assign(env.state, { stack: 'typescript', profile: 'full', init_status: 'initializing', init_options: options });
     env.save();
     assert.equal((environmentStatus(env) as { initialized: boolean }).initialized, false);
@@ -75,8 +87,8 @@ test('repair resumes interrupted options and successful uninstall invalidates th
     assert.equal(await executeEnvironment({ command: 'env', action: 'uninstall', root: env.root }, env, async () => true), 20);
     assert.equal(env.state.init_status, 'uninstalled');
     assert.equal((environmentStatus(env) as { initialized: boolean }).initialized, false);
-    assert.equal(parseArgs(['env', 'init', 'typescript', '--with-cc-switch']).withCcSwitch, true);
-    assert.throws(() => parseArgs(['env', 'init', 'typescript', '--with-cc-switch=false']), /Unknown option/);
+    assert.equal(parseArgs(['env', 'init', 'typescript', '--skip-cc-switch']).skipCcSwitch, true);
+    assert.throws(() => parseArgs(['env', 'init', 'typescript', '--with-cc-switch']), /Unknown option/);
   } finally { rmSync(base, { recursive: true, force: true }); }
 });
 

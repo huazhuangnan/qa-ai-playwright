@@ -131,7 +131,6 @@ def browser_context_args() -> dict[str, Any]:
     context_args: dict[str, Any] = {}
     ui_base_url = (
         os.getenv("UI_BASE_URL", "").strip()
-        or os.getenv("BASE_URL", "").strip()
     )
     if ui_base_url:
         context_args["base_url"] = ui_base_url
@@ -179,7 +178,6 @@ def qa_api() -> Iterator[ApiClient]:
     """Provide an authenticated API client for the selected environment."""
     base_url = (
         os.getenv("API_BASE_URL", "").strip()
-        or os.getenv("BASE_URL", "").strip()
     )
     if not base_url:
         message = "API_BASE_URL is not configured for the selected QA_ENV"

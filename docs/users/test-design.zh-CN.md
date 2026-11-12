@@ -1,6 +1,6 @@
 # 测试设计与生成
 
-[使用人员](../../README.md) | [从需求到执行](qa-workflow.zh-CN.md)
+[使用文档](README.md) | [维护文档](https://github.com/huazhuangnan/qa-ai-playwright/blob/main/docs/maintainers/README.md)
 
 本页负责测试场景选择、生成代码质量和专项边界。整体流程见[AI 测试模型](ai-testing-model.zh-CN.md)。
 

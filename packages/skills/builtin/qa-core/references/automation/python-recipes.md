@@ -11,8 +11,8 @@ Windows 项目解释器为 .venv/Scripts/python.exe；macOS/Linux 为 .venv/bin/
 .venv\Scripts\python.exe -m playwright show-trace test-results/实际目录/trace.zip
 ```
 
-API 示例未配置 API_BASE_URL 或 BASE_URL 时会跳过；业务验收不能把跳过计为覆盖。requests 超时与 Playwright expect 超时分别处理，避免统一放大所有超时。
-API 门禁设置 `REQUIRE_API_TESTS=1` 后，缺少 API_BASE_URL 和 BASE_URL 必须失败。
+API 示例未配置 `API_BASE_URL` 时会跳过；业务验收不能把跳过计为覆盖。requests 超时与 Playwright expect 超时分别处理，避免统一放大所有超时。
+API 门禁设置 `REQUIRE_API_TESTS=1` 后，缺少 `API_BASE_URL` 必须失败。
 创建或修改数据的测试使用 `qa_cleanup`、`unique_id` 和 `require_write_access`。
 
 ```python

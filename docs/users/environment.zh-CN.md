@@ -1,6 +1,6 @@
 # 环境初始化
 
-[使用人员](../../README.md)
+[使用文档](README.md) | [维护文档](https://github.com/huazhuangnan/qa-ai-playwright/blob/main/docs/maintainers/README.md)
 
 Windows 启动器使用 PowerShell。macOS 和 Linux 启动器使用 Bash。启动器发现或引导 Node，再将命令交给 TypeScript CLI。
 Node 需要 22.18 或更高版本。启动器优先使用符合要求的系统 Node，再检查用户级共享 Node。环境命令负责准备 QA 所需运行时与工具。项目、Skill 和 MCP 命令复用同一个 CLI 入口。
@@ -80,7 +80,7 @@ qa project check ./workspaces/python-qa
 ```
 
 - **初始化**：`project` 要求先完成对应语言的 `env init`。初始化优先复用系统或用户级工具。缺少工具时，按组件安装到共享位置或环境目录，并在安装前输出命令。
-- **可选组件**：扩展包使用 `env init <语言> --full`。需要 CC Switch 时添加 `--with-cc-switch`。Python 环境会准备受管 Python。
+- **可选组件**：扩展包使用 `env init <语言> --full`。CC Switch 默认准备，不需要时添加 `--skip-cc-switch`。Python 环境会准备受管 Python。
 - **状态记录**：初始化写入环境状态和用户级 MCP 配置。安装及复用的工具会记录在环境状态中。共享工具的使用关系不能仅凭单个环境的记录确认。
 - **失败恢复**：初始化失败后，可使用相同参数重跑。先检查已输出的安装操作。
 - **版本兼容**：复用的 Bun 或 pnpm 主版本与配置基线不同时，会提示人工检查兼容性。CLI 不覆盖已有安装。
@@ -154,7 +154,7 @@ Project ready: ［项目目录］. QA templates: ［版本］. Language template
 | --- | --- |
 | `env init/check` 的位置参数 | `python`、`typescript` 或 `both` |
 | `--full` | 增加 Agent Browser CLI 和 MCP |
-| `--with-cc-switch` | 初始化或检查 CC Switch |
+| `--skip-cc-switch` | 不安装或检查 CC Switch |
 | `--language python/typescript` | 选择新项目语言 |
 | `--browser` | `project init` 支持 `chrome`、`msedge`、`chromium`、`firefox`、`webkit`、`all`、`none`；`project check` 支持前五项 |
 | `--skip-codex` | 不安装 Codex 和声明需要 Codex 的 MCP |
@@ -162,7 +162,7 @@ Project ready: ［项目目录］. QA templates: ［版本］. Language template
 | `--with-deps` | Linux 安装浏览器系统库 |
 
 `--language` 也可写作 `--语言`。
-`env check` 未指定该选项时，按已记录的环境配置决定是否检查 CC Switch。
+`env check` 未指定该选项时，沿用初始化记录的跳过设置。
 
 - 未指定浏览器时，依次检测系统 Chrome、Edge、Chromium、环境内 Chromium。均未发现时，准备 Playwright 的 Chromium。
 - 项目检查优先使用 `--browser`，其次使用 `QA_BROWSER_CHANNEL`。两者均未指定时，沿用初始化记录的 Chrome 或 Edge，否则使用 Chromium。
@@ -171,7 +171,6 @@ Project ready: ［项目目录］. QA templates: ［版本］. Language template
 
 环境初始化复用已有工具版本。
 缺失时使用配置中的版本安装。
-CI 的 `latest` 对应当前默认版本，`compatible` 对应仍需支持的兼容版本。
 `--full` 只在需要 Agent Browser CLI 或 Agent Browser MCP 时使用。
 版本、安装逻辑或平台变化会触发对应 CI 验证。
 
@@ -179,7 +178,6 @@ CI 的 `latest` 对应当前默认版本，`compatible` 对应仍需支持的兼
 
 `QA_ENV` 选择 `.env.dev`、`.env.stg` 等配置文件。
 `UI_BASE_URL` 和 `API_BASE_URL` 分别配置页面与接口入口。
-`BASE_URL` 只用于旧项目兼容。
 
 | 类别 | 说明 |
 | --- | --- |
@@ -197,7 +195,6 @@ CI 的 `latest` 对应当前默认版本，`compatible` 对应仍需支持的兼
 | --- | --- |
 | `UI_BASE_URL` | 页面入口 |
 | `API_BASE_URL` | API 入口 |
-| `BASE_URL` | 兼容回退 |
 | `QA_BROWSER_CHANNEL` | 项目测试的 Chromium 通道；`chrome` 或 `msedge` 使用对应系统浏览器，空值使用 Chromium |
 | `QA_BROWSER_EXECUTABLE_PATH` | 系统浏览器可执行文件路径；通道为空时指定 Chromium，路径也为空时使用 Playwright 管理的 Chromium |
 | `QA_API_TOKEN` | API Token |
@@ -226,12 +223,10 @@ CI 的 `latest` 对应当前默认版本，`compatible` 对应仍需支持的兼
 
 | 路径 | 内容 |
 | --- | --- |
-| `<root>/runtime/` | 旧环境运行时或项目状态 |
 | 用户级 `CODEX_HOME` | Codex 配置、MCP 注册和 MCP 锁记录 |
 | npm 全局前缀 | 缺失时安装的 Codex、Bun、pnpm、Playwright CLI、Playwright MCP 和 Agent Browser |
 | 用户级共享目录 | 缺失时安装的 Node 和 CC Switch |
 | `<root>/bin/cc-switch`（Windows 为 `cc-switch.cmd`） | 启动已发现的 CC Switch 的快捷方式，并非应用本体 |
-| `<root>/codex/skills/` | 旧环境可能保留的 Skills |
 | `<root>/cache/` | npm、pnpm、Bun、pip、uv 和浏览器缓存 |
 | `<root>/state.json` | 实际复用或安装的工具路径和版本 |
 | `<root>/mcp-output/` | Playwright MCP 输出 |

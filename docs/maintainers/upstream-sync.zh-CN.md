@@ -1,6 +1,6 @@
 # 上游版本同步
 
-[使用人员](../../README.md) | **维护人员**
+[使用文档](../users/README.md) | [维护文档](README.md)
 
 在仓库根目录执行 `pnpm upstream:sync`。脚本读取官方 npm 注册表和 GitHub Release，更新运行时及 MCP 版本。CC Switch 需要对应平台的发布资产和 SHA256。资产缺失时脚本停止，不写入版本文件。
 

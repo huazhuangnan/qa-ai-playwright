@@ -77,6 +77,7 @@ jobs:
           unzip -Z1 "$archive" | grep -Fx "qa-ai-playwright-v${version}/packages/qa-cli/bin/install.ps1" > /dev/null
           unzip -Z1 "$archive" | grep -Fx "qa-ai-playwright-v${version}/packages/templates/typescript/AGENTS.md" > /dev/null
           unzip -Z1 "$archive" | grep -Fx "qa-ai-playwright-v${version}/packages/templates/python/AGENTS.md" > /dev/null
+          unzip -Z1 "$archive" | grep -Fx "qa-ai-playwright-v${version}/docs/users/README.md" > /dev/null
           unzip -Z1 "$archive" | grep -Fx "qa-ai-playwright-v${version}/docs/users/ai-testing-model.zh-CN.md" > /dev/null
           if unzip -Z1 "$archive" | grep -Eq 'qa-ai-playwright-v[^/]+/(AGENTS\.md|docs/maintainers/)'; then
             echo 'Repository governance files leaked into the user package' >&2
@@ -200,11 +201,6 @@ jobs:
               echo "Release $tag already exists; enable force_overwrite to update it" >&2
               exit 1
             fi
-            for legacy_asset in "qa-ai-playwright-v${version}-user.zip" "qa-ai-playwright-v${version}-developer.zip"; do
-              if gh release view "$tag" --json assets --jq ".assets[].name" | grep -Fxq "$legacy_asset"; then
-                gh release delete-asset "$tag" "$legacy_asset" --yes
-              fi
-            done
             gh release upload "$tag" "$user_zip" "$checksum" --clobber
             if [[ -f "$notes" ]]; then
               gh release edit "$tag" --title "$tag" --notes-file "$notes"

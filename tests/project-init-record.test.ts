@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Environment } from '../packages/qa-cli/cli/environment.ts';
-import { projectInit } from '../packages/qa-cli/cli/project.ts';
+import { projectCheck, projectInit } from '../packages/qa-cli/cli/project.ts';
 
 const workspaces: string[] = [];
 afterEach(() => {
@@ -55,14 +55,13 @@ test('only successful initialization updates the requested browser options', asy
   expect(f.read().last_successful_init).toEqual({ browser: 'none', browser_system_dependencies_requested: false });
 });
 
-test('legacy project marker gains the record after successful initialization', async () => {
+test('project check rejects an incomplete initialization record', async () => {
   const f = fixture();
   await projectInit(f.env, { target: f.target, stack: 'typescript', browser: 'none', withDeps: false });
-  const legacy = f.read();
-  delete legacy.last_successful_init;
-  writeFileSync(f.marker, JSON.stringify(legacy));
-  await projectInit(f.env, { target: f.target, stack: 'typescript', withDeps: false });
-  expect(f.read().last_successful_init).toEqual({ browser: 'chromium', browser_system_dependencies_requested: false });
+  const state = f.read();
+  delete state.last_successful_init;
+  writeFileSync(f.marker, JSON.stringify(state));
+  expect(() => projectCheck(f.env, { target: f.target })).toThrow('Project initialization is incomplete');
 });
 
 test('initialization reuses a detected system browser without installing Chromium', async () => {
