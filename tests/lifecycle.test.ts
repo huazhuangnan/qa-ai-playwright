@@ -603,6 +603,7 @@ test('browser test runners use the host temporary directory', () => {
   const expected = browserTemporaryEnvironment();
   stub.playwright(environment.root, 'test');
   assert.deepEqual(observed.at(-1)?.env, expected);
+  assert.ok(existsSync(String(expected.TEMP)));
   assert.ok(!within(String(expected.TEMP), environment.root));
 });
 

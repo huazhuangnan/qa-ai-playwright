@@ -54,12 +54,8 @@ const AGENT_BROWSER_LAUNCH_ARGS = WINDOWS
 
 /** Uses the host temporary directory for Chromium's own short-lived files. */
 export function browserTemporaryEnvironment(): NodeJS.ProcessEnv {
-  const temp = WINDOWS
-    ? join(
-        process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'),
-        'Temp',
-      )
-    : '/tmp';
+  const temp = tmpdir();
+  mkdirSync(temp, { recursive: true });
   return { TEMP: temp, TMP: temp, TMPDIR: temp };
 }
 
