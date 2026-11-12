@@ -78,7 +78,7 @@ QA、Bun、pnpm 和其他 Skill 由 AI 按任务检查。缺失的 Skill 安装�
 不熟悉业务时使用 `$qa-business-guide` 获取步骤、边界和下一步。
 所有语言方案都会检查 CC Switch。已有时复用，缺失时安装到用户级共享目录。
 CC Switch 用户数据仍按上游设计写入 `~/.cc-switch`。
-环境和项目分别通过 `env init/check/uninstall` 与 `project init/check/uninstall` 管理。`mcp list/add/remove` 管理可选 MCP。`update check` 检查来源更新。升级、修复和回滚命令仍在规划。
+环境提供初始化、检查和修复。项目提供模板规划、升级和修复。可选 MCP 和项目内置 Skill 提供独立管理命令。`update check` 只检查来源更新。具体范围和限制见环境指南与 Skills/MCP 指南。
 来源和作用域见 [Skills 与 MCP](docs/skills-mcp.zh-CN.md)。管理范围和待确认事项见 [QA CLI 管理能力 TODO](docs/qa-cli-management-todo.zh-CN.md)。
 
 ## 文档
@@ -86,6 +86,7 @@ CC Switch 用户数据仍按上游设计写入 `~/.cc-switch`。
 - [环境初始化](docs/environment.zh-CN.md)：系统要求、参数、目录和卸载
 - [TypeScript 指南](docs/typescript.zh-CN.md)：快速开始、测试和报告
 - [Python 指南](docs/python.zh-CN.md)：快速开始、测试和报告
+- [代码风格与架构规范](docs/code-style-architecture.zh-CN.md)：跨语言边界、分层和语言差异
 - [Skills 与 MCP](docs/skills-mcp.zh-CN.md)：组件、来源和作用域
 - [AI 文档与上下文](docs/ai-docs.zh-CN.md)：链接资料、静态导出和上下文控制
 - [AI 测试整体模型](docs/ai-testing-model.zh-CN.md)：整体概念、主流程、Skill 路由、测试层级和证据闭环

@@ -70,8 +70,15 @@ node_dir=$(canonical "${HOME:?HOME is required}/.local/share/qa-ai-playwright/no
 case "$node_dir/" in
   "$root/"*) echo "Shared Node must be outside the environment root" >&2; exit 1 ;;
 esac
+node_compatible() {
+  local version
+  version=$("$1" --version 2>/dev/null) || return 1
+  [[ "$version" =~ ^v([0-9]+)\.([0-9]+)\. ]] \
+    && (( BASH_REMATCH[1] > 22 || (BASH_REMATCH[1] == 22 && BASH_REMATCH[2] >= 18) ))
+}
 node="$(type -P node || true)"
-if [[ -z "$node" && -x "$node_dir/bin/node" ]]; then
+if [[ -n "$node" ]] && ! node_compatible "$node"; then node=''; fi
+if [[ -z "$node" && -x "$node_dir/bin/node" ]] && node_compatible "$node_dir/bin/node"; then
   node="$node_dir/bin/node"
 fi
 marker="$root/.qa-managed"
@@ -79,18 +86,39 @@ first=${1:-help}
 if [[ "$first" == help || "$first" == --help || "$first" == -h ]]; then
   cat <<'EOF'
 qa env init <python|typescript|both> [--full]
+qa env list
 qa env check <python|typescript|both> [--full]
+qa env repair
+qa env plan uv
+qa env upgrade uv  # manual-only guidance; no automatic upgrade
+qa env snapshots uv
+qa env rollback <snapshot>
 qa env uninstall [--include-external]
 qa project init <project> --language <python|typescript> [--browser <name>]
   --language alias: --语言
 qa project check <project> [--browser <name>]
 qa project plan <project>
+qa project upgrade <project>  # manual-only guidance; no automatic upgrade
+qa project repair <project>
+qa project snapshots <project>
+qa project rollback <project> <snapshot>
 qa project uninstall <project>
 qa doctor
 qa shell
 qa mcp add <name>
 qa mcp remove <name>
 qa mcp list
+qa mcp check <name>
+qa mcp repair <name>
+qa skills list <project>
+qa skills recover <project>
+qa skills snapshots <project>
+qa skills rollback <project> <snapshot>
+qa skills check <project> <name>
+qa skills install <project> <name>
+qa skills upgrade <project> <name>  # manual-only guidance; no automatic upgrade
+qa skills repair <project> <name>
+qa skills uninstall <project> <name>
 qa skills check-updates [--source <file>]
 qa update check [--source <file>]
 qa run <command> [...]
@@ -105,6 +133,10 @@ if [[ "$first" == env && ( ${2:-} == init || ${2:-} == check ) ]]; then
 fi
 
 if [[ -z "$node" ]]; then
+  if [[ "$first" == env && ${2:-} == repair ]]; then
+    echo 'Node is missing. Run qa env init <python|typescript|both> using the original language to restore Node before repair.' >&2
+    exit 1
+  fi
   if [[ "$first" == doctor || ( "$first" == env && ${2:-} == check ) || "$first" == project ]]; then
     echo "Environment not initialized: $root"
     exit 1
@@ -201,11 +233,12 @@ fi
 
 [[ -x "$node" ]] || { echo 'Node is unavailable' >&2; exit 1; }
 version=$("$node" --version)
-[[ "$version" =~ ^v([0-9]+)\. ]] && (( BASH_REMATCH[1] >= 22 )) \
-  || { echo "Node 22 or later is required: $version" >&2; exit 1; }
+[[ "$version" =~ ^v([0-9]+)\.([0-9]+)\. ]] \
+  && (( BASH_REMATCH[1] > 22 || (BASH_REMATCH[1] == 22 && BASH_REMATCH[2] >= 18) )) \
+  || { echo "Node 22.18 or later is required: $version" >&2; exit 1; }
 export QA_NODE_PATH="$node"
 set +e
-"$node" --experimental-strip-types "$repo/packages/qa-cli/qa-cli.ts" "$@"
+"$node" --experimental-strip-types "$repo/packages/qa-cli/bootstrap.ts" "$@"
 code=$?
 set -e
 if [[ "$code" == 20 ]]; then

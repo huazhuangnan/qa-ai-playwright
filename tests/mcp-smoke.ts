@@ -117,7 +117,9 @@ async function smokeServer(
     const tools = (await waitForResponse(messages, 2, 30_000, name === 'qa')).tools ?? [];
     assert.ok(tools.length > 0, `${name}: no tools returned`);
     if (name === 'qa') {
-      assert.ok(tools.some((tool) => tool.name === 'qa_mcp_list'));
+      for (const expected of ['qa_template_list', 'qa_template_check', 'qa_env_list', 'qa_env_repair', 'qa_env_uv_plan', 'qa_env_uv_upgrade', 'qa_env_uv_snapshots', 'qa_env_uv_rollback', 'qa_project_plan', 'qa_project_upgrade', 'qa_project_repair', 'qa_project_snapshots', 'qa_project_rollback', 'qa_mcp_list', 'qa_mcp_check', 'qa_mcp_repair', 'qa_skills_list', 'qa_skills_recover', 'qa_skills_snapshots', 'qa_skills_rollback', 'qa_skills_check', 'qa_skills_install', 'qa_skills_upgrade', 'qa_skills_repair', 'qa_skills_uninstall']) {
+        assert.ok(tools.some((tool) => tool.name === expected), `missing ${expected}`);
+      }
       send(child, {
         jsonrpc: '2.0', id: 3, method: 'tools/call',
         params: { name: 'qa_mcp_list', arguments: {} },

@@ -27,14 +27,38 @@ const schema = (properties: JsonObject = {}, required: string[] = []): JsonObjec
 const project = stringProperty('Project directory, absolute or relative to the server working directory.');
 const browser = stringProperty('Browser to use.', ['chromium', 'firefox', 'webkit', 'all', 'none']);
 const tools: Tool[] = [
+  { name: 'qa_template_list', description: 'List delivered QA and language templates.', inputSchema: schema() },
+  { name: 'qa_template_check', description: 'Check delivered template directories and versions.', inputSchema: schema() },
+  { name: 'qa_env_list', description: 'List recorded configuration and discovered tools in the selected environment.', inputSchema: schema() },
   { name: 'qa_env_check', description: 'Check the selected QA environment and installed tools.', inputSchema: schema({ stack: stringProperty('Environment language.', ['python', 'typescript', 'both']), full: { type: 'boolean' }, skipCodex: { type: 'boolean' }, skipSkills: { type: 'boolean' } }, ['stack']) },
+  { name: 'qa_env_repair', description: 'Repair the environment using its recorded settings.', inputSchema: schema() },
+  { name: 'qa_env_uv_plan', description: 'Plan an upgrade of environment-owned uv.', inputSchema: schema() },
+  { name: 'qa_env_uv_upgrade', description: 'Report that uv upgrades are manual-only and return the detection guidance.', inputSchema: schema() },
+  { name: 'qa_env_uv_snapshots', description: 'List environment-owned uv snapshots.', inputSchema: schema() },
+  { name: 'qa_env_uv_rollback', description: 'Restore an environment-owned uv snapshot.', inputSchema: schema({ snapshot: stringProperty('Snapshot identifier.') }, ['snapshot']) },
   { name: 'qa_doctor', description: 'Diagnose the configured QA environment.', inputSchema: schema() },
   { name: 'qa_project_init', description: 'Initialize a project and install its dependencies.', inputSchema: schema({ project, language: stringProperty('Project language.', ['python', 'typescript']), browser, withDeps: { type: 'boolean' } }, ['project', 'language']) },
   { name: 'qa_project_check', description: 'Run the managed project checks and tests; this can take time.', inputSchema: schema({ project, browser: stringProperty('Browser to use.', ['chromium', 'firefox', 'webkit']) }, ['project']) },
+  { name: 'qa_project_plan', description: 'Compare the project with its templates without changing files.', inputSchema: schema({ project }, ['project']) },
+  { name: 'qa_project_upgrade', description: 'Report manual project template upgrade guidance without changing files.', inputSchema: schema({ project }, ['project']) },
+  { name: 'qa_project_repair', description: 'Restore missing managed project files.', inputSchema: schema({ project }, ['project']) },
+  { name: 'qa_project_snapshots', description: 'List project upgrade snapshots.', inputSchema: schema({ project }, ['project']) },
+  { name: 'qa_project_rollback', description: 'Restore an unchanged project upgrade snapshot.', inputSchema: schema({ project, snapshot: stringProperty('Snapshot identifier.') }, ['project', 'snapshot']) },
   { name: 'qa_project_uninstall', description: 'Uninstall a managed project. Requires user authorization.', inputSchema: schema({ project }, ['project']) },
   { name: 'qa_mcp_list', description: 'List optional MCP servers available for installation.', inputSchema: schema() },
+  { name: 'qa_mcp_check', description: 'Check an optional MCP registration and package.', inputSchema: schema({ name: stringProperty('Optional MCP server name.') }, ['name']) },
+  { name: 'qa_mcp_repair', description: 'Repair a managed optional MCP using its ownership record.', inputSchema: schema({ name: stringProperty('Optional MCP server name.') }, ['name']) },
   { name: 'qa_mcp_add', description: 'Install and register an optional MCP server.', inputSchema: schema({ name: stringProperty('Optional MCP server name.') }, ['name']) },
   { name: 'qa_mcp_remove', description: 'Remove an optional MCP server. Requires user authorization.', inputSchema: schema({ name: stringProperty('Optional MCP server name.') }, ['name']) },
+  { name: 'qa_skills_list', description: 'List builtin Skill status in a project.', inputSchema: schema({ project }, ['project']) },
+  { name: 'qa_skills_recover', description: 'Recover an interrupted builtin Skill operation.', inputSchema: schema({ project }, ['project']) },
+  { name: 'qa_skills_snapshots', description: 'List builtin Skill upgrade snapshots.', inputSchema: schema({ project }, ['project']) },
+  { name: 'qa_skills_rollback', description: 'Restore an unchanged builtin Skill upgrade snapshot.', inputSchema: schema({ project, snapshot: stringProperty('Snapshot identifier.') }, ['project', 'snapshot']) },
+  { name: 'qa_skills_check', description: 'Check one builtin Skill in a project.', inputSchema: schema({ project, name: stringProperty('Builtin Skill name.') }, ['project', 'name']) },
+  { name: 'qa_skills_install', description: 'Install a builtin Skill in a project.', inputSchema: schema({ project, name: stringProperty('Builtin Skill name.') }, ['project', 'name']) },
+  { name: 'qa_skills_upgrade', description: 'Report manual builtin Skill upgrade guidance without changing files.', inputSchema: schema({ project, name: stringProperty('Builtin Skill name.') }, ['project', 'name']) },
+  { name: 'qa_skills_repair', description: 'Restore missing unchanged builtin Skill files.', inputSchema: schema({ project, name: stringProperty('Builtin Skill name.') }, ['project', 'name']) },
+  { name: 'qa_skills_uninstall', description: 'Remove unchanged owned Skill files.', inputSchema: schema({ project, name: stringProperty('Builtin Skill name.') }, ['project', 'name']) },
 ];
 
 /** Validate input against the advertised closed, flat JSON schemas. */
@@ -61,17 +85,58 @@ function command(name: string, args: JsonObject): string[] {
   const target = () => resolve(args.project as string);
   const options = (keys: [string, string][]) => keys.flatMap(([key, flag]) => args[key] === true ? [flag] : []);
   switch (name) {
+    case 'qa_template_list': return ['template', 'list'];
+    case 'qa_template_check': return ['template', 'check'];
+    case 'qa_env_list': return ['env', 'list'];
     case 'qa_env_check': return ['env', 'check', args.stack as string, ...options([['full', '--full'], ['skipCodex', '--skip-codex'], ['skipSkills', '--skip-skills']])];
+    case 'qa_env_repair': return ['env', 'repair'];
+    case 'qa_env_uv_plan': return ['env', 'plan', 'uv'];
+    case 'qa_env_uv_upgrade': return ['env', 'upgrade', 'uv'];
+    case 'qa_env_uv_snapshots': return ['env', 'snapshots', 'uv'];
+    case 'qa_env_uv_rollback': {
+      const snapshot = args.snapshot as string;
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(snapshot)) throw new Error('Invalid uv snapshot identifier');
+      return ['env', 'rollback', snapshot];
+    }
     case 'qa_doctor': return ['doctor'];
     case 'qa_project_init': return ['project', 'init', target(), '--language', args.language as string, ...(args.browser ? ['--browser', args.browser as string] : []), ...options([['withDeps', '--with-deps']])];
     case 'qa_project_check': return ['project', 'check', target(), ...(args.browser ? ['--browser', args.browser as string] : [])];
     case 'qa_project_uninstall': return ['project', 'uninstall', target()];
+    case 'qa_project_plan': return ['project', 'plan', target()];
+    case 'qa_project_upgrade': return ['project', 'upgrade', target()];
+    case 'qa_project_repair': return ['project', 'repair', target()];
+    case 'qa_project_snapshots': return ['project', 'snapshots', target()];
+    case 'qa_project_rollback': {
+      const snapshot = args.snapshot as string;
+      if (!/^[a-f0-9]{64}$/.test(snapshot)) throw new Error('Invalid project snapshot identifier');
+      return ['project', 'rollback', target(), snapshot];
+    }
     case 'qa_mcp_list': return ['mcp', 'list'];
     case 'qa_mcp_add':
+    case 'qa_mcp_check':
+    case 'qa_mcp_repair':
     case 'qa_mcp_remove': {
       const server = args.name as string;
       if (!/^[a-z0-9][a-z0-9-]*$/.test(server)) throw new Error('Invalid MCP server name');
-      return ['mcp', name === 'qa_mcp_add' ? 'add' : 'remove', server];
+      return ['mcp', name.slice('qa_mcp_'.length), server];
+    }
+    case 'qa_skills_list': return ['skills', 'list', target()];
+    case 'qa_skills_recover': return ['skills', 'recover', target()];
+    case 'qa_skills_snapshots': return ['skills', 'snapshots', target()];
+    case 'qa_skills_rollback': {
+      const snapshot = args.snapshot as string;
+      if (!/^[a-f0-9]{64}$/.test(snapshot)) throw new Error('Invalid Skill snapshot identifier');
+      return ['skills', 'rollback', target(), snapshot];
+    }
+    case 'qa_skills_install':
+    case 'qa_skills_check':
+    case 'qa_skills_upgrade':
+    case 'qa_skills_repair':
+    case 'qa_skills_uninstall': {
+      const skill = args.name as string;
+      if (!/^qa-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(skill)) throw new Error('Invalid Skill name');
+      const action = name.slice('qa_skills_'.length);
+      return ['skills', action, target(), skill];
     }
     default: throw new Error('Unknown tool');
   }

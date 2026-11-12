@@ -70,6 +70,15 @@ export interface SharedMcpRemovalResult {
   preserved: { name: string; reason: string }[];
   failed: { name: string; reason: string }[];
 }
+
+/** Read-only status of an optional MCP's registration, ownership, and shared package. */
+export interface OptionalMcpStatus {
+  name: string;
+  serverName: string;
+  registration: 'present' | 'absent' | 'unknown';
+  ownership: 'owned' | 'modified' | 'unowned' | 'none';
+  package: { name: string; status: 'available' | 'missing' | 'broken' | 'unknown'; version?: string; path?: string };
+}
 /** Options used to create an isolated environment manager. */
 export interface EnvironmentOptions {
   root: string;
@@ -797,7 +806,16 @@ export class Environment {
    * @returns Installed uv version string.
    */
   async ensureUv(): Promise<string> {
+    try {
+      if (lstatSync(this.uv).isSymbolicLink()) throw new Error('Managed uv path is a link; preserve it and inspect manually');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
     if (existsSync(this.uv)) {
+      const recordedHash = this.state.uv_sha256;
+      if (recordedHash !== undefined && (typeof recordedHash !== 'string' || !/^[a-f0-9]{64}$/u.test(recordedHash) || digest(this.uv) !== recordedHash)) {
+        throw new Error('Cannot use uv: ownership hash is mismatched. Back up and move the existing uv manually, then rerun env init.');
+      }
       try {
         const current =
           this.run([this.uv, '--version'], { capture: true }) ?? '';
@@ -805,9 +823,12 @@ export class Environment {
           return current;
         }
       } catch {
-        // A damaged local uv executable is replaced below.
+        // Preserve an existing executable when its version cannot be verified.
       }
-      removeOwned(this.uv, this.root);
+      if (typeof recordedHash !== 'string' || !/^[a-f0-9]{64}$/u.test(recordedHash) || digest(this.uv) !== recordedHash) {
+        throw new Error('Cannot replace uv: ownership hash is missing or mismatched. Back up and move the existing uv manually, then rerun env init.');
+      }
+      throw new Error('Installed uv differs from the configured version or cannot be verified; run qa env plan uv, update it manually, then run qa env check');
     }
     if (!/^(latest|\d+\.\d+\.\d+)$/.test(this.uvVersion)) {
       throw new Error('Invalid QA_UV_VERSION');
@@ -859,7 +880,14 @@ export class Environment {
         `Expected uv ${this.uvVersion}; got ${current.trim() || 'missing'}`,
       );
     }
+    this.recordUvOwnership();
     return current;
+  }
+
+  /** Persist the verified executable before later initialization steps can fail. */
+  recordUvOwnership(): void {
+    this.state.uv_sha256 = digest(this.uv);
+    this.save();
   }
 
   /** Returns whether a uv version output matches the pinned policy. */
@@ -1049,6 +1077,49 @@ export class Environment {
       .sort();
   }
 
+  /** Inspects one optional MCP without installing tools or changing configuration. */
+  optionalMcpStatus(name: string): OptionalMcpStatus {
+    const manifest = mcpManifest(name, 'external', this.repo);
+    if (manifest.optional !== true) throw new Error(`MCP ${name} is not an on-demand server`);
+    const serverName = this.mcpName(name);
+    const servers = this.objectValue(this.readSharedMcpLock().servers);
+    const record = this.objectValue(servers[serverName]);
+    const present = this.hasMcpConfig(serverName);
+    const hasRecord = Object.keys(record).length > 0;
+    const ownsRecord = record.scope === 'user' && record.root === this.root && record.name === name
+      && record.package === manifest.package && record.source_type === 'external';
+    const unchanged = present && ownsRecord && typeof record.snapshot === 'string' && !!record.snapshot
+      && record.snapshot === this.mcpConfigSnapshot(serverName)
+      && this.sameMcpConfig(readMcpServerConfig(this.mcpConfig, serverName), this.objectValue(record.config) as McpServerConfig);
+    const ownership: OptionalMcpStatus['ownership'] = unchanged ? 'owned'
+      : ownsRecord ? 'modified' : present || hasRecord ? 'unowned' : 'none';
+
+    const packageName = String(manifest.package);
+    const bin = typeof this.state.global_npm_bin === 'string' ? this.state.global_npm_bin : '';
+    const candidates = !bin ? [] : WINDOWS ? [join(bin, 'node_modules', packageName)]
+      : [join(bin, '..', 'lib', 'node_modules', packageName), join(bin, '..', 'node_modules', packageName)];
+    const directory = this.globalPackage(packageName)
+      || candidates.find((candidate) => !within(resolve(candidate), this.root) && existsSync(candidate)) || '';
+    const knownPrefix = !!bin;
+    let packageStatus: OptionalMcpStatus['package'] = { name: packageName, status: knownPrefix ? 'missing' : 'unknown' };
+    if (directory) {
+      const metadata = this.readJson(join(directory, 'package.json'));
+      const version = this.globalPackageVersion(directory);
+      const relativeEntry = typeof manifest.entry === 'string' ? manifest.entry : '';
+      const entry = resolve(directory, relativeEntry);
+      const available = metadata?.name === packageName && !!version && !!relativeEntry
+        && within(entry, directory) && existsSync(entry);
+      packageStatus = { name: packageName, status: available ? 'available' : 'broken', path: directory, ...(version ? { version } : {}) };
+    }
+    const registration = !present ? 'absent' : this.hasSpecificMcpConfig(serverName) ? 'present' : 'unknown';
+    return { name, serverName, registration, ownership, package: packageStatus };
+  }
+
+  /** Lists status for each optional MCP in the delivered manifest. */
+  optionalMcpStatuses(): OptionalMcpStatus[] {
+    return this.optionalMcpNames().map((name) => this.optionalMcpStatus(name));
+  }
+
   /**
    * Installs one on-demand npm MCP server into the environment.
    *
@@ -1077,8 +1148,60 @@ export class Environment {
     this.registerMcp(name, { command: this.node, args: [entry, ...args] }, 'external', installed);
     return installed;
   }
+
+  /** Restores missing components of an owned optional MCP without upgrading shared software. */
+  repairOptionalMcp(name: string): string {
+    this.requireInitialized();
+    const status = this.optionalMcpStatus(name);
+    const manifest = mcpManifest(name, 'external', this.repo);
+    const servers = this.objectValue(this.readSharedMcpLock().servers);
+    const record = this.objectValue(servers[status.serverName]);
+    const config = this.objectValue(record.config) as McpServerConfig;
+    const version = typeof record.version === 'string' ? record.version : '';
+    if (record.scope !== 'user' || record.root !== this.root || record.name !== name
+      || record.source_type !== 'external' || record.package !== manifest.package
+      || record.manifest !== `packages/mcp/external/${name}.json` || typeof record.snapshot !== 'string' || !record.snapshot
+      || !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version)) {
+      throw new Error(`Cannot repair MCP ${name}: ownership record is missing or incomplete`);
+    }
+    if (status.registration === 'unknown' || (status.registration === 'present' && status.ownership !== 'owned')) {
+      throw new Error(`Cannot repair MCP ${name}: registration ownership or contents cannot be verified`);
+    }
+    if (status.package.status === 'unknown' || status.package.status === 'broken') {
+      throw new Error(`Cannot repair MCP ${name}: shared package is ${status.package.status}`);
+    }
+    if (status.package.status === 'available' && status.package.version !== version) {
+      throw new Error(`Cannot repair MCP ${name}: shared package version differs from its ownership record`);
+    }
+    const bin = String(this.state.global_npm_bin);
+    const packageDir = status.package.path ?? (WINDOWS
+      ? join(bin, 'node_modules', String(manifest.package))
+      : join(bin, '..', 'lib', 'node_modules', String(manifest.package)));
+    const relativeEntry = typeof manifest.entry === 'string' ? manifest.entry : '';
+    const entry = resolve(packageDir, relativeEntry);
+    const args = Array.isArray(manifest.args) ? manifest.args as string[] : [];
+    const expected: McpServerConfig = { command: this.node, args: [entry, ...args] };
+    if (!relativeEntry || !within(entry, resolve(packageDir)) || !this.sameMcpConfig(config, expected)) {
+      throw new Error(`Cannot repair MCP ${name}: recorded configuration differs from the current manifest`);
+    }
+    if (status.package.status === 'missing') {
+      const priorBin = bin;
+      const actualBin = this.discoverGlobalNpmBin();
+      if (!actualBin || resolve(actualBin) !== resolve(priorBin)) {
+        this.state.global_npm_bin = priorBin;
+        throw new Error(`Cannot repair MCP ${name}: npm global prefix differs from its recorded location`);
+      }
+      this.installGlobal(`${String(manifest.package)}@${version}`, undefined, String(manifest.package));
+      const repaired = this.optionalMcpStatus(name).package;
+      if (repaired.status !== 'available' || repaired.version !== version) {
+        throw new Error(`Cannot repair MCP ${name}: the installed package could not be verified`);
+      }
+    }
+    this.registerMcp(name, expected, 'external', version);
+    return version;
+  }
   /**
-   * Removes one on-demand MCP server registration and its package.
+   * Removes one owned on-demand MCP registration, preserving its shared package.
    *
    * @param name - Optional MCP name.
    */
@@ -1091,14 +1214,14 @@ export class Environment {
       const serverName = this.mcpName(name);
       const record = this.objectValue(servers[serverName]);
       if (record.scope !== 'user' || record.root !== this.root || record.package !== manifest.package || record.source_type !== 'external') {
-        console.log(`Preserving MCP ${serverName}: no matching QA installation record`);
-        return;
+        throw new Error(`Preserving MCP ${serverName}: no matching QA installation record`);
       }
       const current = readMcpServerConfig(this.mcpConfig, serverName);
       const expected = this.objectValue(record.config) as McpServerConfig;
       if (this.hasMcpConfig(serverName)) {
         if (!this.sameMcpConfig(current, expected) || record.snapshot !== this.mcpConfigSnapshot(serverName)) throw new Error(`Preserving MCP ${serverName}: registration differs from the QA record`);
         this.codex(['mcp', 'remove', serverName]);
+        if (this.hasMcpConfig(serverName)) throw new Error(`MCP ${serverName} is still present after removal`);
       }
       delete servers[serverName];
       lock.servers = servers;
@@ -1283,11 +1406,18 @@ export class Environment {
   }
 
   /** Detects an existing server even if its transport is not a command. */
-  private hasMcpConfig(name: string): boolean {
+  private hasSpecificMcpConfig(name: string): boolean {
     if (!existsSync(this.mcpConfig)) return false;
     const text = readFileSync(this.mcpConfig, 'utf8');
     const table = new RegExp(`^\\s*(?:\\[+\\s*["']?mcp_servers["']?\\s*\\.\\s*["']?${name}["']?\\s*(?:\\.|\\])|["']?mcp_servers["']?\\s*\\.\\s*["']?${name}["']?\\s*[.=])`, 'm');
-    return table.test(text) || /^\s*(?:["']?mcp_servers["']?\s*=|\[\s*["']?mcp_servers["']?\s*\])/m.test(text);
+    return table.test(text);
+  }
+
+  private hasMcpConfig(name: string): boolean {
+    if (this.hasSpecificMcpConfig(name)) return true;
+    if (!existsSync(this.mcpConfig)) return false;
+    const text = readFileSync(this.mcpConfig, 'utf8');
+    return /^\s*(?:["']?mcp_servers["']?\s*=|\[\s*["']?mcp_servers["']?\s*\])/m.test(text);
   }
 
   /** Captures the complete server tables so edits to unparsed fields are preserved. */

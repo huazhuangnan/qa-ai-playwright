@@ -99,25 +99,54 @@ $nodeDirectory = Join-Path $env:LOCALAPPDATA 'qa-ai-playwright/node'
 if ((Path-Equals $nodeDirectory $rootPath) -or (Is-Child-Path $nodeDirectory $rootPath)) {
     throw 'Shared Node must be outside the environment root'
 }
+function Test-NodeCompatible([string]$Path) {
+    if (!$Path -or !(Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+    try { $version = & $Path --version 2>$null } catch { return $false }
+    if ($LASTEXITCODE -ne 0 -or $version -notmatch '^v(\d+)\.(\d+)\.') { return $false }
+    return ([int]$matches[1] -gt 22 -or ([int]$matches[1] -eq 22 -and [int]$matches[2] -ge 18))
+}
 $nodeCommand = Get-Command node.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-$nodePath = if ($nodeCommand) { $nodeCommand.Source } else { Join-Path $nodeDirectory 'node.exe' }
+$sharedNode = Join-Path $nodeDirectory 'node.exe'
+$nodePath = if ($nodeCommand -and (Test-NodeCompatible $nodeCommand.Source)) { $nodeCommand.Source } else { $sharedNode }
+if (!(Test-NodeCompatible $nodePath)) { $nodePath = '' }
 $marker = Join-Path $rootPath '.qa-managed'
 $first = if ($cliArguments.Count) { $cliArguments[0] } else { 'help' }
 if ($first -in @('help', '--help', '-h')) {
     @(
         'qa env init <python|typescript|both> [--full]',
+        'qa env list',
         'qa env check <python|typescript|both> [--full]',
+        'qa env repair',
+        'qa env plan uv',
+        'qa env upgrade uv  (manual-only guidance; no automatic upgrade)',
+        'qa env snapshots uv',
+        'qa env rollback <snapshot>',
         'qa env uninstall [--include-external]',
         'qa project init <project> --language <python|typescript> [--browser <name>]',
         '  --language alias: --语言',
         'qa project check <project> [--browser <name>]',
         'qa project plan <project>',
+        'qa project upgrade <project>  (manual-only guidance; no automatic upgrade)',
+        'qa project repair <project>',
+        'qa project snapshots <project>',
+        'qa project rollback <project> <snapshot>',
         'qa project uninstall <project>',
         'qa doctor',
         'qa shell',
         'qa mcp add <name>',
         'qa mcp remove <name>',
         'qa mcp list',
+        'qa mcp check <name>',
+        'qa mcp repair <name>',
+        'qa skills list <project>',
+        'qa skills recover <project>',
+        'qa skills snapshots <project>',
+        'qa skills rollback <project> <snapshot>',
+        'qa skills check <project> <name>',
+        'qa skills install <project> <name>',
+        'qa skills upgrade <project> <name>  (manual-only guidance; no automatic upgrade)',
+        'qa skills repair <project> <name>',
+        'qa skills uninstall <project> <name>',
         'qa skills check-updates [--source <file>]',
         'qa update check [--source <file>]',
         'qa run <command> [...]'
@@ -144,7 +173,10 @@ $uninstallEnvironment = (
     $cliArguments[1] -eq 'uninstall'
 )
 
-if (!(Test-Path -LiteralPath $nodePath -PathType Leaf)) {
+if (!$nodePath) {
+    if ($first -eq 'env' -and $cliArguments.Count -ge 2 -and $cliArguments[1] -eq 'repair') {
+        throw 'Node is missing. Run qa env init <python|typescript|both> using the original language to restore Node before repair.'
+    }
     if ($readOnly) {
         Write-Host "Environment not initialized: $rootPath"
         exit 1
@@ -239,17 +271,23 @@ if (!(Test-Path -LiteralPath $nodePath -PathType Leaf)) {
     # Move fails if another process created the shared installation.
     [IO.Directory]::Move($candidates[0].FullName, $nodeDirectory)
     Remove-Item -LiteralPath $staging -Force
+    $nodePath = $sharedNode
 }
 
 if (!(Test-Path -LiteralPath $nodePath -PathType Leaf)) {
     throw 'Node is unavailable'
 }
 $nodeVersion = & $nodePath --version
-if ($LASTEXITCODE -ne 0 -or $nodeVersion -notmatch '^v(\d+)\.' -or [int]$matches[1] -lt 22) {
-    throw "Node 22 or later is required: $nodeVersion"
+if ($LASTEXITCODE -ne 0 -or $nodeVersion -notmatch '^v(\d+)\.(\d+)\.') {
+    throw "Node 22.18 or later is required: $nodeVersion"
+}
+$nodeMajor = [int]$matches[1]
+$nodeMinor = [int]$matches[2]
+if ($nodeMajor -lt 22 -or ($nodeMajor -eq 22 -and $nodeMinor -lt 18)) {
+    throw "Node 22.18 or later is required: $nodeVersion"
 }
 $env:QA_NODE_PATH = $nodePath
-& $nodePath --experimental-strip-types (Join-Path $repoPath 'packages/qa-cli/qa-cli.ts') @cliArguments
+& $nodePath --experimental-strip-types (Join-Path $repoPath 'packages/qa-cli/bootstrap.ts') @cliArguments
 $exitCode = $LASTEXITCODE
 if ($exitCode -eq 20) {
     if (

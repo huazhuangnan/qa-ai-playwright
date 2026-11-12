@@ -5,7 +5,7 @@ import { projectMarker } from './project.ts';
 import { digest, templateVersion } from './shared.ts';
 
 /** A file's relationship to its recorded baseline and the delivered template. */
-export type ProjectUpgradeStatus = 'unchanged' | 'update' | 'modified' | 'missing' | 'new' | 'removed' | 'unknown';
+export type ProjectUpgradeStatus = 'unchanged' | 'update' | 'adopt' | 'modified' | 'missing' | 'new' | 'removed' | 'unknown';
 
 /** Hashes are omitted when the corresponding file or trustworthy baseline is absent. */
 export interface ProjectUpgradeEntry {
@@ -19,6 +19,7 @@ export interface ProjectUpgradeEntry {
 /** A read-only comparison; entries do not authorize any subsequent write. */
 export interface ProjectUpgradePlan {
   target: string;
+  markerHash: string;
   stack: 'python' | 'typescript';
   recordedVersions: { language?: string; qa?: string };
   templateVersions: { language: string; qa: string };
@@ -26,7 +27,7 @@ export interface ProjectUpgradePlan {
 }
 
 /** Check the boundary and each existing descendant without following links. */
-function rejectLinks(path: string, boundary = path): void {
+export function rejectLinks(path: string, boundary = path): void {
   const absolute = resolve(path);
   const root = resolve(boundary);
   const segments = relative(root, absolute);
@@ -90,6 +91,7 @@ export function projectUpgradePlan(env: Environment, targetInput: string): Proje
   const requested = resolve(targetInput);
   rejectLinks(requested);
   rejectLinks(join(requested, '.qa-project.json'), requested);
+  const markerHash = digest(join(requested, '.qa-project.json'));
   const { target, state } = projectMarker(requested);
   if (state.stack !== 'python' && state.stack !== 'typescript') throw new Error('Invalid project stack');
   env.requireInitialized(state.stack);
@@ -115,11 +117,12 @@ export function projectUpgradePlan(env: Environment, targetInput: string): Proje
     else if (!recordedHash) status = currentHash ? 'unknown' : 'new';
     else if (!templateHash) status = currentHash && currentHash !== recordedHash ? 'modified' : 'removed';
     else if (!currentHash) status = 'missing';
-    else if (currentHash !== recordedHash) status = 'modified';
+    else if (currentHash !== recordedHash) status = currentHash === templateHash ? 'adopt' : 'modified';
     else status = currentHash === templateHash ? 'unchanged' : 'update';
     entries.push({ path: name, status, recordedHash, currentHash, templateHash });
   }
   // VERSION files were enumerated and checked for links before reading them.
-  return { target, stack: state.stack, recordedVersions: { language: state.language_template_version, qa: state.qa_template_version },
+  if (digest(join(target, '.qa-project.json')) !== markerHash) throw new Error('Project record changed during planning; retry');
+  return { target, markerHash, stack: state.stack, recordedVersions: { language: state.language_template_version, qa: state.qa_template_version },
     templateVersions: { language: templateVersion(languageRoot), qa: templateVersion(qaRoot) }, entries };
 }

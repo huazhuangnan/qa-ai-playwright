@@ -40,7 +40,40 @@ import {
   readMcpServerConfig,
   within,
 } from '../packages/qa-cli/cli/shared.ts';
-import { parseArgs, uninstallExternalTools, verifiedGlobalPackage } from '../packages/qa-cli/qa-cli.ts';
+import { execute, parseArgs, uninstallExternalTools, verifiedGlobalPackage } from '../packages/qa-cli/qa-cli.ts';
+
+test('environment repair uses recorded configuration and rejects overriding flags', () => {
+  assert.equal(parseArgs(['env', 'repair']).action, 'repair');
+  assert.throws(() => parseArgs(['env', 'repair', '--skip-codex']), /Unknown option/);
+});
+
+test('management commands retain their project and object arguments', () => {
+  assert.equal(parseArgs(['project', 'upgrade', 'example']).action, 'upgrade');
+  assert.equal(parseArgs(['project', 'repair', 'example']).target, 'example');
+  assert.equal(parseArgs(['project', 'rollback', 'example', 'snapshot']).snapshotId, 'snapshot');
+  assert.equal(parseArgs(['env', 'upgrade', 'uv']).action, 'upgrade');
+  assert.equal(parseArgs(['env', 'rollback', 'snapshot']).snapshotId, 'snapshot');
+  assert.throws(() => parseArgs(['env', 'upgrade', 'unknown']), /requires uv/);
+  assert.equal(parseArgs(['mcp', 'check', 'faker']).mcpName, 'faker');
+  const skill = parseArgs(['skills', 'check', 'example', 'qa-core']);
+  assert.equal(skill.skillAction, 'check');
+  assert.equal(skill.target, 'example');
+  assert.equal(skill.skillName, 'qa-core');
+  assert.throws(() => parseArgs(['mcp', 'list', 'extra']), /Unexpected/);
+});
+
+test('environment uninstall reports preserved registrations as incomplete', async () => {
+  const environment = createEnvironment();
+  const original = Environment.prototype.removeSharedMcpRegistrations;
+  Environment.prototype.removeSharedMcpRegistrations = () => ({
+    removed: [], absent: [], preserved: [{ name: 'qa-example', reason: 'modified' }], failed: [],
+  });
+  try {
+    assert.equal(await execute({ command: 'env', action: 'uninstall', root: environment.root }), 1);
+  } finally {
+    Environment.prototype.removeSharedMcpRegistrations = original;
+  }
+});
 
 const temporaryDirectories = new Set<string>();
 process.once('exit', () => {
@@ -56,6 +89,7 @@ function createToolPath(base: string, names = ['bun', 'pnpm']): string {
   for (const name of names) {
     const path = join(bin, WINDOWS ? `${name}.exe` : name);
     writeFileSync(path, `placeholder ${name}`);
+    if (!WINDOWS) chmodSync(path, 0o755);
   }
   return bin;
 }
@@ -266,7 +300,10 @@ test('a missing package manager is installed once using the discovered global np
     override run(command: readonly (string | number)[], options: RunOptions = {}): string | undefined {
       const result = super.run(command, options);
       if (command.includes('prefix')) return prefix;
-      if (command.includes('install') && command.includes('--global')) writeFileSync(pnpm, 'installed pnpm');
+      if (command.includes('install') && command.includes('--global')) {
+        writeFileSync(pnpm, 'installed pnpm');
+        if (!WINDOWS) chmodSync(pnpm, 0o755);
+      }
       if (options.capture && command[0] === this.bunBin) return '1.0.0';
       if (options.capture && command[0] === this.pnpmBin) return '9.0.0';
       return result;
@@ -350,11 +387,7 @@ test('uninstall preserves an unowned user MCP registration', () => {
   const original = `[mcp_servers.${name}]\ncommand = "user-faker"\n`;
   writeFileSync(config, original);
 
-  try {
-    environment.removeOptionalMcp('faker');
-  } catch {
-    // Refusing to remove an unowned registration is acceptable.
-  }
+  assert.throws(() => environment.removeOptionalMcp('faker'), /no matching QA installation record/);
   assert.equal(readFileSync(config, 'utf8'), original);
   assert.ok(!environment.commands.some((command) => command.includes('remove') || command.includes('uninstall')));
 });
@@ -568,7 +601,7 @@ test('generated documentation excludes directory introduction files', () => {
     join(REPO, 'docs/skills-mcp.zh-CN.md'),
     'utf8',
   );
-  assert.match(skillDocs, /\/skills/);
+  assert.match(skillDocs, /`\/skills`/);
   assert.match(skillDocs, /\$qa-business-guide/);
   assert.match(skillDocs, /不是 `\/env`/);
 });

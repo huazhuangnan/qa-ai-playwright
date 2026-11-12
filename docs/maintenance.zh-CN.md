@@ -10,14 +10,18 @@
 ## 架构
 
 ```text
-qa.cmd / qa.sh
+qa.cmd / qa.sh  →  发现或引导 Node
       │
       ▼
-packages/qa-cli/qa-cli.ts
+packages/qa-cli/bootstrap.ts  →  Node 兼容入口
       │
-      ├── packages/qa-cli/cli/environment.ts  → 运行时、Skills、MCP
-      ├── packages/qa-cli/cli/project.ts      → 项目生成、测试、卸载
-      └── packages/qa-cli/cli/shared.ts       → 配置、哈希、路径和锁记录
+      ▼
+packages/qa-cli/qa-cli.ts    →  参数解析和命令分派
+      │
+      ├── cli/environment-commands.ts → 环境命令分派
+      ├── cli/environment.ts          → 运行时、共享工具和 MCP 管理
+      ├── cli/project.ts              → 项目生成、测试、卸载
+      └── cli/shared.ts               → 配置、哈希、路径和锁记录
       │
       ├── qa-docs                 → 按需使用的链接资料与静态导出
       ├── packages/skills/             → 来源包
@@ -29,6 +33,8 @@ packages/qa-cli/qa-cli.ts
 平台入口只负责引导和参数转发。
 业务逻辑集中到 `packages/qa-cli/cli/`。
 不要把安装、配置或删除逻辑复制到启动器。
+平台入口使用 Node 22.18 或更高版本运行 TypeScript 兼容入口。环境命令和 QA 项目、Skill、MCP 命令共享一个 `qa` 命令，不复制业务逻辑。
+QA MCP 使用 Bun 启动，并复用同一命令分派。项目维护脚本使用 Bun。
 项目对外名称统一为 `QA + AI + Playwright`。
 仓库根包名为 qa-ai-playwright。
 Codex CLI 的 npm 来源保存在 `packages/apps/codex/manifest.json`。优先复用已安装的 CLI。缺失时使用清单指定的包安装，并记录实际版本。Codex 桌面应用不由该清单安装。
@@ -57,22 +63,28 @@ CLI 中的 `REPO` 和 `QA_REPO` 指向仓库根目录。安装记录中的源码
 
 | 对象 | 当前命令 | 当前作用 |
 | --- | --- | --- |
-| 环境 | `env init`、`env check`、`env uninstall` | 初始化或补齐环境、检查、卸载当前环境 |
-| 项目 | `project init`、`project check`、`project plan`、`project uninstall` | 生成、检查、只读规划模板变化、按所有权记录卸载项目文件 |
-| MCP | `mcp list`、`mcp add`、`mcp remove` | 查询可选清单、安装或复用并注册、移除符合记录的注册 |
+| 环境 | `env init/list/check/repair/uninstall`，`env plan/upgrade/snapshots uv`，`env rollback` | 初始化、列出当前环境、检查、修复，以及检测环境内 uv 的人工升级信息和回滚。详见[环境组件升级](environment-managed-upgrades.zh-CN.md) |
+| 项目 | `project init/check/plan/upgrade/repair/snapshots/rollback/uninstall` | 生成、检查及按所有权管理模板文件。`upgrade` 只检测并给出人工迁移建议。详见[项目模板管理](project-template-management.zh-CN.md) |
+| 模板 | `template list/check` | 查看仓库内语言模板和 QA 文档模板的版本及文件状态 |
+| MCP | `mcp list`、`mcp check`、`mcp add`、`mcp repair`、`mcp remove` | 查询状态、安装或复用、修复缺失项、移除符合记录的注册 |
+| 内置 Skill | `skills list/check/install/upgrade/repair/snapshots/rollback/recover/uninstall` | 检查项目内置 Skill，`upgrade` 只给出人工变更建议。外部 Skill 按上游方式管理 |
 | 更新检查 | `update check`、`skills check-updates` | 比较配置的来源基线与上游候选版本或提交 |
 | 诊断 | `doctor`、`shell` | 检查环境或输出激活脚本路径 |
 
+QA MCP 使用对应 CLI 操作，并传递退出码和输出。升级相关工具只检测并返回人工操作建议，不安装、替换或修改版本。
+
 `env init` 可重复执行。它补齐缺失组件，并保留已有项目文件和受保护的用户配置。
 重复初始化不等同于完整的版本升级迁移。
-目前没有显式的 `upgrade`、`repair` 或 `rollback` 命令。
-模板迁移、Skill 更新应用、MCP 升级和快照回滚仍待实现。
+项目模板提供只读升级检测和修复。环境修复沿用已记录配置。
+共享工具和 MCP 的通用升级及快照回滚不在这些命令中执行。
 
 更新检查不安装组件，也不修改来源清单、锁记录或已安装文件。
+可选 MCP 状态分别报告注册、所有权和共享包。包版本来自实际发现的包元数据。未记录全局 npm 位置时报告未知。状态检查不安装软件或修改配置。
+可选 MCP 修复只接受完整的本环境所有权记录。缺失共享包按记录版本补装。已修改的注册、损坏的共享包和未知所有权均停止处理。修复不升级共享软件。
 项目模板文件和 MCP 注册的卸载遵循路径边界和所有权记录。环境卸载默认保留受管环境目录。项目卸载保留依赖目录及目录中的数据。详细删除范围见环境指南。
 环境卸载默认保留整个环境目录与共享软件。它清理可确认属于当前环境的 MCP 注册。外部软件清理另有显式选项和保护条件，详见环境指南。
 
-后续先明确状态与所有权，再按对象分批完善安装、卸载、升级和失败恢复。独立诊断、修复和持久回滚随后完善。
+共享组件和外部 Skill 只提供检测结果。版本升级由维护者使用其原有工具人工执行。
 每阶段同步文档和 GitHub Actions 验证。详细任务见[管理能力 TODO](qa-cli-management-todo.zh-CN.md)。
 ## 浏览器 CLI 入口与 CI 组织
 
@@ -90,10 +102,12 @@ GitHub Actions 统一由根目录的 CI 工作流承载。
 
 ## 维护语言
 
+生成项目的跨语言分层和风格规范见[代码风格与架构规范](code-style-architecture.zh-CN.md)。该规范统一测试边界、fixture 生命周期、数据隔离和依赖方向；TypeScript 与 Python 分别使用各自的类型、fixture 和运行器约定。
+
 - 仓库自身的 CLI、工具和测试统一使用 TypeScript。
 - 根目录的 `package.json`、`pnpm-lock.yaml` 和 `tsconfig.json` 是维护工具链入口。
 - 项目依赖统一使用 pnpm。
-- 脚本统一使用 Bun 执行。
+- 项目维护脚本使用 Bun 执行。CLI 的跨平台启动入口使用 Node。
 - 维护测试使用 Bun test。
 - TypeScript 代码使用 TSDoc，并接受 `tsc --noEmit` 检查。
 - Python 只用于 Python 项目模板和系统能力要求的场景。
@@ -162,7 +176,7 @@ MCP：
 内置 `qa` server 使用 stdio，注册到用户级 Codex 配置。环境初始化只负责发现或准备依赖，不为每个环境复制工具。
 其他 MCP 客户端由用户自行配置。
 
-工具包括 `qa_env_check`、`qa_doctor`、`qa_project_init`、`qa_project_check`、`qa_project_uninstall`、`qa_mcp_list`、`qa_mcp_add` 和 `qa_mcp_remove`。
+工具覆盖环境检查与修复、项目管理、内置 Skill 管理和可选 MCP 管理。工具调用对应 CLI 命令。
 工具使用结构化输入、输出和错误，复用 CLI 业务逻辑与安全检查。
 CLI 面向直接操作，Skills 负责按任务选择工具和解释结果。
 

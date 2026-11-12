@@ -1,14 +1,19 @@
 #!/usr/bin/env node
-import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
+import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { checkSkillUpdates, loadSkillSources } from './cli/skill-updates.ts';
 import { checkAllUpdates, loadUpdateConfig } from './cli/update-check.ts';
 import { projectUpgradePlan } from './cli/project-upgrade-plan.ts';
+import { projectUpgrade } from './cli/project-upgrade.ts';
+import { projectRollback, projectSnapshots } from './cli/project-snapshots.ts';
+import { executeDoctor, executeEnvironment } from './cli/environment-commands.ts';
+import { environmentStatus } from './cli/environment-status.ts';
+import { checkTemplates, listTemplates } from './cli/template-status.ts';
+import { listEnvironmentUvSnapshots, planEnvironmentUv, rollbackEnvironmentUv, upgradeEnvironmentUv } from './cli/environment-upgrade.ts';
+import { installBuiltinSkill, listBuiltinSkills, listBuiltinSkillSnapshots, recoverBuiltinSkills, repairBuiltinSkill, rollbackBuiltinSkill, uninstallBuiltinSkill } from './cli/skills-manager.ts';
 import { basename, join, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   Environment,
-  type EnvironmentCheckOptions,
-  type EnvironmentInitOptions,
   type DiscoveredTool,
 } from './cli/environment.ts';
 import {
@@ -27,11 +32,13 @@ import {
 /** Parsed command line used by the local QA lifecycle CLI. */
 export interface ParsedArguments {
   root: string;
-  command: 'env' | 'project' | 'doctor' | 'shell' | 'run' | 'mcp' | 'skills' | 'update' | 'help';
-  action?: 'init' | 'check' | 'uninstall' | 'plan';
-  mcpAction?: 'add' | 'remove' | 'list';
+  command: 'env' | 'project' | 'template' | 'doctor' | 'shell' | 'run' | 'mcp' | 'skills' | 'update' | 'help';
+  action?: 'init' | 'check' | 'uninstall' | 'plan' | 'repair' | 'upgrade' | 'rollback' | 'snapshots' | 'list';
+  mcpAction?: 'add' | 'remove' | 'list' | 'check' | 'repair';
   mcpName?: string;
   skillSource?: string;
+  skillAction?: 'check-updates' | 'list' | 'check' | 'install' | 'uninstall' | 'upgrade' | 'repair' | 'recover' | 'snapshots' | 'rollback';
+  skillName?: string;
   updateSource?: string;
   stack?: Stack;
   full?: boolean;
@@ -39,6 +46,7 @@ export interface ParsedArguments {
   skipSkills?: boolean;
   includeExternal?: boolean;
   target?: string;
+  snapshotId?: string;
   language?: 'python' | 'typescript';
   browser?: Browser;
   withDeps?: boolean;
@@ -115,7 +123,7 @@ export function parseArgs(
   if (cleaned.length === 0 || ['--help', '-h'].includes(cleaned[0] ?? '')) {
     return { root, command: 'help' };
   }
-  if (!['env', 'project', 'doctor', 'shell', 'run', 'mcp', 'skills', 'update'].includes(command)) {
+  if (!['env', 'project', 'template', 'doctor', 'shell', 'run', 'mcp', 'skills', 'update'].includes(command)) {
     throw new Error(`Invalid command: ${command}`);
   }
   const parsed: ParsedArguments = { root, command };
@@ -135,32 +143,51 @@ export function parseArgs(
     else if (cleaned.length !== 2) throw new Error('update check accepts --source <file>');
     return parsed;
   }
+  if (command === 'template') {
+    const action = cleaned[1];
+    if ((action !== 'list' && action !== 'check') || cleaned.length !== 2) throw new Error('template requires list or check');
+    parsed.action = action;
+    return parsed;
+  }
   if (command === 'skills') {
-    if (cleaned[1] !== 'check-updates') throw new Error('skills requires check-updates');
-    if (cleaned.length === 4 && cleaned[2] === '--source' && cleaned[3]) parsed.skillSource = cleaned[3];
-    else if (cleaned.length !== 2) throw new Error('skills check-updates accepts --source <file>');
+    const action = cleaned[1] as ParsedArguments['skillAction'];
+    if (!['check-updates', 'list', 'check', 'install', 'uninstall', 'upgrade', 'repair', 'recover', 'snapshots', 'rollback'].includes(action ?? '')) throw new Error('Invalid skills action');
+    parsed.skillAction = action;
+    if (action === 'check-updates') {
+      if (cleaned.length === 4 && cleaned[2] === '--source' && cleaned[3]) parsed.skillSource = cleaned[3];
+      else if (cleaned.length !== 2) throw new Error('skills check-updates accepts --source <file>');
+    } else {
+      const projectOnly = action === 'list' || action === 'recover' || action === 'snapshots';
+      if (cleaned.length !== (projectOnly ? 3 : 4) || !cleaned[2] || (!projectOnly && !cleaned[3])) {
+        throw new Error(`skills ${action} requires a project${projectOnly ? '' : ' and name'}`);
+      }
+      parsed.target = cleaned[2];
+      parsed.skillName = cleaned[3];
+      if (action === 'rollback') parsed.snapshotId = cleaned[3];
+    }
     return parsed;
   }
   if (command === 'mcp') {
     const action = cleaned[1] as ParsedArguments['mcpAction'] | undefined;
-    if (!['add', 'remove', 'list'].includes(action ?? '')) {
-      throw new Error('mcp requires add, remove, or list');
+    if (!['add', 'remove', 'list', 'check', 'repair'].includes(action ?? '')) {
+      throw new Error('mcp requires add, remove, list, check, or repair');
     }
     parsed.mcpAction = action;
-    if (action === 'add' || action === 'remove') {
+    if (action === 'add' || action === 'remove' || action === 'check' || action === 'repair') {
       const name = cleaned[2];
       if (!name) {
         throw new Error(`mcp ${action} requires a server name`);
       }
       parsed.mcpName = name;
     }
+    if (cleaned.length !== (action === 'list' ? 2 : 3)) throw new Error('Unexpected mcp arguments');
     return parsed;
   }
   if (command === 'env' || command === 'project') {
     const action = cleaned[1] as ParsedArguments['action'] | undefined;
     const actions = command === 'project'
-      ? ['init', 'check', 'uninstall', 'plan']
-      : ['init', 'check', 'uninstall'];
+      ? ['init', 'check', 'uninstall', 'plan', 'upgrade', 'repair', 'snapshots', 'rollback']
+      : ['init', 'check', 'uninstall', 'repair', 'plan', 'upgrade', 'snapshots', 'rollback', 'list'];
     if (!actions.includes(action ?? '')) {
       throw new Error(`${command} requires ${actions.join(', ')}`);
     }
@@ -174,6 +201,13 @@ export function parseArgs(
         }
         parsed.stack = parseStack(stack);
         index += 1;
+      } else if (action === 'plan' || action === 'upgrade' || action === 'snapshots') {
+        if (cleaned[index] !== 'uv') throw new Error(`env ${action} requires uv`);
+        index += 1;
+      } else if (action === 'rollback') {
+        if (!cleaned[index]) throw new Error('env rollback requires a snapshot identifier');
+        parsed.snapshotId = cleaned[index];
+        index += 1;
       } else {
         parsed.stack = undefined;
       }
@@ -184,6 +218,11 @@ export function parseArgs(
       }
       parsed.target = target;
       index += 1;
+      if (action === 'rollback') {
+        if (!cleaned[index]) throw new Error('project rollback requires a snapshot identifier');
+        parsed.snapshotId = cleaned[index];
+        index += 1;
+      }
     }
     for (; index < cleaned.length; index += 1) {
       const argument = cleaned[index] ?? '';
@@ -204,9 +243,9 @@ export function parseArgs(
         && name === '--include-external' && inline === undefined
       ) {
         parsed.includeExternal = true;
-      } else if (command === 'env' && name === '--skip-codex') {
+      } else if (command === 'env' && (action === 'init' || action === 'check') && name === '--skip-codex') {
         parsed.skipCodex = true;
-      } else if (command === 'env' && name === '--skip-skills') {
+      } else if (command === 'env' && (action === 'init' || action === 'check') && name === '--skip-skills') {
         parsed.skipSkills = true;
       } else if (
         command === 'env'
@@ -254,7 +293,56 @@ export async function execute(args: ParsedArguments): Promise<number> {
     }
     return results.some((result) => result.status === 'error') ? 1 : 0;
   }
+  if (args.command === 'template') {
+    if (args.action === 'list') { console.log(JSON.stringify(listTemplates(), null, 2)); return 0; }
+    const result = checkTemplates();
+    console.log(JSON.stringify(result, null, 2));
+    return result.ok ? 0 : 1;
+  }
   if (args.command === 'skills') {
+    if (args.skillAction !== 'check-updates') {
+      const target = args.target as string;
+      if (args.skillAction === 'list') {
+        console.log(JSON.stringify(listBuiltinSkills(target), null, 2));
+        return 0;
+      }
+      if (args.skillAction === 'recover') {
+        console.log(JSON.stringify(recoverBuiltinSkills(target), null, 2));
+        return 0;
+      }
+      if (args.skillAction === 'snapshots') {
+        console.log(JSON.stringify(listBuiltinSkillSnapshots(target), null, 2));
+        return 0;
+      }
+      if (args.skillAction === 'rollback') {
+        console.log(JSON.stringify(rollbackBuiltinSkill(target, args.snapshotId as string), null, 2));
+        return 0;
+      }
+      const name = args.skillName as string;
+      if (args.skillAction === 'check') {
+        const status = listBuiltinSkills(target).find((item) => item.name === name);
+        if (!status) throw new Error(`Unknown builtin Skill: ${name}`);
+        console.log(JSON.stringify(status, null, 2));
+        return status.status === 'installed' ? 0 : 1;
+      }
+      if (args.skillAction === 'install') {
+        installBuiltinSkill(target, name);
+        console.log(`Installed ${name}`);
+        return 0;
+      }
+      if (args.skillAction === 'upgrade') {
+        console.error('Automatic Skill upgrade is disabled. Review qa skills check and update files manually, then run qa skills check.');
+        return 1;
+      }
+      if (args.skillAction === 'repair') {
+        const result = repairBuiltinSkill(target, name);
+        console.log(JSON.stringify(result, null, 2));
+        return result.modified.length ? 1 : 0;
+      }
+      const result = uninstallBuiltinSkill(target, name);
+      console.log(JSON.stringify(result, null, 2));
+      return result.preserved.length ? 1 : 0;
+    }
     const sources = loadSkillSources(args.skillSource);
     const results = await checkSkillUpdates(sources);
     for (const result of results) {
@@ -263,52 +351,29 @@ export async function execute(args: ParsedArguments): Promise<number> {
     }
     return results.some((result) => result.status === 'error') ? 1 : 0;
   }
-  if (args.command === 'env' && args.action === 'uninstall' && args.includeExternal) {
-    throw new Error('External uninstall is unavailable: cross-environment usage cannot be verified');
-  }
   const env = new Environment({ root: args.root });
   if (args.command === 'env') {
-    const envArgs: EnvironmentInitOptions = {
-      stack: args.stack ?? 'typescript',
-      profile: args.full ? 'full' : 'standard',
-      skipCodex: args.skipCodex ?? false,
-      skipSkills: args.skipSkills ?? false,
-    };
-    if (args.action === 'init') {
-      return env.init(envArgs);
-    }
-    if (args.action === 'check') {
-      const checkArgs: EnvironmentCheckOptions = {
-        stack: envArgs.stack,
-        profile: envArgs.profile,
-        skipCodex: envArgs.skipCodex,
-        skipSkills: envArgs.skipSkills,
-      };
-      return env.check(checkArgs);
-    }
-    if (!existsSync(env.marker)) {
-      console.log('Nothing to uninstall');
-      return 0;
-    }
-    const cleanup = env.removeSharedMcpRegistrations();
-    for (const item of cleanup.preserved) {
-      console.log(`Preserving MCP ${item.name}: ${item.reason}`);
-    }
-    if (cleanup.failed.length > 0) {
-      for (const item of cleanup.failed) {
-        console.error(`Could not remove MCP ${item.name}: ${item.reason}`);
-      }
-      return 1;
-    }
-    if (!await uninstallExternalTools(env, args.includeExternal ?? false)) return 1;
-    // Signal the native launcher to report the preserved environment directory.
-    return 20;
+    if (args.action === 'list') { console.log(JSON.stringify(environmentStatus(env), null, 2)); return 0; }
+    if (args.action === 'plan') { console.log(JSON.stringify(planEnvironmentUv(env), null, 2)); return 0; }
+    if (args.action === 'snapshots') { console.log(JSON.stringify(listEnvironmentUvSnapshots(env), null, 2)); return 0; }
+    if (args.action === 'upgrade') { console.error('Automatic uv upgrade is disabled. Run qa env plan uv, update uv manually, then run qa env check.'); return 1; }
+    if (args.action === 'rollback') { await rollbackEnvironmentUv(env, args.snapshotId as string); return 0; }
+    return executeEnvironment(args, env, uninstallExternalTools);
   }
   if (args.command === 'project') {
     const target = args.target as string;
+    if (args.action === 'snapshots') {
+      console.log(JSON.stringify(projectSnapshots(env, target), null, 2));
+      return 0;
+    }
+    if (args.action === 'rollback') return projectRollback(env, target, args.snapshotId as string);
     if (args.action === 'plan') {
       console.log(JSON.stringify(projectUpgradePlan(env, target), null, 2));
       return 0;
+    }
+    if (args.action === 'upgrade') { console.error('Automatic project template upgrade is disabled. Run qa project plan and update files manually, then run qa project check.'); return 1; }
+    if (args.action === 'repair') {
+      return projectUpgrade(env, target, args.action);
     }
     if (args.action === 'init') {
       const stack = args.language as 'python' | 'typescript';
@@ -332,24 +397,7 @@ export async function execute(args: ParsedArguments): Promise<number> {
       : await projectUninstall(env, projectArgs);
   }
   if (args.command === 'doctor') {
-    const components = (env.state.components ?? {
-      codex: true,
-      browser_tools: true,
-    }) as {
-      codex?: boolean;
-      skills?: boolean;
-      browser_tools?: boolean;
-      agent_browser?: boolean;
-    };
-    return env.check({
-      stack: (env.state.stack ?? 'both') as Stack,
-      profile:
-        env.state.profile === 'full' || components.agent_browser
-          ? 'full'
-          : 'standard',
-      skipCodex: !components.codex,
-      skipSkills: !(components.browser_tools ?? components.skills ?? true),
-    });
+    return executeDoctor(env);
   }
   if (args.command === 'shell') {
     console.log(
@@ -360,15 +408,23 @@ export async function execute(args: ParsedArguments): Promise<number> {
   }
   if (args.command === 'mcp') {
     if (args.mcpAction === 'list') {
-      for (const name of env.optionalMcpNames()) {
-        console.log(name);
-      }
+      console.log(JSON.stringify(env.optionalMcpStatuses(), null, 2));
       return 0;
     }
     const name = args.mcpName as string;
+    if (args.mcpAction === 'check') {
+      const status = env.optionalMcpStatus(name);
+      console.log(JSON.stringify(status, null, 2));
+      return status.registration === 'present' && status.ownership === 'owned' && status.package.status === 'available' ? 0 : 1;
+    }
     if (args.mcpAction === 'add') {
       const version = env.installOptionalMcp(name);
       console.log(`MCP ${name}@${version} installed`);
+      return 0;
+    }
+    if (args.mcpAction === 'repair') {
+      const version = env.repairOptionalMcp(name);
+      console.log(`MCP ${name}@${version} repaired`);
       return 0;
     }
     env.removeOptionalMcp(name);
@@ -411,19 +467,42 @@ export function runCommand(env: Environment, initial: string[]): number {
 function helpText(): string {
   return [
     'qa env init <python|typescript|both> [--full]',
+    'qa env list',
+    'qa env repair',
+    'qa env plan uv',
+    'qa env upgrade uv  (manual-only guidance; no automatic upgrade)',
+    'qa env snapshots uv',
+    'qa env rollback <snapshot>',
     'qa env check <python|typescript|both> [--full]',
     'qa env uninstall [--include-external]',
-    '  --include-external: confirm removal of verified external CLI packages',
+    '  --include-external: unavailable while shared usage cannot be verified',
     'qa project init <project> --language <python|typescript> [--browser <name>]',
     '  --language alias: --语言',
     'qa project check <project> [--browser <name>]',
     'qa project plan <project>',
     'qa project uninstall <project>',
+    'qa project upgrade <project>  (manual-only guidance; no automatic upgrade)',
+    'qa project repair <project>',
+    'qa project snapshots <project>',
+    'qa project rollback <project> <snapshot>',
+    'qa template list',
+    'qa template check',
     'qa doctor',
     'qa shell',
     'qa mcp add <name>',
     'qa mcp remove <name>',
     'qa mcp list',
+    'qa mcp check <name>',
+    'qa mcp repair <name>',
+    'qa skills list <project>',
+    'qa skills recover <project>',
+    'qa skills snapshots <project>',
+    'qa skills rollback <project> <snapshot>',
+    'qa skills check <project> <name>',
+    'qa skills install <project> <name>',
+    'qa skills uninstall <project> <name>',
+    'qa skills upgrade <project> <name>  (manual-only guidance; no automatic upgrade)',
+    'qa skills repair <project> <name>',
     'qa skills check-updates [--source <file>]',
     'qa update check [--source <file>]',
     'qa run <command> [...]',

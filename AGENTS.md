@@ -31,6 +31,7 @@
 - 仓库根包名为 `qa-ai-playwright`。
 - CLI 启动器放 packages/qa-cli/bin/，不提供交互式双击入口。
 - 入口脚本只负责引导、参数转发和退出码处理：解释器选择、解析 `--root`、自举 Node、按退出码 20 报告环境目录已保留。其余业务逻辑集中在 packages/qa-cli/cli/。
+- 跨平台入口负责发现或准备 Node，再启动 TypeScript 命令。环境管理与 QA 项目、Skill 和 MCP 的业务分派按职责分离，复用共同实现。保留现有 `qa` 命令兼容。
 - 仓库自身的维护实现和测试统一使用 TypeScript。
 - Python 只用于 Python 项目模板、Python 示例 QA 项目和系统能力要求的场景。
 - 根目录提供 package.json、pnpm-lock.yaml 和 tsconfig.json。

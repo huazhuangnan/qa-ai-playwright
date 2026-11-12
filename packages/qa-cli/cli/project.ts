@@ -44,6 +44,10 @@ interface ProjectState {
   language_template_version?: string;
   requirements_lock_sha256?: string;
   requirements_lock_meta_sha256?: string;
+  last_successful_init?: {
+    browser: Browser;
+    browser_system_dependencies_requested: boolean;
+  };
 }
 
 /**
@@ -263,6 +267,12 @@ export async function projectInit(
       '--project=chromium',
     );
   }
+  // Record requests only after every initialization step succeeds.
+  state.last_successful_init = {
+    browser: args.browser,
+    browser_system_dependencies_requested: args.browser !== 'none' && args.withDeps,
+  };
+  atomicJson(markerPath, state);
   console.log(
     `Project ready: ${target}. QA templates: ${state.qa_template_version}. ` +
       `Language template: ${state.language_template_version}. ` +
@@ -367,6 +377,7 @@ export async function projectUninstall(
     assertSafeProjectPath(target, join(target, relative), 'manifest');
   }
   const retained: Record<string, string> = {};
+  let modifiedFiles = 0;
   for (const [relative, expected] of Object.entries(state.files)) {
     const path = join(target, relative);
     assertSafeProjectPath(target, path, 'manifest');
@@ -378,6 +389,7 @@ export async function projectUninstall(
     } else if (existsSync(path)) {
       console.log(`KEEP modified: ${relative}`);
       retained[relative] = expected;
+      modifiedFiles += 1;
     }
   }
   const retainedDirectories = state.directories.filter((relative) => {
@@ -394,9 +406,9 @@ export async function projectUninstall(
     unlinkSync(markerPath);
   }
   console.log(
-    `Project uninstalled; preserved ${Object.keys(retained).length} changed template files, ${retainedDirectories.length} dependency directories and all untracked files.`,
+    `Project cleanup completed; preserved ${modifiedFiles} changed template files, ${retainedDirectories.length} dependency directories and all untracked files.`,
   );
-  return 0;
+  return modifiedFiles > 0 ? 1 : 0;
 }
 
 /** Reads and validates a project ownership marker. */
