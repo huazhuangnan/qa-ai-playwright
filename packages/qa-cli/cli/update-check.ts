@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { checkSkillUpdates, loadSkillSources } from './skill-updates.ts';
+import { checkSkillUpdates, loadSkillSources, type Fetcher } from './skill-updates.ts';
 
 /** A published package or release and the version pinned by QA. */
 export interface VersionSource {
@@ -78,7 +78,7 @@ export function resolveVersionSources(config: UpdateConfig): VersionSource[] {
 }
 
 /** Compare a pinned npm package or GitHub release to its published candidate. */
-export async function checkVersionSource(source: VersionSource, fetcher: typeof fetch = fetch): Promise<UpdateResult> {
+export async function checkVersionSource(source: VersionSource, fetcher: Fetcher = fetch): Promise<UpdateResult> {
   try {
     if (!source.name || !source.current || !(source.type === 'npm' ? npmPackage : githubRepo).test(source.target)
       || !['npm', 'github-release'].includes(source.type)) throw new Error('Invalid source');
@@ -101,7 +101,7 @@ export async function checkVersionSource(source: VersionSource, fetcher: typeof 
 }
 
 /** Compare the local source checkout with a configured GitHub branch without fetching or writing. */
-export async function checkQaSource(qa: UpdateConfig['qa'], fetcher: typeof fetch = fetch): Promise<UpdateResult> {
+export async function checkQaSource(qa: UpdateConfig['qa'], fetcher: Fetcher = fetch): Promise<UpdateResult> {
   if (!qa.repository) return { name: 'qa-cli-and-builtin-mcp', status: 'unconfigured', current: 'unknown', message: 'Set qa.repository in update-sources.json' };
   let current: string;
   let dirty: boolean;
@@ -130,7 +130,7 @@ export async function checkQaSource(qa: UpdateConfig['qa'], fetcher: typeof fetc
 }
 
 /** Inspect configured QA, release, npm and Skill baselines without changing them. */
-export async function checkAllUpdates(config: UpdateConfig, fetcher: typeof fetch = fetch): Promise<UpdateResult[]> {
+export async function checkAllUpdates(config: UpdateConfig, fetcher: Fetcher = fetch): Promise<UpdateResult[]> {
   const results = [await checkQaSource(config.qa, fetcher)];
   const sources = resolveVersionSources(config);
   for (const source of sources) results.push(await checkVersionSource(source, fetcher));

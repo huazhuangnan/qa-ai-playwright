@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'bun:test';
 import { checkQaSource, checkVersionSource, loadUpdateConfig, resolveVersionSources } from '../packages/qa-cli/cli/update-check.ts';
 import { parseArgs } from '../packages/qa-cli/qa-cli.ts';
+import type { Fetcher } from '../packages/qa-cli/cli/skill-updates.ts';
 
 const npmSource = { name: 'playwright-mcp', type: 'npm' as const, target: '@playwright/mcp', current: '0.0.85' };
 const releaseSource = { name: 'example', type: 'github-release' as const, target: 'example/tool', current: '1.2.3' };
@@ -13,7 +14,7 @@ function jsonResponse(data: unknown, status = 200): Response {
 
 test('checks the encoded npm package latest endpoint and reports the current version', async () => {
   const requests: string[] = [];
-  const fetcher: typeof fetch = async (input) => {
+  const fetcher: Fetcher = async (input) => {
     requests.push(input instanceof Request ? input.url : String(input));
     return jsonResponse({ version: '0.0.85' });
   };
@@ -33,7 +34,7 @@ test('reports an npm candidate when its version changes', async () => {
 
 test('checks the GitHub latest release and compares its tag without the v prefix', async () => {
   const requests: string[] = [];
-  const fetcher: typeof fetch = async (input) => {
+  const fetcher: Fetcher = async (input) => {
     requests.push(input instanceof Request ? input.url : String(input));
     return jsonResponse({ tag_name: 'v1.2.3' });
   };
@@ -52,7 +53,7 @@ test('reports a changed GitHub release after removing its v prefix', async () =>
 });
 
 test('reports HTTP, network and malformed JSON failures as errors', async () => {
-  const fetchers: Array<typeof fetch> = [
+  const fetchers: Array<Fetcher> = [
     async () => jsonResponse({ message: 'rate limited' }, 403),
     async () => { throw new Error('network unavailable'); },
     async () => new Response('{', { status: 200 }),
@@ -89,7 +90,7 @@ test('rejects unsafe source targets before issuing a request', async () => {
     { ...releaseSource, target: 'example/tool/extra' },
   ];
   let requests = 0;
-  const fetcher: typeof fetch = async () => {
+  const fetcher: Fetcher = async () => {
     requests += 1;
     throw new Error('unsafe source reached fetch');
   };

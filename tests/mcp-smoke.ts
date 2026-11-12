@@ -86,7 +86,7 @@ async function smokeServer(
   const child = spawn(server.command, server.args ?? [], {
     cwd: root,
     env: { ...process.env, ...(server.env ?? {}) },
-    stdio: ['pipe', 'pipe', 'ignore'],
+    stdio: ['pipe', 'pipe', 'inherit'],
     windowsHide: true,
   });
   const reader = createInterface({ input: child.stdout });

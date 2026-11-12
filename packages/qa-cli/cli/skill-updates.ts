@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
+/** The callable fetch interface needed by update checks. */
+export type Fetcher = (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => Promise<Response>;
+
 /** A GitHub directory and its reviewed installation baseline. */
 export interface SkillSource {
   name: string;
@@ -49,7 +52,7 @@ export function loadSkillSources(path?: string): SkillSource[] {
 }
 
 /** Query the latest commit affecting the entire Skill directory. */
-async function directoryCommit(source: SkillSource, ref: string, fetcher: typeof fetch): Promise<string> {
+async function directoryCommit(source: SkillSource, ref: string, fetcher: Fetcher): Promise<string> {
   const url = new URL(`https://api.github.com/repos/${source.repository}/commits`);
   url.searchParams.set('path', source.path);
   url.searchParams.set('per_page', '1');
@@ -65,7 +68,7 @@ async function directoryCommit(source: SkillSource, ref: string, fetcher: typeof
 }
 
 /** Compare each pinned directory history with its configured upstream branch. */
-export async function checkSkillUpdates(sources: SkillSource[], fetcher: typeof fetch = fetch): Promise<SkillUpdateResult[]> {
+export async function checkSkillUpdates(sources: SkillSource[], fetcher: Fetcher = fetch): Promise<SkillUpdateResult[]> {
   const results: SkillUpdateResult[] = [];
   for (const source of sources) {
     try {

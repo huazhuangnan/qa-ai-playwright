@@ -24,6 +24,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   check:
+    name: Component update status
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:

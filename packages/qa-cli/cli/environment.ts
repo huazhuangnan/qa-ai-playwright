@@ -336,7 +336,9 @@ export class Environment {
     if (!this.discoverGlobalNpmBin()) {
       throw new Error('npm global prefix resolves inside the QA environment; configure a system or user global prefix');
     }
-    const tool = executableName ?? packageSpec.split('@')[0];
+    const packageBase = packageName ?? packageSpec.match(/^(@[^/]+\/[^@]+|[^@]+)/u)?.[0];
+    const tool = executableName ?? packageBase?.split('/').at(-1);
+    if (!tool) throw new Error(`Cannot determine executable for ${packageSpec}`);
     if (this.globalTool(tool) || (packageName && this.globalPackage(packageName, this.globalTool(tool)))) return;
     console.log(`Installing missing global tool: npm ${args.join(' ')}`);
     this.globalNpm(args);

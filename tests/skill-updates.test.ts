@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { parseArgs } from '../packages/qa-cli/qa-cli.ts';
 
 import { checkSkillUpdates, loadSkillSources, validateSources } from '../packages/qa-cli/cli/skill-updates.ts';
+import type { Fetcher } from '../packages/qa-cli/cli/skill-updates.ts';
 
 const pinned = 'a'.repeat(40);
 const originalDirectoryCommit = 'b'.repeat(40);
@@ -27,7 +28,7 @@ function commitsResponse(sha: string): Response {
 
 test('reports current when the directory has the same last commit at the pinned and tracked refs', async () => {
   const requests: URL[] = [];
-  const fetcher: typeof fetch = async (input) => {
+  const fetcher: Fetcher = async (input) => {
     requests.push(new URL(input instanceof Request ? input.url : String(input)));
     return commitsResponse(originalDirectoryCommit);
   };
@@ -49,7 +50,7 @@ test('reports current when the directory has the same last commit at the pinned 
 });
 
 test('reports an update only when the tracked directory commit differs', async () => {
-  const fetcher: typeof fetch = async (input) => {
+  const fetcher: Fetcher = async (input) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     return commitsResponse(url.searchParams.get('sha') === pinned ? originalDirectoryCommit : updatedDirectoryCommit);
   };
@@ -65,7 +66,7 @@ test('reports an update only when the tracked directory commit differs', async (
 
 test('reports a failed source without suppressing another source', async () => {
   const second = { ...source, name: 'other-skill', path: 'skills/other-skill' };
-  const fetcher: typeof fetch = async (input) => {
+  const fetcher: Fetcher = async (input) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     if (url.searchParams.get('path') === source.path) {
       return new Response('rate limited', { status: 403 });
@@ -90,7 +91,7 @@ test('reports network failures and invalid GitHub responses as errors', async ()
     async () => new Response('not JSON', { status: 200 }),
     async () => new Response('[]', { status: 200 }),
     async () => new Response(JSON.stringify([{ sha: 'invalid' }]), { status: 200 }),
-  ] satisfies Array<typeof fetch>) {
+  ] satisfies Array<Fetcher>) {
     const [resultValue] = await checkSkillUpdates(validateSources([source]), fetcher);
     const result = resultValue!;
     assert.equal(result.status, 'error');
@@ -131,7 +132,7 @@ test('default source manifest matches the documented fixed installation commands
 
 test('default branch query omits sha and custom source arguments are validated', async () => {
   const refs: Array<string | null> = [];
-  const fetcher: typeof fetch = async (input) => {
+  const fetcher: Fetcher = async (input) => {
     refs.push(new URL(input instanceof Request ? input.url : String(input)).searchParams.get('sha'));
     return commitsResponse(originalDirectoryCommit);
   };
