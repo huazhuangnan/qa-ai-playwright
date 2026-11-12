@@ -7,7 +7,7 @@ import { OWNER, type Stack } from './shared.ts';
 export async function executeEnvironment(
   args: ParsedArguments,
   env: Environment,
-  uninstallExternalTools: (env: Environment, requested: boolean) => Promise<boolean>,
+  preserveSharedSoftware: (env: Environment) => Promise<boolean>,
 ): Promise<number> {
   const options: EnvironmentInitOptions = {
     stack: args.stack ?? 'typescript',
@@ -15,7 +15,6 @@ export async function executeEnvironment(
     skipCodex: args.skipCodex ?? false,
     skipSkills: args.skipSkills ?? false,
     withCcSwitch: args.withCcSwitch,
-    environmentName: args.environmentName,
   };
   if (args.action === 'repair') {
     if (!existsSync(env.marker) || !existsSync(env.stateFile)
@@ -47,7 +46,6 @@ export async function executeEnvironment(
     return env.check(check);
   }
   if (args.action !== 'uninstall') throw new Error(`Invalid environment action: ${String(args.action)}`);
-  if (args.includeExternal) throw new Error('External uninstall is unavailable: cross-environment usage cannot be verified');
   if (!existsSync(env.marker)) {
     console.log('Nothing to uninstall');
     return 0;
@@ -56,7 +54,7 @@ export async function executeEnvironment(
   for (const item of cleanup.preserved) console.log(`Preserving MCP ${item.name}: ${item.reason}`);
   for (const item of cleanup.failed) console.error(`Could not remove MCP ${item.name}: ${item.reason}`);
   if (cleanup.failed.length > 0 || cleanup.preserved.length > 0) return 1;
-  if (!await uninstallExternalTools(env, false)) return 1;
+  if (!await preserveSharedSoftware(env)) return 1;
   env.state.init_status = 'uninstalled';
   env.save();
   // The platform entry reports that the environment directory was preserved.

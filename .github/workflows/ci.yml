@@ -28,6 +28,164 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  global-install:
+    name: Global install and uninstall / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check Unix installation
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          failed_home="$RUNNER_TEMP/qa failed install home with spaces"
+          failing_bin="$RUNNER_TEMP/qa failing bin"
+          mkdir -p "$failed_home" "$failing_bin"
+          printf '#!/bin/sh\nexit 1\n' > "$failing_bin/cp"
+          chmod +x "$failing_bin/cp"
+          if HOME="$failed_home" PATH="$failing_bin:$PATH" bash packages/qa-cli/bin/install.sh; then
+            echo 'Expected initial installation failure' >&2
+            exit 1
+          fi
+          test ! -e "$failed_home/.local/share/qa-ai-playwright"
+          test ! -e "$failed_home/.local/bin/qa"
+          export HOME="$RUNNER_TEMP/qa home with spaces"
+          export QA_ROOT="$RUNNER_TEMP/qa isolated environment"
+          export CODEX_HOME="$RUNNER_TEMP/qa isolated codex"
+          mkdir -p "$HOME"
+          printf 'export QA_USER_SETTING=1' > "$HOME/.bashrc"
+          bash packages/qa-cli/bin/install.sh
+          (cd "$RUNNER_TEMP" && HOME="$HOME" bash -lc 'test "$(command -v qa)" = "$HOME/.local/bin/qa" && qa --help | grep -F "qa project init" >/dev/null')
+          if command -v zsh >/dev/null 2>&1; then
+            (cd "$RUNNER_TEMP" && HOME="$HOME" zsh -lc 'test "$(command -v qa)" = "$HOME/.local/bin/qa" && qa --help | grep -F "qa project init" >/dev/null')
+          fi
+          grep -Fx 'export QA_USER_SETTING=1' "$HOME/.bashrc"
+          grep -Fx 'export PATH="$HOME/.local/bin:$PATH" # QA-AI-PLAYWRIGHT' "$HOME/.bashrc"
+          printf '#!/bin/sh\nexit 1\n' > "$failing_bin/mv"
+          chmod +x "$failing_bin/mv"
+          if PATH="$failing_bin:$PATH" bash packages/qa-cli/bin/install.sh; then echo 'Expected upgrade failure' >&2; exit 1; fi
+          test -f "$HOME/.local/share/qa-ai-playwright/packages/qa-cli/bin/qa.sh"
+          for stage in "$HOME/.local/share/qa-ai-playwright"/.upgrade.*; do
+            if [[ -d "$stage" ]]; then rm -rf "$stage"; fi
+          done
+          test -x "$HOME/.local/bin/qa"
+          test -f "$HOME/.zprofile"
+          bash packages/qa-cli/bin/install.sh
+          mkdir -p "$QA_ROOT"
+          printf 'qa-local-environment-v1' > "$QA_ROOT/.qa-managed"
+          printf 'modified' >> "$HOME/.local/share/qa-ai-playwright/packages/qa-cli/bin/qa.sh"
+          if bash packages/qa-cli/bin/install.sh; then echo 'Expected upgrade conflict' >&2; exit 1; fi
+          if bash packages/qa-cli/bin/install.sh --uninstall; then echo 'Expected integrity failure' >&2; exit 1; fi
+          test -x "$HOME/.local/bin/qa"
+          cp packages/qa-cli/bin/qa.sh "$HOME/.local/share/qa-ai-playwright/packages/qa-cli/bin/qa.sh"
+          bash packages/qa-cli/bin/install.sh --uninstall
+          test ! -e "$HOME/.local/share/qa-ai-playwright"
+          test ! -e "$HOME/.profile"
+          test ! -e "$HOME/.bash_profile"
+          test ! -e "$HOME/.bash_login"
+          test ! -e "$HOME/.zprofile"
+          test ! -e "$HOME/.zshrc"
+          grep -Fx 'export QA_USER_SETTING=1' "$HOME/.bashrc"
+          rm "$QA_ROOT/.qa-managed"
+          mkdir -p "$HOME/.local/share/qa-ai-playwright/node"
+          printf 'preserve node' > "$HOME/.local/share/qa-ai-playwright/node/.qa-test"
+          bash packages/qa-cli/bin/install.sh
+          test -f "$HOME/.local/share/qa-ai-playwright/node/.qa-test"
+          bash packages/qa-cli/bin/install.sh --uninstall
+          test -f "$HOME/.local/share/qa-ai-playwright/node/.qa-test"
+          bash packages/qa-cli/bin/install.sh
+          test -f "$HOME/.local/share/qa-ai-playwright/node/.qa-test"
+          bash packages/qa-cli/bin/install.sh --uninstall
+          bash packages/qa-cli/bin/install.sh
+          printf 'modified' >> "$HOME/.local/share/qa-ai-playwright/packages/qa-cli/bin/qa.sh"
+          bash packages/qa-cli/bin/install.sh --uninstall
+          test ! -e "$HOME/.local/bin/qa"
+          test -f "$HOME/.local/share/qa-ai-playwright/packages/qa-cli/bin/qa.sh"
+          ! grep -q QA-AI-PLAYWRIGHT "$HOME/.zprofile"
+      - name: Check Windows installation
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP 'qa home with spaces'
+          $env:QA_ROOT = Join-Path $env:RUNNER_TEMP 'qa isolated environment'
+          $env:CODEX_HOME = Join-Path $env:RUNNER_TEMP 'qa isolated codex'
+          $originalPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+          $originalProcessPath = $env:Path
+          try {
+            $invalidLocalAppData = Join-Path $env:RUNNER_TEMP 'qa invalid local app data'
+            Set-Content -LiteralPath $invalidLocalAppData -Value 'not a directory'
+            $env:LOCALAPPDATA = $invalidLocalAppData
+            $failureMessage = $null
+            try { ./packages/qa-cli/bin/install.ps1 } catch { $failureMessage = $_.Exception.Message }
+            if (!$failureMessage -or $failureMessage -notmatch 'qa-ai-playwright|qa invalid local app data') { throw "Expected initial installation failure, got: $failureMessage" }
+            if ([Environment]::GetEnvironmentVariable('Path', 'User') -ne $originalPath) { throw 'Failed installation changed PATH' }
+            $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP 'qa home with spaces'
+            $expectedBin = Join-Path (Join-Path $env:LOCALAPPDATA 'qa-ai-playwright') 'bin'
+            $trailingBin = $expectedBin + '\'
+            [Environment]::SetEnvironmentVariable('Path', (($entries + $trailingBin) -join ';'), 'User')
+            ./packages/qa-cli/bin/install.ps1
+            if (Test-Path -LiteralPath (Join-Path $env:LOCALAPPDATA 'qa-ai-playwright/.path-added')) { throw 'Equivalent PATH entry was not reused' }
+            ./packages/qa-cli/bin/install.ps1 -Uninstall
+            if (([Environment]::GetEnvironmentVariable('Path', 'User') -split ';') -notcontains $trailingBin) { throw 'Preexisting PATH entry was removed' }
+            [Environment]::SetEnvironmentVariable('Path', $originalPath, 'User')
+            ./packages/qa-cli/bin/install.ps1
+            $root = Join-Path $env:LOCALAPPDATA 'qa-ai-playwright'
+            if (!(Test-Path (Join-Path $root 'bin/qa.cmd'))) { throw 'Missing command' }
+            $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
+            $globalCommand = Get-Command qa -CommandType Application -ErrorAction Stop | Select-Object -First 1
+            if ($globalCommand.Source -ine (Join-Path $root 'bin/qa.cmd')) { throw 'PATH resolved to an unexpected qa command' }
+            Push-Location $env:RUNNER_TEMP
+            try {
+                & $globalCommand.Source --help
+                if ($LASTEXITCODE -ne 0) { throw 'Installed command failed' }
+            } finally {
+                Pop-Location
+            }
+            $installedCommand = Join-Path $root 'bin/qa.cmd'
+            $lfCommand = [IO.File]::ReadAllText($installedCommand).Replace("`r`n", "`n")
+            [IO.File]::WriteAllText($installedCommand, $lfCommand, [Text.UTF8Encoding]::new($false))
+            & $globalCommand.Source --help
+            if ($LASTEXITCODE -ne 0) { throw 'LF command wrapper failed' }
+            ./packages/qa-cli/bin/install.ps1
+            New-Item -ItemType Directory -Force -Path $env:QA_ROOT | Out-Null
+            Set-Content -LiteralPath (Join-Path $env:QA_ROOT '.qa-managed') -Value 'qa-local-environment-v1'
+            Add-Content -LiteralPath (Join-Path $root 'packages/qa-cli/bin/qa.cmd') -Value 'modified'
+            $conflictMessage = $null
+            try { ./packages/qa-cli/bin/install.ps1 } catch { $conflictMessage = $_.Exception.Message }
+            if ($conflictMessage -notmatch '^Modified installed file: packages\\qa-cli\\bin\\qa\.cmd$') { throw "Expected upgrade conflict, got: $conflictMessage" }
+            $integrityMessage = $null
+            try { ./packages/qa-cli/bin/install.ps1 -Uninstall } catch { $integrityMessage = $_.Exception.Message }
+            if ($integrityMessage -notmatch '^Installed files changed; environment cleanup cancelled$') { throw "Expected integrity failure, got: $integrityMessage" }
+            if (!(Test-Path (Join-Path $root 'bin/qa.cmd'))) { throw 'Installation was removed after failure' }
+            Copy-Item -LiteralPath 'packages/qa-cli/bin/qa.cmd' -Destination (Join-Path $root 'packages/qa-cli/bin/qa.cmd') -Force
+            ./packages/qa-cli/bin/install.ps1 -Uninstall
+            if (Test-Path $root) { throw 'Installation remains' }
+            Remove-Item -LiteralPath (Join-Path $env:QA_ROOT '.qa-managed')
+            New-Item -ItemType Directory -Force -Path (Join-Path $root 'node') | Out-Null
+            Set-Content -LiteralPath (Join-Path $root 'node/.qa-test') -Value 'preserve node'
+            ./packages/qa-cli/bin/install.ps1
+            if (!(Test-Path (Join-Path $root 'node/.qa-test'))) { throw 'Node data was not preserved' }
+            ./packages/qa-cli/bin/install.ps1 -Uninstall
+            if (!(Test-Path (Join-Path $root 'node/.qa-test'))) { throw 'Node data was removed' }
+            ./packages/qa-cli/bin/install.ps1
+            if (!(Test-Path (Join-Path $root 'node/.qa-test'))) { throw 'Node data was not reused' }
+            Remove-Item -LiteralPath (Join-Path $root 'bin/qa.cmd')
+            ./packages/qa-cli/bin/install.ps1 -Uninstall
+            if (([Environment]::GetEnvironmentVariable('Path', 'User') -split ';') -contains (Join-Path $root 'bin')) { throw 'Managed PATH entry remains' }
+            ./packages/qa-cli/bin/install.ps1
+            Add-Content -LiteralPath (Join-Path $root 'packages/qa-cli/bin/qa.cmd') -Value 'modified'
+            ./packages/qa-cli/bin/install.ps1 -Uninstall
+            if (Test-Path (Join-Path $root 'bin/qa.cmd')) { throw 'Command remains' }
+            if (!(Test-Path (Join-Path $root 'packages/qa-cli/bin/qa.cmd'))) { throw 'Modified file removed' }
+          } finally {
+            [Environment]::SetEnvironmentVariable('Path', $originalPath, 'User')
+            $env:Path = $originalProcessPath
+          }
+
   session-shortcut:
     name: Session shortcut / ${{ matrix.os }}
     strategy:
@@ -96,6 +254,17 @@ jobs:
       - name: Verify cold bootstrap prerequisites
         shell: pwsh
         run: node --experimental-strip-types tests/bootstrap-preflight.ts
+      - name: Verify text line endings
+        shell: bash
+        run: |
+          if git grep -Il $'\r' -- .; then
+            echo 'CRLF found in tracked text files' >&2
+            exit 1
+          fi
+          if git grep -Il $'\xEF\xBB\xBF' -- .; then
+            echo 'UTF-8 BOM found in tracked text files' >&2
+            exit 1
+          fi
       - uses: ./.github/actions/bootstrap
         with:
           stack: typescript
@@ -305,7 +474,7 @@ jobs:
   release-check:
     name: Check existing GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [quality, environment-smoke, project-smoke]
+    needs: [global-install, session-shortcut, quality, environment-smoke, project-smoke]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -329,7 +498,7 @@ jobs:
   release:
     name: Publish GitHub Release
     if: startsWith(github.ref, 'refs/tags/v') && needs.release-check.outputs.exists != 'true'
-    needs: [quality, environment-smoke, project-smoke, release-check]
+    needs: [global-install, session-shortcut, quality, environment-smoke, project-smoke, release-check]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
@@ -361,9 +530,16 @@ jobs:
           mkdir "$RUNNER_TEMP/unpacked-release"
           unzip -q "$RUNNER_TEMP/release/qa-ai-playwright-${GITHUB_REF_NAME}.zip" -d "$RUNNER_TEMP/unpacked-release"
           root="$RUNNER_TEMP/unpacked-release/qa-ai-playwright-${GITHUB_REF_NAME}"
+          test -f "$root/packages/qa-cli/bin/install.sh"
+          test -f "$root/packages/qa-cli/bin/install.ps1"
+          test -f "$root/packages/templates/typescript/AGENTS.md"
+          test -f "$root/packages/templates/python/AGENTS.md"
+          test ! -e "$root/AGENTS.md"
+          test ! -e "$root/docs/maintainers"
           bash "$root/packages/qa-cli/bin/qa.sh" --help
           QA_ROOT="$RUNNER_TEMP/release-env" bash "$root/packages/qa-cli/bin/qa.sh" env init typescript --skip-codex --skip-skills
           QA_ROOT="$RUNNER_TEMP/release-env" bash "$root/packages/qa-cli/bin/qa.sh" project init "$RUNNER_TEMP/release-project" --language typescript
+          test -f "$RUNNER_TEMP/release-project/AGENTS.md"
       - name: Create checksums
         shell: bash
         working-directory: ${{ runner.temp }}/release

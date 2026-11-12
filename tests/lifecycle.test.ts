@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import {
   chmodSync,
   existsSync,
@@ -13,10 +14,12 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { test } from 'bun:test';
 
 import {
   Environment,
+  detectCodexDesktop,
   type RunOptions,
 } from '../packages/qa-cli/cli/environment.ts';
 import {
@@ -39,7 +42,7 @@ import {
   readMcpServerConfig,
   within,
 } from '../packages/qa-cli/cli/shared.ts';
-import { execute, parseArgs, uninstallExternalTools, verifiedGlobalPackage } from '../packages/qa-cli/qa-cli.ts';
+import { execute, parseArgs, preserveSharedSoftware, verifiedGlobalPackage } from '../packages/qa-cli/qa-cli.ts';
 
 test('environment repair uses recorded configuration and rejects overriding flags', () => {
   assert.equal(parseArgs(['env', 'repair']).action, 'repair');
@@ -272,6 +275,53 @@ path = 'unrelated'
     env: { PLAYWRIGHT_BROWSERS_PATH: 'C:\\[qa]\\cache' },
   });
 });
+
+test('Node CLI runtime reads CRLF MCP settings before unrelated array tables', () => {
+  const config = join(createWorkspace(), 'config.toml');
+  const text = `[mcp_servers.qa]
+command = 'bun'
+args = ['qa-server.ts', '--root', 'qa env']
+[mcp_servers.qa.env]
+TEST_PATH = 'qa cache'
+[[skills.config]]
+path = 'unrelated'
+`;
+  writeFileSync(config, text.replaceAll('\n', '\r\n'));
+  const moduleUrl = pathToFileURL(join(REPO, 'packages/qa-cli/cli/shared.ts')).href;
+  const script = `import { readMcpServerConfig } from ${JSON.stringify(moduleUrl)}; console.log(JSON.stringify(readMcpServerConfig(${JSON.stringify(config)}, 'qa')));`;
+  const result = spawnSync(process.env.QA_NODE_PATH || 'node', ['--experimental-strip-types', '--input-type=module', '-e', script], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), {
+    command: 'bun',
+    args: ['qa-server.ts', '--root', 'qa env'],
+    env: { TEST_PATH: 'qa cache' },
+  });
+}, 15000);
+test('discovered shared tools require matching QA ownership records', () => {
+  const base = createWorkspace();
+  const bin = createToolPath(base, ['bun', 'pnpm']);
+  const environment = new Environment({
+    root: join(base, 'environment'),
+    env: { PATH: bin },
+  });
+  const bun = join(bin, WINDOWS ? 'bun.exe' : 'bun');
+  const pnpm = join(bin, WINDOWS ? 'pnpm.exe' : 'pnpm');
+  environment.state.installations = {
+    bun: { status: 'ready', source: 'qa', path: bun, version: '1.0.0' },
+    pnpm: { status: 'ready', source: 'reused', path: pnpm, version: '9.0.0' },
+  };
+  const tools = environment.listDiscoveredTools();
+  assert.equal(tools.find((tool) => tool.name === 'bun')?.source, 'qa');
+  assert.equal(tools.find((tool) => tool.name === 'pnpm')?.source, 'unknown');
+
+  environment.state.installations = {
+    bun: { status: 'ready', source: 'qa', path: join(base, 'old bun'), version: '1.0.0' },
+  };
+  assert.equal(
+    environment.listDiscoveredTools().find((tool) => tool.name === 'bun')?.source,
+    'unknown',
+  );
+});
 test('PATH discovery reuses existing package managers even with different versions', async () => {
   const base = createWorkspace();
   const bin = createToolPath(base, ['bun', 'pnpm', 'codex', 'playwright-cli', 'agent-browser', 'cc-switch']);
@@ -337,6 +387,10 @@ test('a missing package manager is installed once using the discovered global np
   }({ root: join(base, 'environment'), env: { PATH: bin } });
   environment.save();
   assert.deepEqual(await environment.ensurePackageManagers(), { bun: '1.0.0', pnpm: '9.0.0' });
+  const installed = JSON.parse(readFileSync(environment.stateFile, 'utf8')).installations;
+  assert.equal(installed.pnpm.source, 'qa');
+  assert.equal(installed.pnpm.path, pnpm);
+  assert.equal(installed.pnpm.version, '9.0.0');
   assert.deepEqual(await environment.ensurePackageManagers(), { bun: '1.0.0', pnpm: '9.0.0' });
   const installs = environment.commands.filter((command) => command.includes('install') && command.includes('--global'));
   assert.equal(installs.length, 1);
@@ -344,8 +398,30 @@ test('a missing package manager is installed once using the discovered global np
   assert.equal(readFileSync(pnpm, 'utf8'), 'installed pnpm');
   const records = JSON.parse(readFileSync(environment.stateFile, 'utf8')).installations;
   assert.equal(records.pnpm.source, 'qa');
-  assert.equal(records.pnpm.path, pnpm);
-  assert.equal(records.pnpm.version, '9.0.0');
+});
+test('an existing user package without its command shim is never reinstalled', async () => {
+  const base = createWorkspace();
+  const bin = createToolPath(base, ['npm', 'bun']);
+  const prefix = WINDOWS ? bin : dirname(bin);
+  const packageDir = WINDOWS
+    ? join(prefix, 'node_modules', 'pnpm')
+    : join(prefix, 'lib', 'node_modules', 'pnpm');
+  mkdirSync(packageDir, { recursive: true });
+  writeFileSync(join(packageDir, 'package.json'), JSON.stringify({ name: 'pnpm', version: '9.0.0' }));
+  const environment = new class extends StubEnvironment {
+    override run(command: readonly (string | number)[], options: RunOptions = {}): string | undefined {
+      if (command.includes('prefix')) return prefix;
+      if (options.capture && command[0] === this.bunBin) return '1.0.0';
+      return super.run(command, options);
+    }
+  }({ root: join(base, 'environment'), env: { PATH: bin } });
+  environment.save();
+  await assert.rejects(() => environment.ensurePackageManagers(), /Global Bun or pnpm is not discoverable/);
+  assert.ok(!environment.commands.some((command) => command.includes('install') && command.includes('--global')));
+  assert.deepEqual(JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8')), {
+    name: 'pnpm',
+    version: '9.0.0',
+  });
 });
 
 test('an interrupted global installation is recorded without claiming ownership', async () => {
@@ -397,6 +473,28 @@ test('CC Switch is prepared only when explicitly requested', async () => {
   await withCc.init({ ...options, withCcSwitch: true });
   assert.equal(withCc.ccCalls, 1);
   assert.equal((withCc.state.components as { cc_switch: boolean }).cc_switch, true);
+});
+
+test('initializing another language retains both project languages', async () => {
+  const base = createWorkspace();
+  class LanguageEnvironment extends StubEnvironment {
+    override async ensureNode(): Promise<string> { return 'v22.18.0'; }
+    override async ensurePackageManagers(): Promise<{ bun: string; pnpm: string }> { return { bun: '1.0.0', pnpm: '9.0.0' }; }
+    override async ensurePython(): Promise<string> { return 'python'; }
+    override activate(): void { /* No shell activation is needed for this test. */ }
+  }
+  const environment = new LanguageEnvironment({ root: join(base, 'env'), env: { PATH: '' } });
+  const options = { profile: 'standard' as const, skipCodex: true, skipSkills: true };
+  await environment.init({ ...options, stack: 'typescript' });
+  await assert.rejects(environment.init({ ...options, stack: 'invalid' as 'python' }), /Invalid stack/);
+  await environment.init({ ...options, stack: 'python' });
+  assert.equal(environment.state.stack, 'both');
+});
+
+test('desktop detection distinguishes a confirmed Store app from unknown status', () => {
+  assert.equal(detectCodexDesktop('win32', () => ({ status: 0, stdout: '9PLM9XGG6VKS' })), 'installed');
+  assert.equal(detectCodexDesktop('win32', () => ({ status: 1, stdout: '' })), 'unknown');
+  assert.equal(detectCodexDesktop('darwin', () => { throw new Error('unexpected lookup'); }), 'unknown');
 });
 
 test('full mode without Codex reuses or installs an isolated browser', async () => {
@@ -452,7 +550,7 @@ test('checking a fresh environment does not create its directory', () => {
   });
   environment.check({ stack: 'both', profile: 'full', skipCodex: false, skipSkills: false });
   assert.equal(existsSync(root), false);
-});
+}, 30000);
 
 test('PATH discovery ignores a non-executable Unix file', () => {
   if (WINDOWS) return;
@@ -576,7 +674,7 @@ test('pre-release repository versions stay fixed at 0.0.1', () => {
   }
   assert.match(
     readFileSync(
-      join(REPO, '.agents/skills/qa-maintainer/SKILL.md'),
+      join(REPO, '.agents/skills/repo-maintainer/SKILL.md'),
       'utf8',
     ),
     /^  version: "0\.0\.1"$/m,
@@ -598,6 +696,67 @@ test('workspace keeps the CLI package and example projects in separate roots', (
   assert.ok(existsSync(join(REPO, 'apps/qa-ticket-app-suite-python/requirements.in')));
   assert.ok(existsSync(join(REPO, 'apps/qa-ticket-app/docs/qa/generated/test-cases.md')));
   assert.equal(REPO, workspace);
+});
+
+test('QA skills keep token-aware references and documented behavior cases', () => {
+  const core = readFileSync(
+    join(REPO, 'packages/skills/builtin/qa-core/SKILL.md'),
+    'utf8',
+  );
+  const setup = readFileSync(
+    join(REPO, 'packages/skills/builtin/qa-setup/SKILL.md'),
+    'utf8',
+  );
+  assert.ok(core.length < 4000, 'qa-core entry must stay compact');
+  assert.ok(setup.length < 4000, 'qa-setup entry must stay compact');
+  assert.doesNotMatch(setup, /\.qa-env/);
+
+  for (const relativePath of [
+    'packages/skills/builtin/qa-core/references/business-guide.md',
+    'packages/skills/builtin/qa-core/references/test-design.md',
+    'packages/skills/builtin/qa-core/references/api-testing.md',
+    'packages/skills/builtin/qa-core/references/web-testing.md',
+    'packages/skills/builtin/qa-core/references/triage.md',
+    'packages/skills/builtin/qa-core/references/documents.md',
+    'packages/skills/builtin/qa-core/references/generated-code-quality.md',
+    'packages/skills/builtin/qa-core/references/link-routing.md',
+    'packages/skills/builtin/qa-core/references/project-discovery.md',
+    'packages/skills/builtin/qa-core/references/test-design/universal-baseline.md',
+    'packages/skills/builtin/qa-core/references/test-design/feature-patterns.md',
+    'packages/skills/builtin/qa-core/references/automation/typescript.md',
+    'packages/skills/builtin/qa-core/references/automation/typescript-recipes.md',
+    'packages/skills/builtin/qa-core/references/automation/python.md',
+    'packages/skills/builtin/qa-core/references/automation/python-recipes.md',
+    'docs/users/test-design.zh-CN.md',
+  ]) {
+    assert.ok(existsSync(join(REPO, relativePath)), relativePath);
+  }
+  assert.deepEqual(
+    readdirSync(join(REPO, 'packages/skills/builtin')).sort(),
+    ['qa-core', 'qa-setup'],
+  );
+
+  const scenarios = JSON.parse(
+    readFileSync(join(REPO, 'tests/skill-cases/scenarios.json'), 'utf8'),
+  ) as { cases: Array<{ id: string }> };
+  const scenarioIds = new Set(scenarios.cases.map(({ id }) => id));
+  for (const id of [
+    'scenario-catalog-requires-judgment',
+    'maintainable-generated-flow',
+    'source-driven-auto-test',
+    'performance-vitals-boundary',
+  ]) {
+    assert.ok(scenarioIds.has(id), id);
+  }
+
+  assert.match(
+    readFileSync(join(REPO, 'packages/skills/builtin/qa-core/references/test-design.md'), 'utf8'),
+    /默认输出 5 至 10 个高价值场景/,
+  );
+  assert.match(
+    readFileSync(join(REPO, 'packages/templates/qa/generated/test-cases.md'), 'utf8'),
+    /资料依据 \/ 适用理由/,
+  );
 });
 
 test('both language templates keep real environment files ignored', () => {
@@ -721,12 +880,12 @@ test('generated documentation excludes directory introduction files', () => {
   assert.match(inputIndex, /UI_BASE_URL/);
   assert.match(inputIndex, /API_BASE_URL/);
   const skillDocs = readFileSync(
-    join(REPO, 'docs/skills-mcp.zh-CN.md'),
+    join(REPO, 'docs/users/skills-mcp.zh-CN.md'),
     'utf8',
   );
   assert.match(skillDocs, /`\/skills`/);
-  assert.match(skillDocs, /\$qa-business-guide/);
-  assert.match(skillDocs, /不是 `\/env`/);
+  assert.match(skillDocs, /\$qa-core/);
+  assert.match(skillDocs, /根据任务读取需要的参考/);
 });
 
 test('generated CI workflows expose safety and API gates', () => {
@@ -981,11 +1140,7 @@ test('project initialization preserves unmanaged and modified Python locks', asy
 });
 
 test('project cannot overlap the environment root', async () => {
-  const environment = new StubEnvironment({
-    root: join(createWorkspace(), 'environment'),
-    env: {},
-  });
-  environment.save();
+  const environment = createEnvironment();
   await assert.rejects(
     () =>
       projectInit(environment, {
@@ -1132,17 +1287,14 @@ test('--root is accepted in options and remains untouched after run', () => {
   );
 });
 
-test('external software uninstall requires an explicit supported operation', async () => {
-  const defaultArgs = parseArgs(['env', 'uninstall']);
-  assert.equal(defaultArgs.includeExternal, undefined);
-  const confirmed = parseArgs(['env', 'uninstall', '--include-external']);
-  assert.equal(confirmed.includeExternal, true);
-  assert.throws(() => parseArgs(['env', 'uninstall', '--include-external=false']), /Unknown option/);
+test('environment uninstall has no user-installed software override', async () => {
+  assert.equal(parseArgs(['env', 'uninstall']).action, 'uninstall');
+  assert.throws(() => parseArgs(['env', 'uninstall', '--include-external']), /Unknown option/);
   assert.throws(() => parseArgs(['project', 'uninstall', 'project', '--include-external']), /Unknown option/);
   assert.throws(() => parseArgs(['env', 'init', 'typescript', '--include-external']), /Unknown option/);
 });
 
-test('external uninstall requires explicit authorization and verifies npm package identity', async () => {
+test('shared software cleanup preserves user-installed tools without invoking npm', async () => {
   const base = createWorkspace();
   const prefix = join(base, 'global');
   const packageDir = process.platform === 'win32'
@@ -1167,14 +1319,12 @@ test('external uninstall requires explicit authorization and verifies npm packag
     npm: (args: string[]) => { calls.push(args); return prefix; },
   } as unknown as Environment;
   const interaction = { log: (message: string) => messages.push(message) };
-  assert.equal(await uninstallExternalTools(env, false, interaction), true);
+  assert.equal(await preserveSharedSoftware(env, interaction), true);
   assert.equal(calls.length, 0);
   assert.ok(messages.some((message) => message.includes('cc-switch')));
-  assert.ok(!messages.some((message) => message.includes('owned:')));
-  assert.ok(messages.some((message) => message.includes('External software is preserved')));
-  assert.equal(await uninstallExternalTools(env, true, interaction), false);
-  assert.equal(calls.length, 0);
-  assert.ok(messages.some((message) => message.includes('cross-environment usage cannot be verified')));
+  assert.ok(messages.some((message) => message.includes('QA-managed owned')));
+  assert.ok(messages.some((message) => message.includes('user-installed playwright-cli')));
+  assert.ok(messages.some((message) => message.includes('requires QA ownership evidence')));
   assert.ok(existsSync(executable));
 });
 
@@ -1208,6 +1358,27 @@ test('external npm package validation rejects linked packages and package roots 
   assert.equal(verifiedGlobalPackage({ ...tool, path: internalExecutable }, '@playwright/cli', packageDir, prefix), false);
 });
 
+test('external npm package validation accepts an executable inside its package', () => {
+  const base = createWorkspace();
+  const prefix = join(base, 'global');
+  const packageDir = process.platform === 'win32'
+    ? join(prefix, 'node_modules', '@playwright', 'cli')
+    : join(prefix, 'lib', 'node_modules', '@playwright', 'cli');
+  mkdirSync(packageDir, { recursive: true });
+  writeFileSync(join(packageDir, 'package.json'), JSON.stringify({ name: '@playwright/cli' }));
+  const executable = join(packageDir, 'cli.js');
+  writeFileSync(executable, '');
+  assert.equal(
+    verifiedGlobalPackage(
+      { name: 'playwright-cli', path: executable, scope: 'system-or-user', source: 'unknown' },
+      '@playwright/cli',
+      packageDir,
+      prefix,
+    ),
+    true,
+  );
+});
+
 test('external uninstall preserves all software when another root owns an MCP lock', async () => {
   const base = createWorkspace();
   const prefix = join(base, 'global');
@@ -1237,9 +1408,9 @@ test('external uninstall preserves all software when another root owns an MCP lo
     npm: (args: string[]) => { calls.push(args); return prefix; },
   } as unknown as Environment;
   const interaction = { log: (message: string) => messages.push(message) };
-  assert.equal(await uninstallExternalTools(env, true, interaction), false);
+  assert.equal(await preserveSharedSoftware(env, interaction), true);
   assert.deepEqual(calls, []);
-  assert.ok(messages.some((message) => message.includes('cross-environment usage cannot be verified')));
+  assert.ok(messages.some((message) => message.includes('requires QA ownership evidence')));
   assert.ok(existsSync(executable));
   assert.ok(existsSync(lockPath));
 });

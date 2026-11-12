@@ -2,6 +2,8 @@ import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 
+import { assertPackageLinks, packageEntries } from './package-layout.ts';
+
 interface PackageManifest {
   name?: unknown;
   version?: unknown;
@@ -18,15 +20,62 @@ const files = execFileSync('git', ['-C', repo, 'ls-files', '-z'], { encoding: 'b
 if (!files.length) throw new Error('No tracked files found for release');
 mkdirSync(output, { recursive: true });
 
-createArchive(files.filter(isUserFile));
+const userEntries = packageEntries(files);
+const userFiles = userEntries.map((entry) => entry.source);
+assertPackageLinks(userEntries, (source) => readFileSync(join(repo, source), 'utf8'));
+assertPortableText(userFiles);
+assertPortablePaths(userFiles);
+createArchive(userEntries);
 
-function createArchive(selectedFiles: string[]): void {
+/** Rejects BOM and CRLF in text files shipped with the delivery archive. */
+function assertPortableText(selectedFiles: string[]): void {
+  const textExtensions = new Set([
+    '.cmd', '.env', '.example', '.gitignore', '.in', '.ini', '.js',
+    '.json', '.lock', '.md', '.ps1', '.py', '.sh', '.toml', '.ts',
+    '.txt', '.yaml', '.yml',
+  ]);
+  for (const relative of selectedFiles) {
+    const lower = relative.toLowerCase();
+    const name = lower.split('/').at(-1) ?? '';
+    if (
+      !textExtensions.has(lower.slice(lower.lastIndexOf('.'))) &&
+      !['changelog', 'license', 'notice', 'readme', 'version'].includes(name)
+    ) {
+      continue;
+    }
+    const content = readFileSync(join(repo, relative));
+    if (content[0] === 0xef && content[1] === 0xbb && content[2] === 0xbf) {
+      throw new Error(`UTF-8 BOM is not allowed in ${relative}`);
+    }
+    if (content.includes(0x0d)) {
+      throw new Error(`CRLF is not allowed in ${relative}`);
+    }
+  }
+}
+
+/** Rejects archive paths that cannot be represented safely on Windows. */
+function assertPortablePaths(selectedFiles: string[]): void {
+  const reserved = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/iu;
+  for (const relative of selectedFiles) {
+    for (const part of relative.split('/')) {
+      if (
+        /[<>:"|?*\u0000-\u001f]/u.test(part) ||
+        /[ .]$/u.test(part) ||
+        reserved.test(part)
+      ) {
+        throw new Error(`Path is not portable to Windows: ${relative}`);
+      }
+    }
+  }
+}
+
+function createArchive(selectedEntries: ReturnType<typeof packageEntries>): void {
   const stage = join(output, `qa-ai-playwright-v${version}`);
   rmSync(stage, { recursive: true, force: true });
   mkdirSync(stage, { recursive: true });
-  for (const relative of selectedFiles) {
-    const source = join(repo, relative);
-    const target = join(stage, relative);
+  for (const entry of selectedEntries) {
+    const source = join(repo, entry.source);
+    const target = join(stage, entry.target);
     mkdirSync(dirname(target), { recursive: true });
     cpSync(source, target, { recursive: true });
   }
@@ -36,23 +85,6 @@ function createArchive(selectedFiles: string[]): void {
   run('zip', ['-q', '-r', zip, basename(stage)], output);
   rmSync(stage, { recursive: true, force: true });
   console.log(`Created ${zip}`);
-}
-
-function isUserFile(relative: string): boolean {
-  const normalized = relative.replaceAll('\\', '/');
-  if (normalized.startsWith('.github/') || normalized.startsWith('.agents/')) return false;
-  if (normalized.startsWith('apps/') || normalized.startsWith('scripts/') || normalized.startsWith('tests/')) return false;
-  if (normalized === 'AGENTS.md' || normalized.endsWith('/AGENTS.md')) return false;
-  if (normalized === 'package.json' || normalized === 'pnpm-lock.yaml' || normalized === 'tsconfig.json') return false;
-  if (normalized.startsWith('docs/')) {
-    return normalized === 'docs/environment.zh-CN.md'
-      || normalized === 'docs/python.zh-CN.md'
-      || normalized === 'docs/typescript.zh-CN.md'
-      || normalized === 'docs/skills-mcp.zh-CN.md'
-      || normalized === 'docs/qa-workflow.zh-CN.md'
-      || normalized.startsWith('docs/releases/');
-  }
-  return normalized === 'README.md' || normalized.startsWith('packages/');
 }
 
 function argumentValue(name: string): string | undefined {

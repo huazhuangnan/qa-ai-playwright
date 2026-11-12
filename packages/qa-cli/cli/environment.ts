@@ -42,6 +42,13 @@ import {
 /** Keeps Agent Browser socket paths below Unix domain socket limits. */
 const AGENT_BROWSER_SOCKET_DIR = 's';
 const AGENT_BROWSER_SESSION = 'qa';
+
+/** Detects the official Windows desktop app by its Microsoft Store product ID. */
+export function detectCodexDesktop(platform: NodeJS.Platform = process.platform, lookup: () => { status: number | null; stdout: string | null } = () => spawnSync('winget', ['list', '--id', '9PLM9XGG6VKS', '--exact', '--disable-interactivity'], { encoding: 'utf8', windowsHide: true, timeout: 15000 })): 'installed' | 'unknown' {
+  if (platform !== 'win32') return 'unknown';
+  const result = lookup();
+  return result.status === 0 && result.stdout?.includes('9PLM9XGG6VKS') ? 'installed' : 'unknown';
+}
 const AGENT_BROWSER_LAUNCH_ARGS = WINDOWS
   ? '--disable-gpu,--disable-software-rasterizer,--no-sandbox'
   : undefined;
@@ -340,16 +347,41 @@ export class Environment {
   private recordInstallation(name: string, observation: Record<string, unknown>): void {
     const records = this.objectValue(this.state.installations);
     const previous = this.objectValue(records[name]);
-    const source = observation.source === 'reused' && previous.status === 'pending'
-      ? 'unknown' : observation.source === 'reused' && previous.source === 'qa'
-      && previous.status === 'ready' && previous.path === observation.path
-      && (previous.version === observation.version || previous.version === 'unknown') ? 'qa' : observation.source;
+    const source = observation.source;
     records[name] = { ...(source === 'qa' ? previous : {}), ...observation, source };
     this.state.installations = records;
     this.save();
   }
 
-  /** Installs a missing tool using npm's user or system global prefix. */
+  /** Returns whether a discovered path is backed by QA ownership evidence. */
+  private ownsDiscoveredTool(name: string, path: string): boolean {
+    const nodeRoot = WINDOWS
+      ? join(
+          this.environment.LOCALAPPDATA ??
+            join(homedir(), 'AppData', 'Local'),
+          'qa-ai-playwright',
+          'node',
+        )
+      : join(homedir(), '.local', 'share', 'qa-ai-playwright', 'node');
+    if ((name === 'node' || name === 'npm') && within(path, nodeRoot)) {
+      return true;
+    }
+    const installations = this.objectValue(this.state.installations);
+    const record = this.objectValue(installations[name]);
+    if (record.status !== 'ready' || record.source !== 'qa') {
+      return false;
+    }
+    const normalize = (value: string): string => {
+      const full = resolve(value);
+      const canonical = existsSync(full) ? realpathSync(full) : full;
+      return WINDOWS ? canonical.toLowerCase() : canonical;
+    };
+    return [record.path, record.package_path]
+      .filter((value): value is string => typeof value === 'string' && value.length > 0)
+      .some((recorded) => normalize(recorded) === normalize(path));
+  }
+
+  /** Installs only when both the command and package are absent. */
   private installGlobal(packageSpec: string, executableName?: string, packageName?: string): void {
     const args = ['install', '--global', packageSpec];
     if (!this.discoverGlobalNpmBin()) {
@@ -358,7 +390,7 @@ export class Environment {
     const packageBase = packageName ?? packageSpec.match(/^(@[^/]+\/[^@]+|[^@]+)/u)?.[0];
     const tool = executableName ?? packageBase?.split('/').at(-1);
     if (!tool) throw new Error(`Cannot determine executable for ${packageSpec}`);
-    if (this.globalTool(tool) || (packageName && this.globalPackage(packageName, this.globalTool(tool)))) return;
+    if (this.globalTool(tool) || (packageBase && this.globalPackage(packageBase, this.globalTool(tool)))) return;
     this.recordInstallation(packageBase ?? tool, { status: 'pending', source: 'unknown', scope: 'system-or-user', package: packageBase, requested: packageSpec, npm_bin: this.state.global_npm_bin });
     console.log(`Installing missing global tool: npm ${args.join(' ')}`);
     this.globalNpm(args);
@@ -742,8 +774,10 @@ export class Environment {
         console.warn(`${name} version ${actual} differs from the configured baseline ${baseline}; check compatibility`);
       }
     }
-    this.recordInstallation('bun', { status: 'ready', source: 'reused', scope: 'system-or-user', path: this.bunBin, version: bun });
-    this.recordInstallation('pnpm', { status: 'ready', source: 'reused', scope: 'system-or-user', path: this.pnpmBin, version: pnpm });
+    const bunSource = this.ownsDiscoveredTool('bun', this.bunBin) ? 'qa' : 'reused';
+    const pnpmSource = this.ownsDiscoveredTool('pnpm', this.pnpmBin) ? 'qa' : 'reused';
+    this.recordInstallation('bun', { status: 'ready', source: bunSource, scope: 'system-or-user', path: this.bunBin, version: bun });
+    this.recordInstallation('pnpm', { status: 'ready', source: pnpmSource, scope: 'system-or-user', path: this.pnpmBin, version: pnpm });
     return { bun, pnpm };
   }
 
@@ -1088,7 +1122,14 @@ export class Environment {
     if (!this.playwrightCliBin || !version) {
       throw new Error('Global Playwright CLI exists but its executable or package metadata is unavailable');
     }
-    this.recordInstallation('@playwright/cli', { status: 'ready', source: 'reused', scope: 'system-or-user', path: this.playwrightCliBin, package_path: this.playwrightCliPackage, version });
+    this.recordInstallation('@playwright/cli', {
+      status: 'ready',
+      source: this.ownsDiscoveredTool('@playwright/cli', this.playwrightCliBin) ? 'qa' : 'reused',
+      scope: 'system-or-user',
+      path: this.playwrightCliBin,
+      package_path: this.playwrightCliPackage,
+      version,
+    });
     return version;
   }
 
@@ -1105,7 +1146,14 @@ export class Environment {
     if (!this.agentBrowser || !version) {
       throw new Error('Global Agent Browser exists but its executable or package metadata is unavailable');
     }
-    this.recordInstallation('agent-browser', { status: 'ready', source: 'reused', scope: 'system-or-user', path: this.agentBrowser, package_path: this.agentBrowserPackage, version });
+    this.recordInstallation('agent-browser', {
+      status: 'ready',
+      source: this.ownsDiscoveredTool('agent-browser', this.agentBrowser) ? 'qa' : 'reused',
+      scope: 'system-or-user',
+      path: this.agentBrowser,
+      package_path: this.agentBrowserPackage,
+      version,
+    });
     return version;
   }
 
@@ -1410,30 +1458,41 @@ export class Environment {
    */
   listDiscoveredTools(): DiscoveredTool[] {
     const tools: DiscoveredTool[] = [];
-    const add = (name: string, path: string | undefined, version?: string): void => {
+    const add = (
+      name: string,
+      path: string | undefined,
+      version?: string,
+      ownershipName = name,
+    ): void => {
       if (!path || !existsSync(path)) return;
-      tools.push({ name, path, scope: within(resolve(path), this.root) ? 'environment' : 'system-or-user', source: 'unknown', ...(version ? { version } : {}) });
+      tools.push({
+        name,
+        path,
+        scope: within(resolve(path), this.root) ? 'environment' : 'system-or-user',
+        source: this.ownsDiscoveredTool(ownershipName, path) ? 'qa' : 'unknown',
+        ...(version ? { version } : {}),
+      });
     };
     add('node', this.node);
     add('npm', this.globalTool('npm'));
     add('bun', this.bunBin);
     add('pnpm', this.pnpmBin);
-    add('codex', this.codexBin);
+    add('codex', this.codexBin, undefined, '@openai/codex');
     const cc = this.findCcSwitch();
     if (cc) {
       const metadata = this.readJson(join(this.ccSwitchDir, '.qa-cc-switch.json'));
       const owned = within(resolve(cc), this.ccSwitchDir) && metadata?.entry === cc;
       tools.push({ name: 'cc-switch', path: cc, scope: 'system-or-user', source: owned ? 'qa' : 'unknown', ...(owned && typeof metadata?.version === 'string' ? { version: metadata.version } : {}) });
     }
-    add('playwright-cli', this.playwrightCliBin, this.globalPackageVersion(this.playwrightCliPackage));
-    add('playwright-mcp', this.playwrightMcpPackage, this.globalPackageVersion(this.playwrightMcpPackage));
+    add('playwright-cli', this.playwrightCliBin, this.globalPackageVersion(this.playwrightCliPackage), '@playwright/cli');
+    add('playwright-mcp', this.playwrightMcpPackage, this.globalPackageVersion(this.playwrightMcpPackage), '@playwright/mcp');
     add('agent-browser', this.agentBrowser, this.globalPackageVersion(this.agentBrowserPackage));
     add('uv', this.uv);
     add('python', this.pythonPath());
     for (const name of this.optionalMcpNames()) {
       const manifest = mcpManifest(name, 'external', this.repo);
       const directory = this.globalPackage(String(manifest.package));
-      add(`mcp:${name}`, directory, this.globalPackageVersion(directory));
+      add(`mcp:${name}`, directory, this.globalPackageVersion(directory), String(manifest.package));
     }
     return tools;
   }
@@ -1451,7 +1510,14 @@ export class Environment {
     if (!installed || !this.playwrightMcpPackage || !existsSync(entry)) {
       throw new Error('Global Playwright MCP exists but its package metadata or entrypoint is unavailable');
     }
-    this.recordInstallation('@playwright/mcp', { status: 'ready', source: 'reused', scope: 'system-or-user', path: this.globalTool('playwright-mcp') ?? this.playwrightMcpPackage, package_path: this.playwrightMcpPackage, version: installed });
+    this.recordInstallation('@playwright/mcp', {
+      status: 'ready',
+      source: this.ownsDiscoveredTool('@playwright/mcp', this.playwrightMcpPackage) ? 'qa' : 'reused',
+      scope: 'system-or-user',
+      path: this.globalTool('playwright-mcp') ?? this.playwrightMcpPackage,
+      package_path: this.playwrightMcpPackage,
+      version: installed,
+    });
     let browser = this.findBrowser();
     if (!browser) {
       const preferred = this.environment.QA_BROWSER_CHANNEL;
@@ -1685,7 +1751,16 @@ export class Environment {
         }
       }
       const snapshot = this.mcpConfigSnapshot(serverName);
-      if (!snapshot || !this.sameMcpConfig(readMcpServerConfig(this.mcpConfig, serverName), expected)) throw new Error(`Unable to verify MCP ${serverName}; its configuration is preserved. Inspect the registration before retrying`);
+      const current = readMcpServerConfig(this.mcpConfig, serverName);
+      if (!snapshot || !this.sameMcpConfig(current, expected)) {
+        const differences = [
+          ...(!snapshot ? ['snapshot'] : []),
+          ...(current.command !== expected.command ? ['command'] : []),
+          ...(JSON.stringify(current.args ?? []) !== JSON.stringify(expected.args ?? []) ? ['args'] : []),
+          ...(JSON.stringify(Object.entries(current.env ?? {}).sort()) !== JSON.stringify(Object.entries(expected.env ?? {}).sort()) ? ['env'] : []),
+        ];
+        throw new Error(`Unable to verify MCP ${serverName} (${differences.join(', ')}); its configuration is preserved. Inspect the registration before retrying`);
+      }
       servers[serverName] = {
         snapshot, scope: 'user', root: this.root, name, source_type: sourceType,
         manifest: `packages/mcp/${sourceType}/${name}.json`, source: manifest.source,
@@ -1749,11 +1824,13 @@ export class Environment {
    * @returns Process exit code.
    */
   async init(options: EnvironmentInitOptions): Promise<number> {
-    const stack = options.stack;
-    const profile = options.profile;
-    if (!['python', 'typescript', 'both'].includes(stack)) {
+    if (!['python', 'typescript', 'both'].includes(options.stack)) {
       throw new Error('Invalid stack');
     }
+    const previousStack = this.state.init_status === 'ready' ? this.state.stack : undefined;
+    const stack = previousStack && previousStack !== options.stack ? 'both' : options.stack;
+    options = { ...options, stack };
+    const profile = options.profile;
 
     const previous = this.objectValue(this.state.init_options);
     const previousName = typeof previous.environmentName === 'string' ? previous.environmentName : undefined;
@@ -1807,7 +1884,6 @@ export class Environment {
     this.state.node = await this.ensureNode();
     this.recordInstallation('node', { status: 'ready', source: 'unknown', scope: within(resolve(this.node), this.root) ? 'environment' : 'system-or-user', path: this.node, version: this.state.node });
     const packageManagers = await this.ensurePackageManagers();
-    this.discoverGlobalNpmBin();
     this.state.bun = packageManagers.bun;
     this.state.pnpm = packageManagers.pnpm;
     if (options.withCcSwitch) {
@@ -1817,6 +1893,7 @@ export class Environment {
       this.recordInstallation('cc-switch', { status: 'ready', ...cc });
     }
     if (!options.skipCodex) {
+      console.log(`Codex desktop app: ${detectCodexDesktop()} (separate from Codex CLI)`);
       if (!this.codexBin) {
         const codex = this.codexManifest();
         this.installGlobal(codex.package, codex.executable);
@@ -1824,7 +1901,14 @@ export class Environment {
       const codexVersion = this.codex(['--version'], { capture: true });
       this.state.codex = codexVersion;
       const codexPackage = this.globalPackage('@openai/codex', this.codexBin);
-      this.recordInstallation('@openai/codex', { status: 'ready', source: 'reused', scope: 'system-or-user', path: this.codexBin, package_path: codexPackage, version: this.globalPackageVersion(codexPackage) ?? codexVersion ?? 'unknown' });
+      this.recordInstallation('@openai/codex', {
+        status: 'ready',
+        source: this.ownsDiscoveredTool('@openai/codex', this.codexBin) ? 'qa' : 'reused',
+        scope: 'system-or-user',
+        path: this.codexBin,
+        package_path: codexPackage,
+        version: this.globalPackageVersion(codexPackage) ?? codexVersion ?? 'unknown',
+      });
       this.registerMcp(
         'qa',
         {
@@ -1985,6 +2069,7 @@ export class Environment {
     }
 
     if (!options.skipCodex) {
+      console.log(`Codex desktop app: ${detectCodexDesktop()} (separate from Codex CLI)`);
       try {
         if (!this.codex(['--version'], { capture: true })) missing.push('codex');
       } catch {

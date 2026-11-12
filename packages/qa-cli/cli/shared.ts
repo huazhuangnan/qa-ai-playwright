@@ -141,11 +141,11 @@ export function atomicJson(path: string, data: unknown): void {
   );
   try {
     writeFileSync(temporary, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
-    rmSync(path, { force: true });
-    renameSync(temporary, path);
-  } finally {
+  } catch (error) {
     rmSync(temporary, { force: true });
+    throw error;
   }
+  replaceFile(temporary, path);
 }
 
 /** Returns the SHA256 digest for one file. */
@@ -209,10 +209,45 @@ export async function download(url: string, target: string): Promise<void> {
       throw new Error(`Download failed: ${response.status} ${url}`);
     }
     writeFileSync(partial, Buffer.from(await response.arrayBuffer()));
-    rmSync(target, { force: true });
-    renameSync(partial, target);
-  } finally {
+  } catch (error) {
     rmSync(partial, { force: true });
+    throw error;
+  }
+  replaceFile(partial, target);
+}
+
+/** Replaces a file while retaining recoverable copies if a rename fails. */
+function replaceFile(temporary: string, target: string): void {
+  const backup = `${temporary}.backup`;
+  let hasBackup = false;
+  try {
+    if (existsSync(target)) {
+      renameSync(target, backup);
+      hasBackup = true;
+    }
+    renameSync(temporary, target);
+    hasBackup = false;
+  } catch (error) {
+    if (hasBackup && existsSync(backup) && !existsSync(target)) {
+      try {
+        renameSync(backup, target);
+        hasBackup = false;
+      } catch {
+        // Keep both the old backup and new temporary file for manual recovery.
+      }
+    }
+    if (hasBackup) {
+      throw new Error(
+        `Unable to replace ${target}; recovery files preserved: ${backup}, ${temporary}`,
+        { cause: error },
+      );
+    }
+    throw error;
+  } finally {
+    if (!hasBackup) {
+      rmSync(temporary, { force: true });
+      rmSync(backup, { force: true });
+    }
   }
 }
 
@@ -269,31 +304,141 @@ export function displayPath(path: string): string {
   return resolve(path);
 }
 
-/** Reads the registered MCP fields from Codex's TOML configuration. */
-export function readMcpServerConfig(configPath: string, name: string): McpServerConfig {
-  if (!existsSync(configPath)) return {};
-  try {
-    const data = Bun.TOML.parse(readFileSync(configPath, 'utf8')) as Record<string, unknown>;
-    if (!data.mcp_servers || typeof data.mcp_servers !== 'object') return {};
-    const server = (data.mcp_servers as Record<string, unknown>)[name];
-    if (!server || typeof server !== 'object' || Array.isArray(server)) return {};
-    const fields = server as Record<string, unknown>;
-    const result: McpServerConfig = {};
-    if (typeof fields.command === 'string') result.command = fields.command;
-    if (fields.args !== undefined) {
-      if (!Array.isArray(fields.args) || !fields.args.every((item: unknown) => typeof item === 'string')) return {};
-      result.args = fields.args;
-    }
-    if (fields.env !== undefined) {
-      if (!fields.env || typeof fields.env !== 'object' || Array.isArray(fields.env)) return {};
-      if (!Object.values(fields.env).every((value) => typeof value === 'string')) return {};
-      result.env = fields.env as Record<string, string>;
-    }
-    return result;
-  } catch {
-    // Preserve registrations when the configuration cannot be parsed safely.
+/**
+ * Reads the subset of TOML needed to compare generated MCP server settings.
+ *
+ * This intentionally supports the simple table and scalar forms emitted by
+ * `codex mcp add`. Unsupported input is treated as missing configuration.
+ */
+export function readMcpServerConfig(
+  configPath: string,
+  name: string,
+): McpServerConfig {
+  if (!existsSync(configPath)) {
     return {};
   }
+  const result: McpServerConfig = {};
+  let section = '';
+  const lines = readFileSync(configPath, 'utf8').split(/\r?\n/u);
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = stripTomlComment(lines[index] ?? '').trim();
+    if (!line || line.startsWith('#')) {
+      continue;
+    }
+    const table = line.match(/^\[(\[?)([^\]]+)\]\]?$/u);
+    if (table) {
+      section = table[1] ? '' : (table[2] ?? '').split('.').map((part) => part.trim().replace(/^['"]|['"]$/g, '')).join('.');
+      continue;
+    }
+    if (section !== `mcp_servers.${name}` && section !== `mcp_servers.${name}.env`) {
+      continue;
+    }
+    const assignment = line.match(/^([A-Za-z0-9_-]+)\s*=\s*(.+)$/u);
+    if (!assignment) {
+      continue;
+    }
+    const key = assignment[1] ?? '';
+    let raw = assignment[2] ?? '';
+    if (raw.startsWith('[') && parseTomlScalar(raw) === undefined) {
+      while (index + 1 < lines.length) {
+        index += 1;
+        raw += `\n${stripTomlComment(lines[index] ?? '')}`;
+        if (parseTomlScalar(raw) !== undefined) {
+          break;
+        }
+      }
+    }
+    const value = parseTomlScalar(raw);
+    if (section.endsWith('.env')) {
+      if (typeof value !== 'string') return {};
+      result.env ??= {};
+      result.env[key] = value;
+    } else if (key === 'env') {
+      // Inline environment tables are not part of the supported Codex output.
+      return {};
+    } else if (key === 'command') {
+      if (typeof value !== 'string') return {};
+      result.command = value;
+    } else if (key === 'args') {
+      if (!Array.isArray(value) || !value.every((item) => typeof item === 'string')) return {};
+      result.args = value;
+    }
+  }
+  return result;
+}
+
+/** Removes comments outside quoted TOML strings. */
+function stripTomlComment(line: string): string {
+  let quote = '';
+  let escaped = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    if (escaped) { escaped = false; continue; }
+    if (quote === '"' && character === '\\') { escaped = true; continue; }
+    if (quote && character === quote) { quote = ''; continue; }
+    if (!quote && (character === '"' || character === "'")) quote = character;
+    else if (!quote && character === '#') return line.slice(0, index);
+  }
+  return line;
+}
+
+function parseTomlScalar(raw: string): unknown {
+  const value = raw.replace(/,\s*\]$/u, ']').trim();
+  if (value.startsWith('[') && value.endsWith(']')) {
+    return parseTomlArray(value.slice(1, -1));
+  }
+  if (value.startsWith("'") && value.endsWith("'")) {
+    return value.slice(1, -1).replaceAll("''", "'");
+  }
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Parses the simple comma-separated arrays emitted by Codex MCP config. */
+function parseTomlArray(raw: string): unknown[] | undefined {
+  const values: string[] = [];
+  let current = '';
+  let quote: 'single' | 'double' | undefined;
+  let escaped = false;
+  for (const character of raw) {
+    if (quote === 'double' && escaped) {
+      current += character;
+      escaped = false;
+      continue;
+    }
+    if (quote === 'double' && character === '\\') {
+      current += character;
+      escaped = true;
+      continue;
+    }
+    if (!quote && character === "'") {
+      quote = 'single';
+      current += character;
+    } else if (!quote && character === '"') {
+      quote = 'double';
+      current += character;
+    } else if (quote === 'single' && character === "'") {
+      quote = undefined;
+      current += character;
+    } else if (quote === 'double' && character === '"') {
+      quote = undefined;
+      current += character;
+    } else {
+      current += character;
+    }
+    if (!quote && character === ',') {
+      current = current.slice(0, -1).trim();
+      if (current) values.push(current);
+      current = '';
+    }
+  }
+  if (quote || escaped) return undefined;
+  if (current.trim()) values.push(current.trim());
+  const parsed = values.map((value) => parseTomlScalar(value));
+  return parsed.every((value) => value !== undefined) ? parsed : undefined;
 }
 function lstatSafe(path: string): ReturnType<typeof lstatSync> | undefined {
   try {

@@ -36,7 +36,7 @@ $cliArguments = @()
 $rootPath = if ($env:QA_ROOT) {
     $env:QA_ROOT
 } else {
-    Join-Path (Get-Location).ProviderPath '.qa-env'
+    Join-Path ([Environment]::GetFolderPath('UserProfile')) '.qa-ai-playwright'
 }
 for ($index = 0; $index -lt $rawArguments.Count; $index++) {
     $argument = $rawArguments[$index]
@@ -121,7 +121,7 @@ if ($first -in @('help', '--help', '-h')) {
         'qa env upgrade uv  (manual-only guidance; no automatic upgrade)',
         'qa env snapshots uv',
         'qa env rollback <snapshot>',
-        'qa env uninstall [--include-external]',
+        'qa env uninstall',
         'qa project init <project> --language <python|typescript> [--browser <name>]',
         '  --language alias: --语言',
         'qa project check <project> [--browser <name>]',

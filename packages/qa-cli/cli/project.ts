@@ -312,8 +312,13 @@ export function projectCheck(
   if (!args.browser && configured !== undefined && configured !== '' && configured !== 'chrome' && configured !== 'msedge') {
     throw new Error('QA_BROWSER_CHANNEL must be chrome or msedge');
   }
-  const selected = args.browser ?? (configured !== undefined ? configured || 'chromium'
-    : state.last_successful_init?.browser === 'chrome' || state.last_successful_init?.browser === 'msedge' ? state.last_successful_init.browser : 'chromium');
+  const selected: Exclude<Browser, 'all' | 'none'> = args.browser ?? (
+    configured === 'chrome' || configured === 'msedge'
+      ? configured
+      : state.last_successful_init?.browser === 'chrome' || state.last_successful_init?.browser === 'msedge'
+        ? state.last_successful_init.browser
+        : 'chromium'
+  );
   if ((selected === 'chrome' || selected === 'msedge') && !env.findBrowser(selected)) {
     throw new Error(`System browser ${selected} was not found; install it separately or choose another browser`);
   }
@@ -412,7 +417,6 @@ export async function projectUninstall(
   args: ProjectTargetArguments,
 ): Promise<number> {
   const { target, markerPath, state } = projectMarker(args.target);
-  env.requireInitialized(state.stack);
   if (overlapsEnvironment(target, env.root)) {
     throw new Error('Project overlaps environment');
   }

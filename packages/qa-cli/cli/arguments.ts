@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { homedir } from 'node:os';
 import type { Browser, Stack } from './shared.ts';
 
 /** Parsed command line used by the local QA lifecycle CLI. */
@@ -17,8 +18,6 @@ export interface ParsedArguments {
   skipCodex?: boolean;
   skipSkills?: boolean;
   withCcSwitch?: boolean;
-  environmentName?: string;
-  includeExternal?: boolean;
   target?: string;
   snapshotId?: string;
   language?: 'python' | 'typescript';
@@ -36,7 +35,7 @@ export function parseArgs(
   argv: readonly string[],
   cwd = process.cwd(),
 ): ParsedArguments {
-  const rootDefault = process.env.QA_ROOT ?? resolve(cwd, '.qa-env');
+  const rootDefault = process.env.QA_ROOT ?? resolve(homedir(), '.qa-ai-playwright');
   let root = rootDefault;
   const cleaned: string[] = [];
   for (let index = 0; index < argv.length; index += 1) {
@@ -175,17 +174,9 @@ export function parseArgs(
         index += 1;
         return value;
       };
-      if (command === 'env' && action === 'init' && name === '--name') {
-        parsed.environmentName = takeValue();
-        if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(parsed.environmentName)) throw new Error('--name must contain lowercase letters, digits, and single hyphens');
-      } else if (
-        command === 'env' && action === 'uninstall'
-        && name === '--include-external' && inline === undefined
-      ) {
-        parsed.includeExternal = true;
-      } else if (command === 'env' && (action === 'init' || action === 'check') && name === '--skip-codex') {
+      if (command === 'env' && (action === 'init' || action === 'check') && name === '--skip-codex' && inline === undefined) {
         parsed.skipCodex = true;
-      } else if (command === 'env' && (action === 'init' || action === 'check') && name === '--skip-skills') {
+      } else if (command === 'env' && (action === 'init' || action === 'check') && name === '--skip-skills' && inline === undefined) {
         parsed.skipSkills = true;
       } else if (command === 'env' && (action === 'init' || action === 'check') && name === '--with-cc-switch' && inline === undefined) {
         parsed.withCcSwitch = true;
@@ -193,9 +184,10 @@ export function parseArgs(
         command === 'env'
         && (action === 'init' || action === 'check')
         && name === '--full'
+        && inline === undefined
       ) {
         parsed.full = true;
-      } else if (command === 'project' && action === 'init' && name === '--with-deps') {
+      } else if (command === 'project' && action === 'init' && name === '--with-deps' && inline === undefined) {
         parsed.withDeps = true;
       } else if (
         command === 'project'

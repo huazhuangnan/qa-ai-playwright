@@ -10,7 +10,7 @@ import { environmentStatus } from './cli/environment-status.ts';
 import { checkTemplates, listTemplates } from './cli/template-status.ts';
 import { listEnvironmentUvSnapshots, planEnvironmentUv, rollbackEnvironmentUv, upgradeEnvironmentUv } from './cli/environment-upgrade.ts';
 import { installBuiltinSkill, listBuiltinSkills, listBuiltinSkillSnapshots, recoverBuiltinSkills, repairBuiltinSkill, rollbackBuiltinSkill, uninstallBuiltinSkill } from './cli/skills-manager.ts';
-import { basename, join, resolve, sep } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   Environment,
@@ -23,23 +23,20 @@ import {
   type ProjectInitArguments,
   type ProjectTargetArguments,
 } from './cli/project.ts';
-import { within } from './cli/shared.ts';
+import { within, type Browser } from './cli/shared.ts';
 import { parseArgs, type ParsedArguments } from './cli/arguments.ts';
 export { parseArgs, type ParsedArguments } from './cli/arguments.ts';
 
-/** Preserves external tools when cross-environment references cannot be verified. */
-export async function uninstallExternalTools(
+/** Preserves shared software because only ownership-recorded QA files are removable. */
+export async function preserveSharedSoftware(
   env: Environment,
-  requested: boolean,
   interaction: { log: (message: string) => void } = { log: (message) => console.log(message) },
 ): Promise<boolean> {
-  const tools = env.listDiscoveredTools().filter((tool) => tool.scope === 'system-or-user' && tool.source !== 'qa');
-  for (const tool of tools) interaction.log(`Preserving ${tool.name}: ${tool.path}`);
-  if (requested) {
-    interaction.log('External uninstall is unavailable: cross-environment usage cannot be verified.');
-    return false;
+  const tools = env.listDiscoveredTools().filter((tool) => tool.scope === 'system-or-user');
+  for (const tool of tools) {
+    interaction.log(`Preserving ${tool.source === 'qa' ? 'QA-managed' : 'user-installed'} ${tool.name}: ${tool.path}`);
   }
-  interaction.log('External software is preserved.');
+  interaction.log('Shared software is preserved. Software upgrade or removal requires QA ownership evidence.');
   return true;
 }
 /** Verifies the package, its global prefix, and the discovered executable. */
@@ -57,7 +54,8 @@ export function verifiedGlobalPackage(tool: DiscoveredTool, name: string, direct
     if (!within(actual, realPackageRoot)) return false;
     const executable = realpathSync(tool.path);
     const metadata = JSON.parse(readFileSync(join(actual, 'package.json'), 'utf8')) as { name?: unknown };
-    return actual === expectedPath && metadata.name === name && executable.startsWith(`${actual}${sep}`);
+    return actual === expectedPath && metadata.name === name
+      && within(executable, actual) && resolve(executable) !== resolve(actual);
   } catch {
     return false;
   }
@@ -140,7 +138,7 @@ export async function execute(args: ParsedArguments): Promise<number> {
     if (args.action === 'snapshots') { console.log(JSON.stringify(listEnvironmentUvSnapshots(env), null, 2)); return 0; }
     if (args.action === 'upgrade') { console.error('Automatic uv upgrade is disabled. Run qa env plan uv, update uv manually, then run qa env check.'); return 1; }
     if (args.action === 'rollback') { await rollbackEnvironmentUv(env, args.snapshotId as string); return 0; }
-    return executeEnvironment(args, env, uninstallExternalTools);
+    return executeEnvironment(args, env, preserveSharedSoftware);
   }
   if (args.command === 'project') {
     const target = args.target as string;
@@ -248,7 +246,7 @@ export function runCommand(env: Environment, initial: string[]): number {
 
 function helpText(): string {
   return [
-    'qa env init <python|typescript|both> [--name <name>] [--full] [--with-cc-switch]',
+    'qa env init <python|typescript|both> [--full] [--with-cc-switch]',
     'qa env list',
     'qa env repair',
     'qa env plan uv',
@@ -256,8 +254,7 @@ function helpText(): string {
     'qa env snapshots uv',
     'qa env rollback <snapshot>',
     'qa env check <python|typescript|both> [--full] [--with-cc-switch]',
-    'qa env uninstall [--include-external]',
-    '  --include-external: unavailable while shared usage cannot be verified',
+    'qa env uninstall',
     'qa project init <project> --language <python|typescript> [--browser <name>]',
     '  --language alias: --语言',
     'qa project check <project> [--browser <name>]',

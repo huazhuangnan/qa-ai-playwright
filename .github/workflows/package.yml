@@ -1,6 +1,30 @@
 name: Package
 
 on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'README.md'
+      - '.editorconfig'
+      - '.gitattributes'
+      - 'package.json'
+      - 'scripts/package-release.ts'
+      - 'packages/**'
+      - 'docs/users/**'
+      - 'docs/releases/**'
+      - '.github/workflows/package.yml'
+  pull_request:
+    paths:
+      - 'README.md'
+      - '.editorconfig'
+      - '.gitattributes'
+      - 'package.json'
+      - 'scripts/package-release.ts'
+      - 'packages/**'
+      - 'docs/users/**'
+      - 'docs/releases/**'
+      - '.github/workflows/package.yml'
   workflow_dispatch:
     inputs:
       publish_release:
@@ -49,6 +73,38 @@ jobs:
           unzip -t "$archive"
           unzip -Z1 "$archive" | grep -Fx "qa-ai-playwright-v${version}/packages/qa-cli/bin/qa.sh" > /dev/null
           unzip -Z1 "$archive" | grep -Fx "qa-ai-playwright-v${version}/packages/qa-cli/bin/session.sh" > /dev/null
+          unzip -Z1 "$archive" | grep -Fx "qa-ai-playwright-v${version}/packages/qa-cli/bin/install.sh" > /dev/null
+          unzip -Z1 "$archive" | grep -Fx "qa-ai-playwright-v${version}/packages/qa-cli/bin/install.ps1" > /dev/null
+          unzip -Z1 "$archive" | grep -Fx "qa-ai-playwright-v${version}/packages/templates/typescript/AGENTS.md" > /dev/null
+          unzip -Z1 "$archive" | grep -Fx "qa-ai-playwright-v${version}/packages/templates/python/AGENTS.md" > /dev/null
+          unzip -Z1 "$archive" | grep -Fx "qa-ai-playwright-v${version}/docs/users/ai-testing-model.zh-CN.md" > /dev/null
+          if unzip -Z1 "$archive" | grep -Eq 'qa-ai-playwright-v[^/]+/(AGENTS\.md|docs/maintainers/)'; then
+            echo 'Repository governance files leaked into the user package' >&2
+            exit 1
+          fi
+          unpacked="$RUNNER_TEMP/unpacked-package"
+          smoke_home="$RUNNER_TEMP/package install home with spaces"
+          mkdir -p "$unpacked" "$smoke_home"
+          printf 'export QA_PACKAGE_SETTING=1' > "$smoke_home/.bashrc"
+          unzip -q "$archive" -d "$unpacked"
+          root="$unpacked/qa-ai-playwright-v${version}"
+          test -f "$root/README.md"
+          test -f "$root/packages/templates/typescript/AGENTS.md"
+          test -f "$root/packages/templates/python/AGENTS.md"
+          QA_ROOT="$RUNNER_TEMP/package-smoke-env" bash "$root/packages/qa-cli/bin/qa.sh" env init typescript --skip-codex --skip-skills
+          QA_ROOT="$RUNNER_TEMP/package-smoke-env" bash "$root/packages/qa-cli/bin/qa.sh" project init \
+            "$RUNNER_TEMP/package-typescript-project" --language typescript --browser none
+          test -f "$RUNNER_TEMP/package-typescript-project/AGENTS.md"
+          HOME="$smoke_home" bash "$root/packages/qa-cli/bin/install.sh"
+          (cd "$RUNNER_TEMP" && HOME="$smoke_home" bash -lc 'test "$(command -v qa)" = "$HOME/.local/bin/qa" && qa --help | grep -F "qa project init" >/dev/null')
+          HOME="$smoke_home" bash "$root/packages/qa-cli/bin/install.sh" --uninstall
+          test ! -e "$smoke_home/.local/share/qa-ai-playwright"
+          test ! -e "$smoke_home/.profile"
+          test ! -e "$smoke_home/.bash_profile"
+          test ! -e "$smoke_home/.bash_login"
+          test ! -e "$smoke_home/.zprofile"
+          test ! -e "$smoke_home/.zshrc"
+          grep -Fx 'export QA_PACKAGE_SETTING=1' "$smoke_home/.bashrc"
 
       - name: Create checksums
         shell: bash
@@ -58,17 +114,59 @@ jobs:
       - name: Upload package artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: qa-ai-playwright-package-${{ github.ref_name }}-${{ github.run_number }}
+          name: qa-ai-playwright-package-${{ github.run_id }}
+          overwrite: true
           path: |
             ${{ runner.temp }}/release/qa-ai-playwright-*.zip
             ${{ runner.temp }}/release/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
 
+  package-windows:
+    name: Verify package on Windows PowerShell 5.1
+    needs: package
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - name: Download package artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: qa-ai-playwright-package-${{ github.run_id }}
+          path: ${{ runner.temp }}/release
+      - name: Install and uninstall package
+        shell: pwsh
+        run: |
+          $archive = Get-ChildItem -LiteralPath (Join-Path $env:RUNNER_TEMP 'release') -Filter '*.zip' | Select-Object -First 1
+          if (!$archive) { throw 'Package archive is missing' }
+          $unpacked = Join-Path $env:RUNNER_TEMP 'unpacked-windows-package'
+          Expand-Archive -LiteralPath $archive.FullName -DestinationPath $unpacked -Force
+          $installer = Get-ChildItem -LiteralPath $unpacked -Filter 'install.ps1' -Recurse | Select-Object -First 1
+          if (!$installer) { throw 'PowerShell installer is missing' }
+          $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP 'qa package local app data'
+          $env:QA_ROOT = Join-Path $env:RUNNER_TEMP 'qa package environment'
+          $root = Join-Path $env:LOCALAPPDATA 'qa-ai-playwright'
+          $originalUserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+          $originalProcessPath = $env:Path
+          try {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer.FullName
+            if ($LASTEXITCODE -ne 0) { throw 'PowerShell 5.1 package install failed' }
+            $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
+            $command = Get-Command qa -CommandType Application -ErrorAction Stop | Select-Object -First 1
+            if ($command.Source -ine (Join-Path $root 'bin/qa.cmd')) { throw 'PATH resolved to an unexpected qa command' }
+            & $command.Source --help
+            if ($LASTEXITCODE -ne 0) { throw 'Installed package command failed' }
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer.FullName -Uninstall
+            if ($LASTEXITCODE -ne 0) { throw 'PowerShell 5.1 package uninstall failed' }
+            if (Test-Path -LiteralPath $root) { throw 'Package installation remains' }
+          } finally {
+            [Environment]::SetEnvironmentVariable('Path', $originalUserPath, 'User')
+            $env:Path = $originalProcessPath
+          }
+
   publish:
     name: Publish GitHub Release
-    if: ${{ inputs.publish_release }}
-    needs: package
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release }}
+    needs: [package, package-windows]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -82,7 +180,7 @@ jobs:
       - name: Download package artifacts
         uses: actions/download-artifact@v6
         with:
-          name: qa-ai-playwright-package-${{ github.ref_name }}-${{ github.run_number }}
+          name: qa-ai-playwright-package-${{ github.run_id }}
           path: ${{ runner.temp }}/release
 
       - name: Create or update GitHub Release

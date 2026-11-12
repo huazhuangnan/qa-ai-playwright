@@ -14,7 +14,7 @@ case "$QA_NODE_MAJOR" in
   *) echo 'Use a Playwright-supported Node LTS: 22/24/26' >&2; exit 2 ;;
 esac
 
-root=${QA_ROOT:-"$PWD/.qa-env"}
+root=${QA_ROOT:-"$HOME/.qa-ai-playwright"}
 cli_args=()
 while (($#)); do
   case "$1" in
@@ -93,7 +93,7 @@ qa env plan uv
 qa env upgrade uv  # manual-only guidance; no automatic upgrade
 qa env snapshots uv
 qa env rollback <snapshot>
-qa env uninstall [--include-external]
+qa env uninstall
 qa project init <project> --language <python|typescript> [--browser <name>]
   --language alias: --语言
 qa project check <project> [--browser <name>]
@@ -194,6 +194,7 @@ if [[ -z "$node" ]]; then
     {
       candidate = $2
       sub(/^\*/, "", candidate)
+      sub(/\r$/, "", candidate)
       if (substr(candidate, length(candidate) - length(suffix) + 1) == suffix) {
         print candidate
         exit
@@ -203,7 +204,14 @@ if [[ -z "$node" ]]; then
   [[ -n "$name" ]] || { echo "Node $QA_NODE_MAJOR release file was not found" >&2; exit 1; }
   [[ "$name" =~ ^node-v[0-9]+\.[0-9]+\.[0-9]+-$platform-$arch\.tar\.gz$ ]] \
     || { echo 'Unexpected Node archive name' >&2; exit 1; }
-  expected=$(awk -v target="$name" '$2 == target || $2 == "*" target { print $1; exit }' "$checksum")
+  expected=$(awk -v target="$name" '
+    {
+      candidate = $2
+      sub(/^\*/, "", candidate)
+      sub(/\r$/, "", candidate)
+    }
+    candidate == target { print $1; exit }
+  ' "$checksum")
   [[ "$expected" =~ ^[a-fA-F0-9]{64}$ ]] || { echo 'Invalid Node checksum' >&2; exit 1; }
   archive="$root/cache/downloads/$name"
   if [[ ! -f "$archive" ]]; then
@@ -227,7 +235,16 @@ if [[ -z "$node" ]]; then
   mkdir -p "$(dirname "$node_dir")"
   # mkdir claims the destination without replacing an existing installation.
   mkdir "$node_dir" || { echo "Shared Node directory already exists: $node_dir" >&2; exit 1; }
-  tar -xzf "$archive" -C "$node_dir" --strip-components=1
+  if ! tar -xzf "$archive" -C "$node_dir" --strip-components=1; then
+    rm -rf -- "$node_dir"
+    echo 'Node archive extraction failed; partial installation removed' >&2
+    exit 1
+  fi
+  if [[ ! -x "$node_dir/bin/node" ]]; then
+    rm -rf -- "$node_dir"
+    echo 'Node archive does not contain the expected executable' >&2
+    exit 1
+  fi
   node="$node_dir/bin/node"
 fi
 

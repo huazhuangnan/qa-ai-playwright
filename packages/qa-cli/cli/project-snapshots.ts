@@ -1,6 +1,5 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
-import { randomUUID } from 'node:crypto';
 import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import type { Environment } from './environment.ts';
 import { projectMarker } from './project.ts';

@@ -10,6 +10,7 @@ import { type McpServerConfig } from '../packages/qa-cli/cli/shared.ts';
 /** Simulates Codex registration changes without invoking a user installation. */
 class FakeCodexEnvironment extends Environment {
   failAdd = false;
+  mismatchAdd = false;
   override codex(args: readonly (string | number)[]): string | undefined {
     if (args[1] === 'remove') {
       const name = String(args[2]);
@@ -31,7 +32,8 @@ class FakeCodexEnvironment extends Environment {
         env[assignment.slice(0, equals)] = assignment.slice(equals + 1);
       }
       const server = values[2];
-      let text = `[mcp_servers.${server}]\ncommand = ${JSON.stringify(values[separator + 1])}\nargs = ${JSON.stringify(values.slice(separator + 2))}\n`;
+      const command = this.mismatchAdd ? 'different-command' : values[separator + 1];
+      let text = `[mcp_servers.${server}]\ncommand = ${JSON.stringify(command)}\nargs = ${JSON.stringify(values.slice(separator + 2))}\n`;
       if (Object.keys(env).length) {
         text += `\n[mcp_servers.${server}.env]\n`;
         for (const [key, value] of Object.entries(env)) text += `${key} = ${JSON.stringify(value)}\n`;
@@ -42,6 +44,22 @@ class FakeCodexEnvironment extends Environment {
     return undefined;
   }
 }
+
+test('reports mismatched MCP fields without exposing configuration values', () => {
+  const base = mkdtempSync(join(tmpdir(), 'qa-mcp-verify-'));
+  try {
+    const env = new FakeCodexEnvironment({ root: join(base, 'root'), env: {} });
+    Object.defineProperty(env, 'mcpConfig', { value: join(base, 'codex', 'config.toml') });
+    mkdirSync(dirname(env.mcpConfig), { recursive: true });
+    env.mismatchAdd = true;
+    assert.throws(
+      () => env.registerMcp('playwright', { command: 'expected-command', args: ['entry'] }, 'external', '0.0.85'),
+      (error: Error) => /Unable to verify MCP qa-playwright \(command\)/.test(error.message)
+        && !error.message.includes('expected-command') && !error.message.includes('different-command'),
+    );
+    assert.match(readFileSync(env.mcpConfig, 'utf8'), /different-command/);
+  } finally { rmSync(base, { recursive: true, force: true }); }
+});
 
 test('hashed registration migrates only when ownership and contents match', () => {
   const base = mkdtempSync(join(tmpdir(), 'qa-mcp-name-'));

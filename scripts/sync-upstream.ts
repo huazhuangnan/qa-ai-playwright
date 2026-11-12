@@ -119,12 +119,12 @@ async function main(): Promise<void> {
     app.commit = commit.sha;
     app.download_base = `https://github.com/farion1231/cc-switch/releases/download/v${version}`;
     staged.set(docPath, doc);
-    const referencesPath = 'docs/references.zh-CN.md';
+    const referencesPath = 'docs/maintainers/references.zh-CN.md';
     const references = read(referencesPath);
     const oldReference = `farion1231/cc-switch/tree/v${previous}`;
     if (!references.includes(oldReference)) throw new Error('Missing CC Switch reference');
     staged.set(referencesPath, references.replace(oldReference, `farion1231/cc-switch/tree/v${version}`));
-    const historyPath = 'docs/version-history.zh-CN.md';
+    const historyPath = 'docs/maintainers/version-history.zh-CN.md';
     const history = read(historyPath);
     const oldRow = `| cc-switch | ${previous} |`;
     if (!history.includes(oldRow)) throw new Error('Missing CC Switch current version row');

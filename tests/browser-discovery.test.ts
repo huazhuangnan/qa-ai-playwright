@@ -55,6 +55,7 @@ test('prefers system Chromium over the environment cache and propagates its exec
     writeFileSync(executable, 'browser');
     chmodSync(executable, 0o755);
     const env = new Environment({ root: join(workspace, 'environment'), env: { PATH: bin, HOME: workspace } });
+    env.save();
     const managed = join(env.root, 'cache/browsers/chromium-1254/chrome-win64/chrome.exe');
     mkdirSync(dirname(managed), { recursive: true });
     writeFileSync(managed, 'browser');

@@ -64,6 +64,14 @@ test('preserving only dependency and untracked files reports successful cleanup'
   expect(readFileSync(join(target, 'node_modules', 'user-data.txt'), 'utf8')).toBe('keep');
 });
 
+test('project cleanup works after the shared environment is removed', async () => {
+  const { target, marker, state, env } = fixture();
+  env.requireInitialized = () => { throw new Error('environment removed'); };
+  writeFileSync(marker, JSON.stringify(state));
+  expect(await projectUninstall(env, { target })).toBe(0);
+  expect(existsSync(marker)).toBe(false);
+});
+
 test('refuses traversal before deleting any project files', async () => {
   const { target, marker, state, env } = fixture();
   const safe = join(target, 'safe.txt');
