@@ -2,13 +2,16 @@
 
 本页说明 QA + AI + Playwright 中 Skill 与 MCP 的对象、来源、作用域、当前命令和生命周期边界。
 
-当前实现支持环境初始化、MCP 查询与按需 MCP 管理，以及外部 Skill 的只读更新检查。Skill 的通用安装由 AI 按任务路由完成。统一的 Skill 安装、升级、修复和卸载命令仍待实现。
+内置 Skill 支持项目级状态检查、安装、修复、快照和回滚。升级只提供检测结果，外部 Skill 继续按上游方式人工维护。
 
 ## 对象与来源
 
 ### Skill
 
 Skill 是供 AI 读取的规则、路由、测试职责或工具使用说明。Skill 不等同于 CLI、MCP 或业务项目代码。
+
+在 Codex 中使用 `/skills` 查看可用 Skill。可使用 `$qa-business-guide` 显式调用业务引导 Skill。
+MCP 由客户端提供工具。项目 CLI 通过终端运行，例如 `qa env init`，不是 `/env` 命令。
 
 | 对象 | 来源 | 当前管理方式 | 当前状态 |
 | --- | --- | --- | --- |
@@ -111,7 +114,7 @@ MCP 清单目录为：
 
 MCP 下载清单位于 `packages/mcp/external/`。桌面应用和其他下载资产的版本、提交、许可证、官方资产和 SHA256 记录在对应清单中。
 
-当前项目模板没有提供固定的 `docs/qa/tasks/skill-installs.md` 文件。项目文档不得引用该不存在的路径。项目级 Skill 安装记录应暂存于业务项目已有的维护文档或任务记录中，并包含上述字段。统一的项目 Skill 锁文件和安装记录模板属于待实现能力，确定路径后再同步模板、`AGENTS.md` 和 CHANGELOG。
+CLI 安装的内置 Skill 记录在项目 `.agents/qa-skills-lock.json`。记录包含项目作用域、来源、版本和每个文件的 SHA256。已有的同名目录不会被接管。
 
 复用已有 Skill 时不产生新的安装记录。共享工具的复用状态和实际版本按环境记录。不能只根据清单版本推断本机已安装版本。
 
@@ -120,6 +123,23 @@ MCP 下载清单位于 `packages/mcp/external/`。桌面应用和其他下载资
 ### 当前支持
 
 AI 使用 Skill 前检查会话、全局、当前项目和旧环境中的可用版本。具体检查顺序以项目引导和 Skill 引用为准。缺失时，按任务需要从 QA 交付包或外部来源安装到当前业务项目，并读取对应的 `SKILL.md`。
+
+在仓库根目录使用对应平台启动器执行以下命令。`项目目录` 必须已经存在。
+
+```text
+qa skills list 项目目录
+qa skills check 项目目录 qa-api
+qa skills install 项目目录 qa-api
+qa skills repair 项目目录 qa-api
+qa skills upgrade 项目目录 qa-api  # 只输出人工操作提示  # 只输出人工升级提示
+qa skills uninstall 项目目录 qa-api
+```
+
+列表报告 `missing`、`installed`、`modified` 或 `unmanaged`。`check` 仅在指定 Skill 的受管文件完整且未修改时成功。未受管目录不会被覆盖或接管。安装失败时尝试恢复已写入的文件，并报告未恢复的路径。卸载遇到修改时返回失败，可检查后重试。
+修复只补齐仍与锁记录匹配的缺失文件。升级只检查所有受管文件和新文件冲突，并输出人工迁移建议。用户修改或未受管目标存在时停止。CLI 不自动替换 Skill 文件或更新安装记录。
+内置 Skill 的安装、修复和卸载在修改文件前写入项目级恢复记录。中断后可执行 `qa skills recover 项目目录` 恢复这些操作。恢复只处理仍与操作前或操作后内容一致的文件。发现其他修改时停止并保留记录。中断安装可能保留空目录，需确认归属后手动处理。
+
+维护者可在人工变更前保存项目级快照。使用 `qa skills snapshots 项目目录` 查看快照，使用 `qa skills rollback 项目目录 快照标识` 恢复变更前的文件和安装记录。回滚前会检查受管文件和记录；发现修改时停止。
 
 当前 CLI 提供外部 Skill 的只读更新检查：
 
@@ -135,29 +155,13 @@ bash packages/qa-cli/bin/qa.sh skills check-updates --source ./external-sources.
 
 检查只比较来源清单中的固定提交与上游指定目录的最新提交。检查不会安装、升级、覆盖或删除 Skill，也不会修改安装记录。网络失败、来源无效、目录不存在或无法确认版本时必须报告未知或错误，不能报告为最新。
 
-### 当前不支持
+### 项目作用域
 
-当前没有统一的以下命令：
+内置 Skill 安装到项目 `.agents/skills/`。卸载只删除记录中哈希未变化的文件，保留修改、额外文件和符号链接。存在保留的受管文件时保留其记录并返回失败。环境卸载不删除项目级 Skill。外部 Skill 按上游命令安装和管理。
 
-- `skills install`
-- `skills update` 或 `skills upgrade`
-- `skills repair`
-- `skills uninstall`
+### 变更检测保护
 
-项目级 Skill 的安装、升级和移除由业务项目与 AI 当前任务共同管理。环境卸载不删除项目级 Skill。旧环境升级保留原 Skill 目录和锁记录；环境检查不因 Skill 缺失而自动安装 Skill。
-
-### 后续升级规则
-
-实现统一升级命令前，应满足以下规则：
-
-1. 升级前读取来源、版本、提交、哈希、scope 和所有权。
-2. 检查本地修改、同名 Skill 和来源变化。
-3. 先生成差异、冲突和迁移报告。
-4. 写入前保存可恢复的状态、锁记录和配置快照。
-5. 用户修改默认保留，不能静默覆盖。
-6. 升级失败时恢复原 Skill、锁记录和安装状态。
-7. 升级成功后同步实际版本、提交、哈希和变更记录。
-8. 卸载只删除受管且未修改的内容；修改内容必须保留并报告。
+变更检测检查项目安装记录和受管文件哈希。存在本地修改、缺失文件或同名未受管目标时停止，并输出人工迁移建议。维护者人工变更后再执行 `skills check`。
 
 ## 当前命令边界
 
@@ -170,8 +174,8 @@ bash packages/qa-cli/bin/qa.sh skills check-updates --source ./external-sources.
 | `mcp add` | 安装并注册清单中的按需 MCP | 共享工具、安装记录和用户级注册 | 已支持部分 npm MCP |
 | `mcp remove` | 删除当前环境或清单拥有的按需 MCP | 仅处理可验证所有权的内容 | 已支持 |
 | `skills check-updates` | 检查外部 Skill 上游差异 | 只读 | 已支持 |
-| `skills install/update/uninstall` | 统一管理 Skill 生命周期 | — | 待实现 |
-| `mcp check/upgrade/repair` | 检查或迁移 MCP 配置与版本 | — | 待实现 |
+| `skills list/check/install/repair/upgrade/uninstall` | 检测并管理项目级内置 Skill；upgrade 只给人工提示 | 指定项目 `.agents/` | 已支持 |
+| `mcp check/repair` | 检查状态并按记录补齐缺失项 | 共享包和用户级注册 | 已支持可选 MCP |
 
 ## 更新检查
 

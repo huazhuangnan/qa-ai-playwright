@@ -11,7 +11,7 @@
 
 完整示例见 [TypeScript 示例 QA](../apps/qa-ticket-app-suite-typescript/README.md)。
 
-[快速开始](#快速开始) · [测试执行](#测试执行) · [项目结构](#项目结构) · [报告与 Trace](#报告与-trace)
+[快速开始](#快速开始) · [测试执行](#测试执行) · [项目结构](#项目结构) · [TypeScript 风格与架构](typescript-code-style.zh-CN.md) · [报告与 Trace](#报告与-trace)
 
 ## 快速开始
 

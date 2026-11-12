@@ -61,6 +61,8 @@ flowchart TD
 
 AI 先按任务类型路由职责，再按语言和环境选择执行方式。Skill 提供规则和边界，MCP、CLI 和测试运行器提供动作能力。
 
+语言实现必须继续读取对应规范：TypeScript 读取 [TypeScript 风格与架构](typescript-code-style.zh-CN.md) 和 `qa-typescript`；Python 读取 [Python 风格与架构](python-code-style.zh-CN.md) 和 `qa-python`。两种语言共用[公共架构与边界](code-style-architecture-common.zh-CN.md)。
+
 | 任务信号 | 先读取的 Skill | 典型动作 |
 | --- | --- | --- |
 | 不懂业务、流程或角色 | `qa-business-guide` | 整理主流程、状态、角色、异常和问题 |

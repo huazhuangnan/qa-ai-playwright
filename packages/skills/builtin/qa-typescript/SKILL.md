@@ -8,8 +8,11 @@ metadata:
 # TypeScript QA 技术适配
 
 先读项目 AGENTS.md、package.json、Playwright 配置、fixture 和目标用例。按名称查找并读取 qa-core，再按任务查找职责 Skill。缺失时按项目引导安装，不伪造预期或结果。
+实现前应用 TypeScript 专属的命名、fixture 注入、TSDoc、严格类型和 Playwright 门禁规则。仓库文档入口见 `docs/typescript-code-style.zh-CN.md`。
 
 ## 规则
+
+- 遵循 TypeScript 专属命名、fixture 注入、TSDoc、严格类型和 Playwright 门禁规则。
 
 - 沿用现有依赖和目录，不为通用测试设计引入运行器。
 - 生成测试写明业务目标和关键前置条件。复杂流程用 `test.step` 标出操作与可观察结果，并在失败时清理数据。

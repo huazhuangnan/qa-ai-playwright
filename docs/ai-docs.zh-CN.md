@@ -76,5 +76,8 @@ AI 使用以下顺序读取：
 ## 相关规则
 
 - [QA 通用规则](../packages/skills/builtin/qa-core/SKILL.md)
+- [公共架构与边界](code-style-architecture-common.zh-CN.md)
+- [TypeScript 风格与架构](typescript-code-style.zh-CN.md)
+- [Python 风格与架构](python-code-style.zh-CN.md)
 - [qa-docs Skill](../packages/skills/builtin/qa-docs/SKILL.md)
 - [输入清单](../packages/skills/builtin/qa-core/references/input-checklist.md)

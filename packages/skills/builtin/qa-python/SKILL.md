@@ -8,8 +8,11 @@ metadata:
 # Python QA 技术适配
 
 先读项目 AGENTS.md、依赖、pytest 配置、conftest.py 和相关用例。按名称查找并读取 qa-core，再按任务查找职责 Skill。缺失时按项目引导安装，不伪造预期或结果。
+实现前应用 Python 专属的命名、fixture 分层、docstring、类型标注和 pytest 门禁规则。仓库文档入口见 `docs/python-code-style.zh-CN.md`。
 
 ## 规则
+
+- 遵循 Python 专属命名、fixture 分层、docstring、类型标注和 pytest 门禁规则。
 
 - 使用项目 .venv 解释器，沿用同步/异步方案，不全局安装依赖。
 - 生成测试用 docstring 说明业务目标和关键前置条件。用简洁注释标明复杂流程及预期，失败时也清理数据。

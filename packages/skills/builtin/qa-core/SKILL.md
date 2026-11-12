@@ -9,6 +9,7 @@ metadata:
 
 先读项目 AGENTS.md、需求或验收标准、相关测试和可用环境。
 开始专业任务前读取 [公共执行边界](references/common-workflow.md)。
+生成或修改测试前执行语言路由：先应用公共测试分层、依赖方向、数据隔离、写保护和证据规则，再按目标语言应用其命名、fixture、类型和运行器规则。仓库文档入口见 `docs/code-style-architecture.zh-CN.md`。
 
 ## 总体路由
 
