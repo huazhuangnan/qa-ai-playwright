@@ -6,6 +6,14 @@
 
 ## 快速开始
 
+使用顺序：
+
+1. 准备 QA 环境。
+2. 生成并检查语言项目。
+3. 配置测试环境、角色、数据和清理方式。
+4. 按[从需求到执行](docs/qa-workflow.zh-CN.md)的对话流程生成或维护测试。
+5. 执行测试并保存报告、日志和失败证据。
+
 Windows 优先使用 PowerShell 7；未安装时自动降级到 Windows PowerShell 5.1。
 
 ```powershell
@@ -24,7 +32,7 @@ bash packages/qa-cli/bin/qa.sh project init my-qa --language typescript
 
 环境位于当前目录 `.qa-env`。测试项目必须放在环境目录之外。
 完整参数和目录说明见[环境初始化](docs/environment.zh-CN.md)。
-想先看完整例子，可直接阅读[工单示例：从需求到执行](docs/qa-workflow.zh-CN.md#工单示例)。
+想了解如何在 Codex 中组合 Skill、QA MCP 和项目命令，可阅读[从需求到执行教程](docs/qa-workflow.zh-CN.md#在-codex-中执行一条完整任务)；完整工单示例见[工单示例](docs/qa-workflow.zh-CN.md#工单示例)。
 
 完整流程：
 
@@ -82,6 +90,8 @@ CC Switch 用户数据仍按上游设计写入 `~/.cc-switch`。
 来源和作用域见 [Skills 与 MCP](docs/skills-mcp.zh-CN.md)。管理范围和待确认事项见 [QA CLI 管理能力 TODO](docs/qa-cli-management-todo.zh-CN.md)。
 
 ## 文档
+
+文档按两类阅读：环境、语言和工作流页面按步骤使用；架构、参考、版本和维护页面按主题查阅。
 
 - [环境初始化](docs/environment.zh-CN.md)：系统要求、参数、目录和卸载
 - [TypeScript 指南](docs/typescript.zh-CN.md)：快速开始、测试和报告

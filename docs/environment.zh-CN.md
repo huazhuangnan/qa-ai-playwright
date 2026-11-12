@@ -1,11 +1,21 @@
 # 环境初始化
 
+[使用人员](../README.md) | [维护人员](maintenance.zh-CN.md)
+
 Windows 启动器使用 PowerShell。macOS 和 Linux 启动器使用 Bash。启动器发现或引导 Node，再将命令交给 TypeScript CLI。
 Node 需要 22.18 或更高版本。启动器优先使用符合要求的系统 Node，再检查用户级共享 Node。环境命令负责准备 QA 所需运行时与工具。项目、Skill 和 MCP 命令复用同一个 CLI 入口。
 
 本页说明环境与项目的初始化、检查、目录和卸载。
 工具优先复用系统或用户级安装。环境目录保存环境状态、缓存和运行输出。MCP 注册使用用户级 Codex 配置。
 测试代码与报告命令见对应的 [TypeScript](typescript.zh-CN.md) 和 [Python](python.zh-CN.md) 指南。
+
+## 使用顺序
+
+1. 初始化与检查对应语言的环境。
+2. 在环境之外生成并检查 QA 项目。
+3. 激活环境，配置 `.env.<环境>` 和项目输入索引。
+4. 按语言指南运行测试，再查看报告和证据。
+5. 需要清理时，先检查所有权，再执行项目或环境卸载。
 
 ## Windows
 

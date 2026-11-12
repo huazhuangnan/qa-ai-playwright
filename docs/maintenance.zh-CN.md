@@ -7,6 +7,8 @@
 日常操作见[环境初始化](environment.zh-CN.md)。
 组件管理基线和实施清单见[QA CLI 管理能力 TODO](qa-cli-management-todo.zh-CN.md)。
 
+阅读顺序：先看架构和生命周期，再看来源、所有权、验证门禁、发布与回滚。维护动作按主题组织，不与使用人员的操作步骤混排。
+
 ## 架构
 
 ```text
@@ -96,8 +98,9 @@ Chromium 的临时文件使用系统临时目录，避免浏览器内部 socket 
 
 GitHub Actions 统一由根目录的 CI 工作流承载。
 普通 push、pull request 和手动运行均验证 Ubuntu、Windows 和 macOS。
-验证范围包括三平台环境、共享卸载保护和维护单元测试。
-暂不执行项目生成、项目卸载集成、lint、示例业务测试和兼容版本专项验证。
+验证范围包括三平台环境、项目生成与检查、共享卸载保护和维护单元测试。
+项目 smoke 覆盖 TypeScript 与 Python、带空格路径以及 Chromium 浏览器检查。
+暂不执行项目卸载集成、lint、示例业务测试和兼容版本专项验证。
 平台差异通过复合 Action 和统一启动器处理。
 
 ## 维护语言

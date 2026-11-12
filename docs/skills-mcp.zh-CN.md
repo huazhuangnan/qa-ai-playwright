@@ -1,6 +1,10 @@
 # Skills 与 MCP
 
+[使用人员](../README.md) | [维护人员](maintenance.zh-CN.md)
+
 本页说明 QA + AI + Playwright 中 Skill 与 MCP 的对象、来源、作用域、当前命令和生命周期边界。
+
+阅读顺序：使用人员先看“使用人员：组合使用方式”和使用边界；维护人员再看来源、作用域、生命周期、版本和维护要求。
 
 内置 Skill 支持项目级状态检查、安装、修复、快照和回滚。升级只提供检测结果，外部 Skill 继续按上游方式人工维护。
 
@@ -177,6 +181,28 @@ bash packages/qa-cli/bin/qa.sh skills check-updates --source ./external-sources.
 | `skills list/check/install/repair/upgrade/uninstall` | 检测并管理项目级内置 Skill；upgrade 只给人工提示 | 指定项目 `.agents/` | 已支持 |
 | `mcp check/repair` | 检查状态并按记录补齐缺失项 | 共享包和用户级注册 | 已支持可选 MCP |
 
+## 使用人员：组合使用方式
+
+在对话中按流程组合三者。Skill 负责当前这一轮该思考什么，MCP 负责检查和准备，CLI 在会话没有对应 MCP 时提供同等入口。
+
+```text
+1. 你：说明需求、资料、环境和写入边界。
+2. Codex：检查环境、项目和可用 Skill。
+3. 你：要求使用 qa-business-guide 整理业务规则。
+4. Codex：输出角色、状态、流程和待确认项。
+5. 你：要求使用 qa-test-design 形成用例和追踪关系。
+6. Codex：展示计划，等待范围确认。
+7. 你：确认范围并选择 qa-api/qa-web 与语言 Skill。
+8. Codex：实现、执行、保存证据。
+9. 你：要求使用 qa-triage 分析失败并安排复测。
+```
+
+环境、项目和 Skill 的只读检查可以并行。安装、修复、添加和移除必须等待上一轮结果，再把缺失项、项目路径或锁记录交给下一轮。出现 `modified`、`unmanaged`、所有权冲突或配置不一致时，暂停自动写入并转为人工处理。
+
+没有 MCP 工具时，在对话中明确说明“请使用 CLI 完成同一步骤”，并把 CLI 输出作为下一轮输入。不要跳过环境、权限、清理和证据检查。
+
+完整的需求、Skill、MCP、执行和证据示例见[从需求到执行](qa-workflow.zh-CN.md#在-codex-中执行一条完整任务)。
+
 ## 更新检查
 
 仓库根目录执行：
@@ -280,7 +306,7 @@ bash packages/qa-cli/bin/qa.sh mcp remove faker
 
 Codex 登录由用户交互完成。凭证和本地认证状态不提交。
 
-## 维护要求
+## 维护人员：维护要求
 
 新增或调整 Skill、MCP、清单、安装命令或作用域时，需要同步检查：
 

@@ -1,6 +1,10 @@
 # Python 风格与架构
 
+[使用人员](../README.md) | [维护人员](maintenance.zh-CN.md)
+
 适用于 Python QA 项目。先读[公共架构与边界](code-style-architecture-common.zh-CN.md)。
+
+适用对象：Python QA 项目开发与维护人员。阅读顺序：先读公共规则，再读本页风格、架构和最低检查。
 
 ## 风格
 
