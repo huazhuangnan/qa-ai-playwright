@@ -49,7 +49,7 @@ MCP 清单和下载应用继续记录真实上游版本。
 
 ## 未发布
 
-- 增加可手动触发的 `Package` GitHub Actions 工作流，分别生成使用者包和开发者包，并支持按开关创建或覆盖同版本 GitHub Release。
+- 增加可手动触发的 `Package` GitHub Actions 工作流，生成使用者包，并支持按开关创建或覆盖同版本 GitHub Release。
 - 补充交付包下载、解压、执行目录和维护人员获取源码的入口。维护验证统一指向 GitHub Actions。
 - 环境生成的启动包装器和激活脚本增加用途注释，说明快捷入口与已有软件的关系。
 - 修正 qa-core 的浏览器说明，使其与优先复用已有浏览器的行为一致。
@@ -71,7 +71,7 @@ MCP 清单和下载应用继续记录真实上游版本。
 - 将 Release 发布 job 接入主 CI 门禁。质量、环境 smoke 和项目 smoke 全部成功后才发布，并拒绝重复版本。
 - 优化 CI 触发边界。纯文档变更不再启动主 CI；已存在的 Release 改为成功跳过发布。
 
-- 增加 GitHub Releases 交付方案。Release 生成使用者包、开发者包和 SHA256 清单，不发布 npm 包。使用人员解压使用者包后直接运行平台入口。
+- 增加 GitHub Releases 交付方案。Release 生成使用者包和 SHA256 清单，不发布 npm 包。开发和维护使用 GitHub 自动生成的源码快照。
 
 - 修复 MCP smoke 以环境根目录作为工作目录导致的 Windows 检查失败。工具调用失败时输出返回的诊断信息。
 

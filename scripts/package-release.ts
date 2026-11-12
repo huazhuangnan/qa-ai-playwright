@@ -18,11 +18,10 @@ const files = execFileSync('git', ['-C', repo, 'ls-files', '-z'], { encoding: 'b
 if (!files.length) throw new Error('No tracked files found for release');
 mkdirSync(output, { recursive: true });
 
-createArchive('user', files.filter(isUserFile));
-createArchive('developer', files);
+createArchive(files.filter(isUserFile));
 
-function createArchive(kind: 'user' | 'developer', selectedFiles: string[]): void {
-  const stage = join(output, `qa-ai-playwright-${version}-${kind}`);
+function createArchive(selectedFiles: string[]): void {
+  const stage = join(output, `qa-ai-playwright-${version}`);
   rmSync(stage, { recursive: true, force: true });
   mkdirSync(stage, { recursive: true });
   for (const relative of selectedFiles) {
@@ -32,7 +31,7 @@ function createArchive(kind: 'user' | 'developer', selectedFiles: string[]): voi
     cpSync(source, target, { recursive: true });
   }
 
-  const zip = join(output, `qa-ai-playwright-v${version}-${kind}.zip`);
+  const zip = join(output, `qa-ai-playwright-v${version}.zip`);
   rmSync(zip, { force: true });
   run('zip', ['-q', '-r', zip, basename(stage)], output);
   rmSync(stage, { recursive: true, force: true });
