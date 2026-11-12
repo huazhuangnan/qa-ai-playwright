@@ -15,6 +15,7 @@ export async function executeEnvironment(
     skipCodex: args.skipCodex ?? false,
     skipSkills: args.skipSkills ?? false,
     withCcSwitch: args.withCcSwitch,
+    environmentName: args.environmentName,
   };
   if (args.action === 'repair') {
     if (!existsSync(env.marker) || !existsSync(env.stateFile)

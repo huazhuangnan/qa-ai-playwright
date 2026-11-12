@@ -1,6 +1,5 @@
 import { test } from 'bun:test';
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -26,8 +25,7 @@ test('optional MCP status separates package, registration, and ownership', () =>
   writeFileSync(join(packageDir, 'package.json'), JSON.stringify({ name: 'faker-mcp-server', version: '1.0.3' }));
   writeFileSync(join(packageDir, 'dist', 'index.js'), '');
 
-  const root = process.platform === 'win32' ? environment.root.toLowerCase() : environment.root;
-  const serverName = `qa-${createHash('sha256').update(root).digest('hex').slice(0, 16)}-faker`;
+  const serverName = 'qa-faker';
   const config = `[mcp_servers.${serverName}]\ncommand = "test-node"\nargs = ["test-entry"]`;
   writeFileSync(environment.mcpConfig, `${config}\n`);
   assert.equal(environment.optionalMcpStatus('faker').ownership, 'unowned');
@@ -64,8 +62,7 @@ test('MCP repair restores only owned missing registration and recorded package v
   const packageDir = process.platform === 'win32' ? join(prefix, 'node_modules', 'faker-mcp-server')
     : join(prefix, 'lib', 'node_modules', 'faker-mcp-server');
   const entry = join(packageDir, 'dist', 'index.js');
-  const root = process.platform === 'win32' ? environment.root.toLowerCase() : environment.root;
-  const serverName = `qa-${createHash('sha256').update(root).digest('hex').slice(0, 16)}-faker`;
+  const serverName = 'qa-faker';
   const config = `[mcp_servers.${serverName}]\ncommand = ${JSON.stringify(environment.node)}\nargs = [${JSON.stringify(entry)}]`;
   mkdirSync(home, { recursive: true });
   const lock = { schema: 1, servers: { [serverName]: {

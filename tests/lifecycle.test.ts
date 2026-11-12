@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import {
   chmodSync,
   existsSync,
@@ -462,8 +461,7 @@ test('MCP registration preserves a conflicting user configuration', () => {
   const config = join(createWorkspace(), 'user codex', 'config.toml');
   Object.defineProperty(environment, 'mcpConfig', { value: config });
   mkdirSync(dirname(config), { recursive: true });
-  const root = WINDOWS ? environment.root.toLowerCase() : environment.root;
-  const name = 'qa-' + createHash('sha256').update(root).digest('hex').slice(0, 16) + '-playwright';
+  const name = 'qa-playwright';
   const original = `[mcp_servers.${name}]\ncommand = "user-playwright"\nargs = ["--custom"]\n`;
   writeFileSync(config, original);
 
@@ -485,8 +483,7 @@ test('uninstall preserves an unowned user MCP registration', () => {
   const config = join(createWorkspace(), 'user codex', 'config.toml');
   Object.defineProperty(environment, 'mcpConfig', { value: config });
   mkdirSync(dirname(config), { recursive: true });
-  const root = WINDOWS ? environment.root.toLowerCase() : environment.root;
-  const name = 'qa-' + createHash('sha256').update(root).digest('hex').slice(0, 16) + '-faker';
+  const name = 'qa-faker';
   const original = `[mcp_servers.${name}]\ncommand = "user-faker"\n`;
   writeFileSync(config, original);
 

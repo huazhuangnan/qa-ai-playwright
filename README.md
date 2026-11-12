@@ -24,22 +24,25 @@ Release 的 Assets 中还会显示 GitHub 自动生成的 `Source code (zip)` �
 使用顺序：准备环境和项目，向 Codex 提供任务资料，再执行测试并查看结果。
 
 Windows 优先使用 PowerShell 7；未安装时自动降级到 Windows PowerShell 5.1。
+每次打开新终端后，先手动加载对应的会话脚本。
 
 ```powershell
-.\packages\qa-cli\bin\qa.cmd env init typescript
-.\packages\qa-cli\bin\qa.cmd project init my-qa --language typescript
+. .\packages\qa-cli\bin\session.ps1
+qa env init typescript
+qa project init my-qa --language typescript
 ```
 
 macOS / Linux / WSL：
 
 ```bash
-bash packages/qa-cli/bin/qa.sh env init typescript
-bash packages/qa-cli/bin/qa.sh project init my-qa --language typescript
+source packages/qa-cli/bin/session.sh
+qa env init typescript
+qa project init my-qa --language typescript
 ```
 
 首次运行可能需要联网。CLI 优先复用系统工具，缺少时提示安装。
 
-环境默认位于当前目录的 `.qa-env`，测试项目须放在环境目录之外。
+环境默认位于当前目录的 `.qa-env`，测试项目须放在环境目录之外。多环境操作可用 `--root` 指定目录。
 
 参数和目录说明见[环境初始化](docs/environment.zh-CN.md)。
 

@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { once } from 'node:events';
-import { readFileSync, realpathSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
@@ -168,9 +167,6 @@ async function main(): Promise<void> {
   const codexHome = process.env.CODEX_HOME;
   if (!codexHome) throw new Error('CODEX_HOME is required for isolated MCP smoke tests');
   const config = join(codexHome, 'config.toml');
-  const realRoot = realpathSync(root);
-  const normalizedRoot = process.platform === 'win32' ? realRoot.toLowerCase() : realRoot;
-  const id = createHash('sha256').update(normalizedRoot).digest('hex').slice(0, 16);
   const state = JSON.parse(
     readFileSync(join(root, 'state.json'), 'utf8'),
   ) as { profile?: string };
@@ -178,7 +174,7 @@ async function main(): Promise<void> {
     ? ['qa', 'playwright', 'agent-browser']
     : ['qa', 'playwright'];
   for (const name of names) {
-    const server = readMcpServerConfig(config, `qa-${id}-${name}`);
+    const server = readMcpServerConfig(config, name === 'qa' ? 'qa' : `qa-${name}`);
     await smokeServer(name, server);
   }
   console.log('MCP initialize and tools/list passed');

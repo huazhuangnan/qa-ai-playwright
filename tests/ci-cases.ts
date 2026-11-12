@@ -1,11 +1,9 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
   readFileSync,
-  realpathSync,
   writeFileSync,
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -31,9 +29,7 @@ if (!within(npmConfig, RUNNER_TEMP)) throw new Error('CI npm config must be insi
 
 /** Resolves the shared registration name for the current environment. */
 function mcpName(name: string): string {
-  const root = realpathSync(ROOT);
-  const normalized = process.platform === 'win32' ? root.toLowerCase() : root;
-  return `qa-${createHash('sha256').update(normalized).digest('hex').slice(0, 16)}-${name}`;
+  return name === 'qa' ? 'qa' : `qa-${name}`;
 }
 const launcher = process.platform === 'win32'
   ? [

@@ -28,6 +28,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  session-shortcut:
+    name: Session shortcut / ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check PowerShell shortcut
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          . ./packages/qa-cli/bin/session.ps1
+          if ((Get-Alias qa).Definition -ne (Join-Path $PWD 'packages/qa-cli/bin/qa.cmd')) { throw 'Incorrect shortcut' }
+          qa --help
+          if ($LASTEXITCODE -ne 0) { throw 'Shortcut failed' }
+      - name: Check Bash shortcut
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          source packages/qa-cli/bin/session.sh
+          cd "$RUNNER_TEMP"
+          qa --help
+
   quality:
     name: Type check and maintenance tests
     runs-on: ubuntu-24.04
@@ -68,6 +93,12 @@ jobs:
         run: |
           bash packages/qa-cli/bin/qa.sh run bun run typecheck
           bash packages/qa-cli/bin/qa.sh run bun run test:unit
+          bash packages/qa-cli/bin/qa.sh run bun test tests/cli-arguments.test.ts
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.18.0'
+      - name: Check CLI argument contract on Node
+        run: node --experimental-strip-types --test tests/cli-arguments.test.ts
       - uses: ./.github/actions/cleanup
         if: always()
 
@@ -313,8 +344,8 @@ jobs:
         shell: bash
         run: |
           mkdir "$RUNNER_TEMP/unpacked-release"
-          unzip -q "$RUNNER_TEMP/release/qa-ai-playwright-${GITHUB_REF_NAME#v}.zip" -d "$RUNNER_TEMP/unpacked-release"
-          root="$RUNNER_TEMP/unpacked-release/qa-ai-playwright-${GITHUB_REF_NAME#v}"
+          unzip -q "$RUNNER_TEMP/release/qa-ai-playwright-${GITHUB_REF_NAME}.zip" -d "$RUNNER_TEMP/unpacked-release"
+          root="$RUNNER_TEMP/unpacked-release/qa-ai-playwright-${GITHUB_REF_NAME}"
           bash "$root/packages/qa-cli/bin/qa.sh" --help
           QA_ROOT="$RUNNER_TEMP/release-env" bash "$root/packages/qa-cli/bin/qa.sh" env init typescript --skip-codex --skip-skills
           QA_ROOT="$RUNNER_TEMP/release-env" bash "$root/packages/qa-cli/bin/qa.sh" project init "$RUNNER_TEMP/release-project" --language typescript
@@ -336,7 +367,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          user_zip="$RUNNER_TEMP/release/qa-ai-playwright-${GITHUB_REF_NAME#v}.zip"
+          user_zip="$RUNNER_TEMP/release/qa-ai-playwright-${GITHUB_REF_NAME}.zip"
           gh release create "$GITHUB_REF_NAME" \
             "$user_zip" \
             "$RUNNER_TEMP/release/SHA256SUMS.txt" \

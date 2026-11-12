@@ -50,6 +50,33 @@ Linux/macOS 的引导脚本需要 Bash、tar、gzip、curl 或 wget、SHA256 工
 
 以下命令在解压后的交付包根目录或源码仓库根目录执行。
 
+每次打开新终端后，在交付包根目录手动执行一次对应的会话脚本，再使用 `qa`。
+脚本不自动加载，也不修改 PATH 或 shell 启动配置。
+
+<details>
+<summary>Windows PowerShell</summary>
+
+```powershell
+. .\packages\qa-cli\bin\session.ps1
+qa env init typescript
+```
+
+</details>
+
+<details>
+<summary>macOS / Linux（Bash）</summary>
+
+```bash
+source packages/qa-cli/bin/session.sh
+qa env init python
+```
+
+</details>
+
+短命令指向设置时的交付包。`--root` 和 `QA_ROOT` 仍用于选择环境。
+未指定时，环境目录为执行命令时当前目录下的 `.qa-env`。
+短命令可能遮蔽当前终端中已有的同名命令。
+
 ```powershell
 .\packages\qa-cli\bin\qa.cmd env init typescript
 .\packages\qa-cli\bin\qa.cmd env check typescript
@@ -69,6 +96,39 @@ bash packages/qa-cli/bin/qa.sh project check ./workspaces/python-qa
 - **状态记录**：初始化写入环境状态和用户级 MCP 配置。安装及复用的工具会记录在环境状态中。共享工具的使用关系不能仅凭单个环境的记录确认。
 - **失败恢复**：初始化失败后，可使用相同参数重跑。检查已输出的安装操作。安装台账和中断处理见[环境安装台账](env-install-ledger.zh-CN.md)。
 - **版本兼容**：复用的 Bun 或 pnpm 主版本与配置基线不同时，会提示人工检查兼容性。CLI 不覆盖已有安装。
+
+### 多个环境与 MCP 名称
+
+通常一个 QA 环境即可供多个测试项目使用。默认环境的 MCP 名称包括 `qa` 和 `qa-playwright`。
+需要隔离工具和配置时，可以为额外环境指定独立目录和名称。以下示例在交付包或源码仓库根目录执行。
+
+<details>
+<summary>Windows PowerShell</summary>
+
+```powershell
+.\packages\qa-cli\bin\qa.cmd --root ..\qa-env-legacy env init typescript --name legacy
+.\packages\qa-cli\bin\qa.cmd --root ..\qa-env-legacy env check typescript
+```
+
+</details>
+
+<details>
+<summary>macOS / Linux</summary>
+
+```bash
+bash packages/qa-cli/bin/qa.sh --root ../qa-env-legacy env init typescript --name legacy
+bash packages/qa-cli/bin/qa.sh --root ../qa-env-legacy env check typescript
+```
+
+</details>
+
+示例中的 MCP 名称包括 `qa-legacy` 和 `qa-legacy-playwright`。后续命令使用相同的 `--root`。
+`--name` 只在初始化时指定。已指定的环境名称记录在环境状态中，不能通过重跑初始化更改。
+名称使用小写字母、数字和单个连字符。名称已被占用时，命令会保留已有配置并提示冲突。
+
+旧环境的 MCP 名称含路径哈希时，使用原来的环境目录、语言和组件选项重新执行 `env init`。
+命令会先核对旧注册的归属和配置，再迁移到可读名称。归属不明或配置已修改时，需要先人工核对。
+详见 [MCP 注册与保护规则](skills-mcp.zh-CN.md#mcp-注册与保护规则)。
 
 浏览器按以下规则准备：
 
@@ -133,6 +193,7 @@ Project ready: ［项目目录］. QA templates: ［版本］. Language template
 | `--root <目录>` | 指定隔离环境目录，后续命令保持相同路径 |
 | `env init/check` 的位置参数 | `python`、`typescript` 或 `both` |
 | `--full` | 增加 Agent Browser CLI 和 MCP |
+| `--name <name>` | 为额外环境指定可读名称。使用小写字母、数字和单个连字符 |
 | `--with-cc-switch` | 初始化或检查 CC Switch |
 | `--language python/typescript` | 选择新项目语言 |
 | `--browser` | `project init` 支持 `chrome`、`msedge`、`chromium`、`firefox`、`webkit`、`all`、`none`；`project check` 支持前五项 |

@@ -47,7 +47,9 @@ jobs:
           archive="$RUNNER_TEMP/release/qa-ai-playwright-v${version}.zip"
           test -f "$archive"
           unzip -t "$archive"
-          unzip -l "$archive" | grep -q 'packages/qa-cli/bin/qa.sh'
+          unzip -Z1 "$archive" | grep -Fx "qa-ai-playwright-v${version}/packages/qa-cli/bin/qa.sh" > /dev/null
+          unzip -Z1 "$archive" | grep -Fx "qa-ai-playwright-v${version}/packages/qa-cli/bin/session.sh" > /dev/null
+          unzip -Z1 "$archive" | grep -Fx "qa-ai-playwright-v${version}/packages/qa-cli/bin/session.ps1" > /dev/null
 
       - name: Create checksums
         shell: bash

@@ -21,7 +21,7 @@ mkdirSync(output, { recursive: true });
 createArchive(files.filter(isUserFile));
 
 function createArchive(selectedFiles: string[]): void {
-  const stage = join(output, `qa-ai-playwright-${version}`);
+  const stage = join(output, `qa-ai-playwright-v${version}`);
   rmSync(stage, { recursive: true, force: true });
   mkdirSync(stage, { recursive: true });
   for (const relative of selectedFiles) {

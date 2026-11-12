@@ -253,6 +253,12 @@ bash packages/qa-cli/bin/qa.sh update check --source ./update-sources.json
 
 ## MCP 注册与保护规则
 
+默认 QA 环境使用简短的 MCP 注册名称，例如 `qa` 和 `qa-playwright`。
+额外环境初始化时使用 `--name <name>` 指定名称。名称由小写字母、数字和单个连字符组成。
+例如，名称为 `legacy` 时注册项为 `qa-legacy` 和 `qa-legacy-playwright`。
+重新执行原环境的 `env init` 时迁移旧注册。迁移前会核对所有权和配置。
+名称冲突或归属不明时保留已有配置。
+
 启用 Codex 时注册内置 `qa` MCP。未跳过浏览器工具时，标准模式还注册 `playwright`，`--full` 再注册 `agent-browser`。
 浏览器先检测并复用用户已有的兼容安装。确认缺失后才下载。用户指定浏览器时按其选择处理。浏览器自动化使用独立上下文。
 

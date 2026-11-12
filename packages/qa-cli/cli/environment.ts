@@ -95,6 +95,7 @@ export interface EnvironmentInitOptions {
   skipCodex: boolean;
   skipSkills: boolean;
   withCcSwitch?: boolean;
+  environmentName?: string;
 }
 
 /** Options accepted by `env check`. */
@@ -1195,8 +1196,8 @@ export class Environment {
   optionalMcpStatus(name: string): OptionalMcpStatus {
     const manifest = mcpManifest(name, 'external', this.repo);
     if (manifest.optional !== true) throw new Error(`MCP ${name} is not an on-demand server`);
-    const serverName = this.mcpName(name);
     const servers = this.objectValue(this.readSharedMcpLock().servers);
+    const serverName = this.existingMcpName(name, servers);
     const record = this.objectValue(servers[serverName]);
     const present = this.hasMcpConfig(serverName);
     const hasRecord = Object.keys(record).length > 0;
@@ -1325,7 +1326,7 @@ export class Environment {
     this.withMcpLock(() => {
       const lock = this.readSharedMcpLock();
       const servers = this.objectValue(lock.servers);
-      const serverName = this.mcpName(name);
+      const serverName = this.existingMcpName(name, servers);
       const record = this.objectValue(servers[serverName]);
       if (record.scope !== 'user' || record.root !== this.root || record.package !== manifest.package || record.source_type !== 'external') {
         throw new Error(`Preserving MCP ${serverName}: no matching QA installation record`);
@@ -1362,7 +1363,7 @@ export class Environment {
         });
         for (const [index, [serverName, value]] of entries.entries()) {
           const record = this.objectValue(value);
-          if (typeof record.name !== 'string' || this.mcpName(record.name) !== serverName || !record.snapshot) {
+          if (typeof record.name !== 'string' || (this.mcpName(record.name) !== serverName && this.legacyMcpName(record.name) !== serverName) || !record.snapshot) {
             result.preserved.push({ name: serverName, reason: 'Invalid or incomplete ownership record' });
             continue;
           }
@@ -1509,11 +1510,27 @@ export class Environment {
    * @param sourceType - Reviewed source group.
    * @param version - Expected package version.
    */
-  /** Gives each QA root its own stable names in the shared Codex configuration. */
+  /** Builds a readable registration name from the recorded environment name. */
   private mcpName(name: string): string {
+    const options = this.objectValue(this.state.init_options);
+    const suffix = typeof options.environmentName === 'string' ? `-${options.environmentName}` : '';
+    return name === 'qa' ? `qa${suffix}` : `qa${suffix}-${name}`;
+  }
+
+  /** Finds the registration name used by older versions. */
+  private legacyMcpName(name: string): string {
     const root = WINDOWS ? this.root.toLowerCase() : this.root;
     const id = createHash('sha256').update(root).digest('hex').slice(0, 16);
     return `qa-${id}-${name}`;
+  }
+
+  /** Keeps legacy optional registrations manageable until they are migrated. */
+  private existingMcpName(name: string, servers: Record<string, unknown>): string {
+    const current = this.mcpName(name);
+    const legacy = this.legacyMcpName(name);
+    if (!this.hasMcpConfig(current) && !Object.keys(this.objectValue(servers[current])).length
+      && this.objectValue(servers[legacy]).root === this.root) return legacy;
+    return current;
   }
 
   private sharedMcpLockPath(): string {
@@ -1613,6 +1630,19 @@ export class Environment {
       const lock = this.readSharedMcpLock();
       const servers = this.objectValue(lock.servers);
       const serverName = this.mcpName(name);
+      const legacyName = this.legacyMcpName(name);
+      const legacy = this.objectValue(servers[legacyName]);
+      const hasLegacy = Object.keys(legacy).length > 0;
+      if (!hasLegacy && this.hasMcpConfig(legacyName)) throw new Error(`Preserving MCP ${legacyName}: no matching QA ownership record`);
+      if (hasLegacy && (legacy.scope !== 'user' || legacy.root !== this.root || legacy.name !== name
+        || legacy.source_type !== sourceType || legacy.manifest !== `packages/mcp/${sourceType}/${name}.json`
+        || typeof legacy.snapshot !== 'string' || !legacy.snapshot
+        || (!this.sameMcpConfig(this.objectValue(legacy.config) as McpServerConfig, expected)
+          && !this.browserPathOnlyChange(name, this.objectValue(legacy.config) as McpServerConfig, expected))
+        || (this.hasMcpConfig(legacyName) && (!this.sameMcpConfig(readMcpServerConfig(this.mcpConfig, legacyName), this.objectValue(legacy.config) as McpServerConfig)
+          || legacy.snapshot !== this.mcpConfigSnapshot(legacyName))))) {
+        throw new Error(`Preserving MCP ${legacyName}: registration differs from its QA record`);
+      }
       const record = this.objectValue(servers[serverName]);
       const present = this.hasMcpConfig(serverName);
       const recorded = this.objectValue(record.config) as McpServerConfig;
@@ -1652,6 +1682,14 @@ export class Environment {
       };
       lock.servers = servers;
       atomicJson(this.sharedMcpLockPath(), lock);
+      if (hasLegacy) {
+        if (this.hasMcpConfig(legacyName)) {
+          this.codex(['mcp', 'remove', legacyName]);
+          if (this.hasMcpConfig(legacyName)) throw new Error(`MCP ${legacyName} is still present after removal`);
+        }
+        delete servers[legacyName];
+        atomicJson(this.sharedMcpLockPath(), lock);
+      }
     });
   }
   /**
@@ -1704,6 +1742,16 @@ export class Environment {
     if (!['python', 'typescript', 'both'].includes(stack)) {
       throw new Error('Invalid stack');
     }
+
+    const previous = this.objectValue(this.state.init_options);
+    const previousName = typeof previous.environmentName === 'string' ? previous.environmentName : undefined;
+    if (options.environmentName !== undefined && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(options.environmentName)) throw new Error('Invalid environment name');
+    if (previousName && options.environmentName && previousName !== options.environmentName) throw new Error('Environment name cannot be changed by init');
+    if (!previousName && options.environmentName && this.hasMcpConfig('qa')) {
+      const lock = this.readSharedMcpLock();
+      if (this.objectValue(this.objectValue(lock.servers).qa).root === this.root) throw new Error('Environment name cannot be changed by init');
+    }
+    options = { ...options, environmentName: options.environmentName ?? previousName };
 
     this.state.schema = 1;
     this.state.init_status = 'initializing';
