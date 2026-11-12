@@ -72,6 +72,9 @@ if ($Uninstall) {
     if (Test-ManagedCommand $commandPath) {
         Remove-Item -LiteralPath $commandPath
     }
+    if ((Test-Path -LiteralPath $binDir -PathType Container) -and !(Test-ReparsePoint $binDir) -and !(Get-ChildItem -LiteralPath $binDir -Force)) {
+        Remove-Item -LiteralPath $binDir
+    }
     $manifestPath = Join-Path $installRoot '.files.json'
     if ((Test-Path -LiteralPath (Join-Path $installRoot '.qa-managed')) -and (Test-Path -LiteralPath $manifestPath)) {
         $files = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
