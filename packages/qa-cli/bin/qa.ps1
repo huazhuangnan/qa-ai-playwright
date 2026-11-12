@@ -113,9 +113,9 @@ $marker = Join-Path $rootPath '.qa-managed'
 $first = if ($cliArguments.Count) { $cliArguments[0] } else { 'help' }
 if ($first -in @('help', '--help', '-h')) {
     @(
-        'qa env init <python|typescript|both> [--full]',
+        'qa env init <python|typescript|both> [--full] [--with-cc-switch]',
         'qa env list',
-        'qa env check <python|typescript|both> [--full]',
+        'qa env check <python|typescript|both> [--full] [--with-cc-switch]',
         'qa env repair',
         'qa env plan uv',
         'qa env upgrade uv  (manual-only guidance; no automatic upgrade)',

@@ -1,5 +1,9 @@
 # QA 文档模板版本
 
+## 未发布
+
+- 在输入登记中增加浏览器通道 `QA_BROWSER_CHANNEL` 和自定义路径 `QA_BROWSER_EXECUTABLE_PATH`。
+
 ## 0.0.1 - 2026-11-11
 
 - 建立输入、AI 任务和生成文档目录。

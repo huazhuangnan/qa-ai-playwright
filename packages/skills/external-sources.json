@@ -4,7 +4,7 @@
     "repository": "microsoft/playwright-cli",
     "ref": "",
     "path": "skills/playwright-cli",
-    "commit": "06b55b69f61b2b943ac88c95ebc94f942b1c3f4a",
+    "commit": "745fbc7820c326e140a805a662ecbba754910806",
     "license": "Apache-2.0"
   },
   {
@@ -12,7 +12,7 @@
     "repository": "vercel-labs/agent-browser",
     "ref": "",
     "path": "skills/agent-browser",
-    "commit": "f423bb090ccdcadd0de587dd77eed3430d93a306",
+    "commit": "bc348f0ba30a58348d20c32b185b47019d15c2ef",
     "license": "Apache-2.0"
   },
   {
@@ -36,7 +36,7 @@
     "repository": "affaan-m/ECC",
     "ref": "",
     "path": "skills/bun-runtime",
-    "commit": "db7f2a6fd5b013d56ec0ba0cfc547ba77baddbce",
+    "commit": "48decd0debad6c33ed88a4861117c448b8bb272d",
     "license": "MIT"
   },
   {

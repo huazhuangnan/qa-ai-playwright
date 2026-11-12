@@ -25,6 +25,7 @@ function fixture() {
   let failure: 'pnpm' | 'playwright' | undefined;
   const env = {
     root: join(base, 'env'), repo, node: 'node',
+    environment: {}, findBrowser: () => undefined,
     requireInitialized: () => {},
     pnpm: () => { if (failure === 'pnpm') throw new Error('dependency installation failed'); },
     run: (args: string[]) => { calls.push(args); },
@@ -62,4 +63,44 @@ test('legacy project marker gains the record after successful initialization', a
   writeFileSync(f.marker, JSON.stringify(legacy));
   await projectInit(f.env, { target: f.target, stack: 'typescript', withDeps: false });
   expect(f.read().last_successful_init).toEqual({ browser: 'chromium', browser_system_dependencies_requested: false });
+});
+
+test('initialization reuses a detected system browser without installing Chromium', async () => {
+  const f = fixture();
+  f.env.findBrowser = (channel) => channel && channel !== 'chrome' ? undefined :
+    { channel: 'chrome', path: join('browser path', 'chrome'), scope: 'system-or-user' };
+  await projectInit(f.env, { target: f.target, stack: 'typescript', withDeps: false });
+  expect(f.read().last_successful_init).toEqual({ browser: 'chrome', browser_system_dependencies_requested: false });
+  expect(f.calls.some((args) => args.includes('install'))).toBe(false);
+});
+
+test('initialization reuses system Chromium and passes its path to the runner', async () => {
+  const f = fixture();
+  const path = join('browser path', 'chromium');
+  f.env.findBrowser = (channel) => !channel || channel === 'chromium'
+    ? { channel: 'chromium', path, scope: 'system-or-user' } : undefined;
+  let selectedPath: string | undefined;
+  f.env.playwright = () => { selectedPath = f.env.environment.QA_BROWSER_EXECUTABLE_PATH; };
+  await projectInit(f.env, { target: f.target, stack: 'typescript', withDeps: false });
+  expect(f.read().last_successful_init).toEqual({ browser: 'chromium', browser_system_dependencies_requested: false });
+  expect(f.calls.some((args) => args.includes('install'))).toBe(false);
+  expect(selectedPath).toBe(path);
+});
+
+test('explicitly requested missing system browser does not trigger an installation', async () => {
+  const f = fixture();
+  await expect(projectInit(f.env, { target: f.target, stack: 'typescript', browser: 'msedge', withDeps: false })).rejects.toThrow('System browser msedge was not found');
+  expect(f.calls).toEqual([]);
+});
+
+test('environment validation precedes browser discovery and explicit browser checks', async () => {
+  const f = fixture();
+  let discoveryCalled = false;
+  f.env.requireInitialized = () => { throw new Error('environment not initialized'); };
+  f.env.findBrowser = () => { discoveryCalled = true; return undefined; };
+  for (const browser of [undefined, 'msedge'] as const) {
+    await expect(projectInit(f.env, { target: f.target, stack: 'typescript', browser, withDeps: false })).rejects.toThrow('environment not initialized');
+  }
+  expect(discoveryCalled).toBe(false);
+  expect(f.calls).toEqual([]);
 });

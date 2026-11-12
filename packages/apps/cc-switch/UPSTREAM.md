@@ -4,9 +4,9 @@
 
 - Repository: https://github.com/farion1231/cc-switch
 - Official site: https://ccswitch.io/
-- Release: https://github.com/farion1231/cc-switch/releases/tag/v4.0.28
-- Version: 4.0.28
-- Commit: 8656ebd91f3eba631837126e29df71e8353b7e43
+- Release: https://github.com/farion1231/cc-switch/releases/tag/v4.0.30
+- Version: 4.0.30
+- Commit: db6f08c593689ec345f7937311d3002a5f38d2a5
 - License: MIT
 
 ## Installation Boundary
@@ -21,11 +21,11 @@ The installer does not write registry keys or protected system application direc
 
 | Platform | Architecture | Release asset | Format | SHA256 |
 | --- | --- | --- | --- | --- |
-| Windows | x64 | `CC-Switch-v4.0.28-Windows-Portable.zip` | zip | `c690bc6ef1bc0bce62db50d8d089abf50eaa0c98f18765016b920f3c14b0c770` |
-| Windows | arm64 | `CC-Switch-v4.0.28-Windows-arm64-Portable.zip` | zip | `cce4ea4e311acb3cebce31c84c188f3b85b9c5413e2dee1c9d011db3487615f8` |
-| macOS | universal | `CC-Switch-v4.0.28-macOS.zip` | zip | `4594f9c5b88e150b50bbc7a95d96406c7f471de472846e5289d97c86f6374619` |
-| Linux | x86_64 | `CC-Switch-v4.0.28-Linux-x86_64.AppImage` | AppImage | `19640a4df129b35dd176763a5d64746a8f9c4d4625573350be11df036cea7433` |
-| Linux | arm64 | `CC-Switch-v4.0.28-Linux-arm64.AppImage` | AppImage | `4ed5f7704052693b1cbc7095598551e2f94a6289a54950bd2bfc1aac4a5ac37c` |
+| Windows | x64 | `CC-Switch-v4.0.30-Windows-Portable.zip` | zip | `78f44e0ce7993b057df81474455009a028531509d05c66f08799a038d00c96d3` |
+| Windows | arm64 | `CC-Switch-v4.0.30-Windows-arm64-Portable.zip` | zip | `f1987aee217b2c5ee13f2339b6921274be4d2c3dacbe6c0acf5445e561b8584c` |
+| macOS | universal | `CC-Switch-v4.0.30-macOS.zip` | zip | `2474a2c5158a481ba217d466fc28c06e795d19f5b791d6bca721c0f8db98df6c` |
+| Linux | x86_64 | `CC-Switch-v4.0.30-Linux-x86_64.AppImage` | AppImage | `aa8b5dde02ee1b89a1508704963ff2316a58b15f4d532597d2d67aa710ff1890` |
+| Linux | arm64 | `CC-Switch-v4.0.30-Linux-arm64.AppImage` | AppImage | `6d1215c3e23ec842782126523b8fc9eeef78ffd9bc5a12c2149c0f3303ea6e22` |
 
 ## Requirements
 
@@ -38,8 +38,6 @@ The installer reports that condition instead of changing system packages.
 
 ## Update Procedure
 
-1. Select a published release and verify its commit.
-2. Obtain the five official asset hashes from release metadata.
-3. Update `manifest.json`, this file, and the pinned version.
-4. Update install, check, lock, and CI assertions together.
-5. Verify every supported asset before release.
+1. Run `pnpm upstream:sync` from the repository root.
+2. Review the release, license, commit, and all five official asset hashes.
+3. Verify installation, ownership records, and CI on each supported platform before release.

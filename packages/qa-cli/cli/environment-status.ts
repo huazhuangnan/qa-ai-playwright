@@ -9,7 +9,8 @@ export function environmentStatus(env: Environment): object {
   const initialized = existsSync(env.marker) && lstatSync(env.marker).isFile()
     && !lstatSync(env.marker).isSymbolicLink() && readFileSync(env.marker, 'utf8').trim() === OWNER
     && (stack === 'python' || stack === 'typescript' || stack === 'both')
-    && (profile === 'standard' || profile === 'full');
+    && (profile === 'standard' || profile === 'full')
+    && env.state.init_status !== 'initializing' && env.state.init_status !== 'uninstalled';
   const configured = env.state.components;
   const components: Record<string, boolean> = {};
   if (configured && typeof configured === 'object' && !Array.isArray(configured)) {
@@ -21,6 +22,9 @@ export function environmentStatus(env: Environment): object {
     return { ...tool, recordedVersion: typeof recorded === 'string' ? recorded : null,
       detectedVersion: tool.version ?? null };
   });
+  const recordedInstallations = env.state.installations;
+  const installations = recordedInstallations && typeof recordedInstallations === 'object' && !Array.isArray(recordedInstallations)
+    ? recordedInstallations : {};
   return { root: env.root, initialized, stack: typeof stack === 'string' ? stack : null,
-    profile: typeof profile === 'string' ? profile : null, components, tools };
+    profile: typeof profile === 'string' ? profile : null, components, installations, tools };
 }

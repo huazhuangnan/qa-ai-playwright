@@ -1,5 +1,10 @@
 # TypeScript 项目模板版本
 
+## 未发布
+
+- 支持通过 `QA_BROWSER_CHANNEL` 和 `QA_BROWSER_EXECUTABLE_PATH` 为 Chromium 测试和登录态生成选择已有 Chrome、Edge 或 Chromium。
+- 将 Skill 安装引导更新至官方安装器 1.8.1。
+
 ## 0.0.1 - 2026-11-11
 
 - 修复 Windows 下认证状态路径测试的盘符预期。

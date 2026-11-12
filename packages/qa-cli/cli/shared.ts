@@ -28,7 +28,7 @@ export type Stack = 'python' | 'typescript' | 'both';
 export type SkillProfile = 'standard' | 'full';
 
 /** Supported browser selections. */
-export type Browser = 'chromium' | 'firefox' | 'webkit' | 'all' | 'none';
+export type Browser = 'chromium' | 'chrome' | 'msedge' | 'firefox' | 'webkit' | 'all' | 'none';
 
 /** Default runtime versions loaded from `packages/qa-cli/runtime-versions.env`. */
 export interface RuntimeSettings {
@@ -61,7 +61,7 @@ const DEFAULT_SETTINGS: RuntimeSettings = {
   playwrightCliVersion: '0.1.24',
   playwrightMcpVersion: '0.0.85',
   agentBrowserVersion: '0.42.0',
-  ccSwitchVersion: '4.0.28',
+  ccSwitchVersion: '4.0.30',
 };
 
 const SETTING_KEYS: Record<keyof RuntimeSettings, string> = {

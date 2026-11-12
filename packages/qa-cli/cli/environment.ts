@@ -8,14 +8,17 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   readdirSync,
   realpathSync,
+  renameSync,
   rmdirSync,
   writeFileSync,
 } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { basename, delimiter, dirname, join, resolve } from 'node:path';
+import { basename, delimiter, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { findSystemBrowser, type SelectedBrowser } from './browser-discovery.ts';
 
 import {
   OWNER,
@@ -91,6 +94,7 @@ export interface EnvironmentInitOptions {
   profile: SkillProfile;
   skipCodex: boolean;
   skipSkills: boolean;
+  withCcSwitch?: boolean;
 }
 
 /** Options accepted by `env check`. */
@@ -99,6 +103,7 @@ export interface EnvironmentCheckOptions {
   profile: SkillProfile;
   skipCodex: boolean;
   skipSkills: boolean;
+  withCcSwitch?: boolean;
 }
 
 /** Options for one child process invocation. */
@@ -330,6 +335,19 @@ export class Environment {
     return bin;
   }
 
+  /** Persist an observation without assuming shared tools can safely be removed. */
+  private recordInstallation(name: string, observation: Record<string, unknown>): void {
+    const records = this.objectValue(this.state.installations);
+    const previous = this.objectValue(records[name]);
+    const source = observation.source === 'reused' && previous.status === 'pending'
+      ? 'unknown' : observation.source === 'reused' && previous.source === 'qa'
+      && previous.status === 'ready' && previous.path === observation.path
+      && (previous.version === observation.version || previous.version === 'unknown') ? 'qa' : observation.source;
+    records[name] = { ...(source === 'qa' ? previous : {}), ...observation, source };
+    this.state.installations = records;
+    this.save();
+  }
+
   /** Installs a missing tool using npm's user or system global prefix. */
   private installGlobal(packageSpec: string, executableName?: string, packageName?: string): void {
     const args = ['install', '--global', packageSpec];
@@ -340,8 +358,15 @@ export class Environment {
     const tool = executableName ?? packageBase?.split('/').at(-1);
     if (!tool) throw new Error(`Cannot determine executable for ${packageSpec}`);
     if (this.globalTool(tool) || (packageName && this.globalPackage(packageName, this.globalTool(tool)))) return;
+    this.recordInstallation(packageBase ?? tool, { status: 'pending', source: 'unknown', scope: 'system-or-user', package: packageBase, requested: packageSpec, npm_bin: this.state.global_npm_bin });
     console.log(`Installing missing global tool: npm ${args.join(' ')}`);
     this.globalNpm(args);
+    const path = this.globalTool(tool) ?? (packageBase ? this.globalPackage(packageBase) : '');
+    const packagePath = packageBase ? this.globalPackage(packageBase, path) : '';
+    const version = this.globalPackageVersion(packagePath);
+    const globalBin = String(this.state.global_npm_bin);
+    const installedAtPrefix = Boolean(path && (within(resolve(path), resolve(globalBin)) || (packagePath && path === packagePath)));
+    this.recordInstallation(packageBase ?? tool, { status: path ? 'ready' : 'pending', source: installedAtPrefix ? 'qa' : 'unknown', scope: 'system-or-user', package: packageBase, path, package_path: packagePath, version: version ?? 'unknown', requested: packageSpec });
   }
 
   get bunBin(): string { return this.globalTool('bun') ?? ''; }
@@ -391,6 +416,12 @@ export class Environment {
    */
   requireInitialized(requiredStack?: Stack): void {
     const initializedStack = this.state.stack;
+    if (this.state.init_status === 'initializing') {
+      throw new Error('Environment initialization is incomplete. Run qa env repair or rerun the original env init command');
+    }
+    if (this.state.init_status === 'uninstalled') {
+      throw new Error('Environment was uninstalled. Run qa env repair or rerun the original env init command');
+    }
     if (
       !existsSync(this.marker)
       || !existsSync(this.stateFile)
@@ -498,10 +529,14 @@ export class Environment {
     ].filter(Boolean))];
     values.PATH = pathParts.join(WINDOWS ? ';' : ':');
 
-    const browser = this.playwrightChromiumExecutable();
+    const browser = this.findBrowser();
     if (browser) {
-      values.AGENT_BROWSER_EXECUTABLE_PATH = browser;
+      values.AGENT_BROWSER_EXECUTABLE_PATH = browser.path;
     }
+    if (this.environment.QA_BROWSER_CHANNEL !== undefined) values.QA_BROWSER_CHANNEL = this.environment.QA_BROWSER_CHANNEL;
+    else if (browser) values.QA_BROWSER_CHANNEL = browser.channel === 'chromium' ? '' : browser.channel;
+    if (this.environment.QA_BROWSER_EXECUTABLE_PATH !== undefined) values.QA_BROWSER_EXECUTABLE_PATH = this.environment.QA_BROWSER_EXECUTABLE_PATH;
+    else if (browser) values.QA_BROWSER_EXECUTABLE_PATH = browser.scope === 'environment' ? '' : browser.path;
     return values;
   }
 
@@ -699,6 +734,15 @@ export class Environment {
     const bun = this.bun(['--version'], { capture: true })?.trim();
     const pnpm = this.pnpm(['--version'], { capture: true })?.trim();
     if (!bun || !pnpm) throw new Error('Could not determine global Bun or pnpm version');
+    for (const [name, actual, baseline] of [['bun', bun, this.bunVersion], ['pnpm', pnpm, this.pnpmVersion]]) {
+      const actualMajor = /^(\d+)\./u.exec(actual ?? '')?.[1];
+      const baselineMajor = /^(\d+)\./u.exec(baseline ?? '')?.[1];
+      if (!actualMajor || !baselineMajor || actualMajor !== baselineMajor) {
+        console.warn(`${name} version ${actual} differs from the configured baseline ${baseline}; check compatibility`);
+      }
+    }
+    this.recordInstallation('bun', { status: 'ready', source: 'reused', scope: 'system-or-user', path: this.bunBin, version: bun });
+    this.recordInstallation('pnpm', { status: 'ready', source: 'reused', scope: 'system-or-user', path: this.pnpmBin, version: pnpm });
     return { bun, pnpm };
   }
 
@@ -734,9 +778,14 @@ export class Environment {
     let entry = this.findCcSwitch();
     if (entry) {
       const metadata = this.readJson(join(this.ccSwitchDir, '.qa-cc-switch.json'));
+      if (within(resolve(entry), this.ccSwitchDir) && (metadata?.entry !== entry || typeof metadata?.version !== 'string')
+        && existsSync(join(this.ccSwitchDir, '.qa-cc-switch-pending.json'))) {
+        throw new Error(`CC Switch installation was interrupted after publication; preserve and inspect ${this.ccSwitchDir} before retrying`);
+      }
       const owned = within(resolve(entry), this.ccSwitchDir) && metadata?.entry === entry;
       const version = owned && typeof metadata?.version === 'string' ? metadata.version : 'unknown';
       this.state.cc_switch_installation = { scope: owned ? 'user' : 'system-or-user', source: owned ? 'qa' : 'reused', path: entry, version };
+      this.recordInstallation('cc-switch', { status: 'ready', ...this.objectValue(this.state.cc_switch_installation) });
       this.writeCcSwitchWrapper(entry);
       console.log(`Reusing CC Switch: ${entry}`);
       return version;
@@ -748,9 +797,6 @@ export class Environment {
     const arch = process.platform === 'darwin' ? 'universal' : process.arch;
     const asset = manifest.assets.find(item => item.platform === process.platform && item.arch === arch);
     if (!asset) throw new Error(`CC Switch has no portable asset for ${process.platform}/${process.arch}`);
-    if (existsSync(this.ccSwitchDir)) {
-      throw new Error(`CC Switch shared directory already exists and will be preserved: ${this.ccSwitchDir}`);
-    }
     const archive = join(this.root, 'cache', 'downloads', asset.file);
     if (!existsSync(archive) || digest(archive) !== asset.sha256) {
       console.log(`Downloading CC Switch: ${manifest.download_base}/${asset.file} -> ${archive}`);
@@ -759,19 +805,44 @@ export class Environment {
     if (digest(archive) !== asset.sha256) throw new Error(`CC Switch SHA256 mismatch: ${asset.file}`);
     console.log(`Installing CC Switch into shared user directory: ${this.ccSwitchDir}`);
     mkdirSync(dirname(this.ccSwitchDir), { recursive: true });
-    // Exclusive creation prevents overwriting a directory created by another environment.
-    mkdirSync(this.ccSwitchDir);
+    const pendingFile = join(this.ccSwitchDir, '.qa-cc-switch-pending.json');
+    if (existsSync(this.ccSwitchDir)) {
+      const pending = this.readJson(pendingFile);
+      const record = this.objectValue(this.objectValue(this.state.installations)['cc-switch']);
+      if (lstatSync(this.ccSwitchDir).isSymbolicLink() || pending?.root !== this.root
+        || pending?.sha256 !== asset.sha256 || record.status !== 'pending'
+        || record.path !== this.ccSwitchDir || readdirSync(this.ccSwitchDir).some(name => name !== basename(pendingFile))) {
+        throw new Error(`CC Switch shared directory already exists and will be preserved: ${this.ccSwitchDir}`);
+      }
+    }
+    // Extraction uses a unique sibling so interrupted unpacking cannot appear installed.
+    const staging = mkdtempSync(join(dirname(this.ccSwitchDir), '.qa-cc-switch-stage-'));
+    this.recordInstallation('cc-switch', { status: 'pending', source: 'unknown', scope: 'user', path: this.ccSwitchDir, staging, version: manifest.version });
     if (asset.format === 'appimage') {
-      const target = join(this.ccSwitchDir, 'cc-switch.AppImage');
+      const target = join(staging, 'cc-switch.AppImage');
       copyFileSync(archive, target);
       chmodSync(target, 0o755);
     } else {
-      extractArchive(archive, this.ccSwitchDir);
+      extractArchive(archive, staging);
     }
-    entry = findCcSwitchEntry(this.ccSwitchDir, process.platform);
-    if (!entry) throw new Error(`CC Switch executable was not found; shared directory preserved: ${this.ccSwitchDir}`);
+    entry = findCcSwitchEntry(staging, process.platform);
+    if (!entry) throw new Error(`CC Switch executable was not found; staging directory preserved: ${staging}`);
+    const relativeEntry = relative(staging, entry);
+    if (!existsSync(this.ccSwitchDir)) {
+      // Exclusive creation prevents replacing another installation.
+      mkdirSync(this.ccSwitchDir);
+      atomicJson(pendingFile, { root: this.root, sha256: asset.sha256 });
+    }
+    const pending = this.readJson(pendingFile);
+    if (pending?.root !== this.root || pending?.sha256 !== asset.sha256
+      || readdirSync(this.ccSwitchDir).some(name => name !== basename(pendingFile))) {
+      throw new Error(`CC Switch shared directory changed and will be preserved: ${this.ccSwitchDir}`);
+    }
+    renameSync(staging, join(this.ccSwitchDir, 'payload'));
+    entry = join(this.ccSwitchDir, 'payload', relativeEntry);
     atomicJson(join(this.ccSwitchDir, '.qa-cc-switch.json'), { entry, version: manifest.version });
     this.state.cc_switch_installation = { scope: 'user', source: 'qa', path: entry, version: manifest.version };
+    this.recordInstallation('cc-switch', { status: 'ready', ...this.objectValue(this.state.cc_switch_installation) });
     this.writeCcSwitchWrapper(entry);
     return manifest.version;
   }
@@ -806,10 +877,10 @@ export class Environment {
     mkdirSync(bin, { recursive: true });
     const cli = join(this.repo, 'packages/qa-cli/qa-cli.ts');
     if (WINDOWS) {
-      writeFileSync(wrapper, `@echo off\r\nrem ${marker}\r\nstart "" "${this.node}" --experimental-strip-types "${cli}" --root "${this.root}" run cc-switch %*\r\n`, 'utf8');
+      writeFileSync(wrapper, `@echo off\r\nrem ${marker}\r\nrem Shortcut to the detected CC Switch application; this file is not the application.\r\nstart "" "${this.node}" --experimental-strip-types "${cli}" --root "${this.root}" run cc-switch %*\r\n`, 'utf8');
       return;
     }
-    writeFileSync(wrapper, `#!/usr/bin/env bash\n# ${marker}\nexec ${shellQuote(this.node)} --experimental-strip-types ${shellQuote(cli)} --root ${shellQuote(this.root)} run cc-switch "$@"\n`, 'utf8');
+    writeFileSync(wrapper, `#!/usr/bin/env bash\n# ${marker}\n# Shortcut to the detected CC Switch application; this file is not the application.\nexec ${shellQuote(this.node)} --experimental-strip-types ${shellQuote(cli)} --root ${shellQuote(this.root)} run cc-switch "$@"\n`, 'utf8');
     chmodSync(wrapper, 0o755);
   }
   /**
@@ -974,6 +1045,35 @@ export class Environment {
     return undefined;
   }
 
+  /** Select a system browser first, then the environment's Chromium. */
+  findBrowser(channel?: SelectedBrowser['channel']): SelectedBrowser | undefined {
+    const path = this.environment.QA_BROWSER_EXECUTABLE_PATH;
+    const configured = this.environment.QA_BROWSER_CHANNEL;
+    const configuredChannel = configured === undefined || configured === '' ? 'chromium' : configured;
+    if (path && (!channel || channel === configuredChannel)) {
+      if ((configuredChannel !== 'chrome' && configuredChannel !== 'msedge' && configuredChannel !== 'chromium') || !isAbsolute(path)) return undefined;
+      try {
+        const info = lstatSync(path);
+        if (!info.isFile() && !info.isSymbolicLink()) return undefined;
+        accessSync(path, WINDOWS ? constants.F_OK : constants.X_OK);
+        return { channel: configuredChannel, path, scope: 'system-or-user' };
+      } catch { return undefined; }
+    }
+    if (!channel && this.environment.QA_BROWSER_CHANNEL !== undefined) {
+      const configured = this.environment.QA_BROWSER_CHANNEL;
+      if (configured === '') channel = 'chromium';
+      else if (configured === 'chrome' || configured === 'msedge') channel = configured;
+      else return undefined;
+    }
+    if (!(channel === 'chromium' && configured === '' && !path)) {
+      const system = findSystemBrowser(this.environment, channel);
+      if (system) return system;
+      if (channel && channel !== 'chromium') return undefined;
+    }
+    const chromium = this.playwrightChromiumExecutable();
+    return chromium ? { channel: 'chromium', path: chromium, scope: 'environment' } : undefined;
+  }
+
   /**
    * Ensures the global Microsoft Playwright CLI is available.
    *
@@ -987,6 +1087,7 @@ export class Environment {
     if (!this.playwrightCliBin || !version) {
       throw new Error('Global Playwright CLI exists but its executable or package metadata is unavailable');
     }
+    this.recordInstallation('@playwright/cli', { status: 'ready', source: 'reused', scope: 'system-or-user', path: this.playwrightCliBin, package_path: this.playwrightCliPackage, version });
     return version;
   }
 
@@ -1003,6 +1104,7 @@ export class Environment {
     if (!this.agentBrowser || !version) {
       throw new Error('Global Agent Browser exists but its executable or package metadata is unavailable');
     }
+    this.recordInstallation('agent-browser', { status: 'ready', source: 'reused', scope: 'system-or-user', path: this.agentBrowser, package_path: this.agentBrowserPackage, version });
     return version;
   }
 
@@ -1017,10 +1119,10 @@ export class Environment {
       this.agentBrowserPackage,
       'bin/agent-browser.js',
     );
-    const chromium = this.playwrightChromiumExecutable();
-    if (!existsSync(entry) || !chromium) {
+    const browser = this.findBrowser();
+    if (!existsSync(entry) || !browser) {
       throw new Error(
-        'Agent Browser MCP needs its CLI entry and Playwright Chromium',
+        'Agent Browser MCP needs its CLI entry and an available browser',
       );
     }
     return {
@@ -1053,7 +1155,7 @@ export class Environment {
           this.root,
           'agent-browser-config.json',
         ),
-        AGENT_BROWSER_EXECUTABLE_PATH: chromium,
+        AGENT_BROWSER_EXECUTABLE_PATH: browser.path,
       },
     };
   }
@@ -1348,9 +1450,30 @@ export class Environment {
     if (!installed || !this.playwrightMcpPackage || !existsSync(entry)) {
       throw new Error('Global Playwright MCP exists but its package metadata or entrypoint is unavailable');
     }
-    this.run([this.node, entry, 'install-browser', 'chromium']);
-    if (!this.playwrightChromiumExecutable()) throw new Error('Playwright Chromium installation is incomplete');
-    this.registerMcp('playwright', this.playwrightMcpServer(entry), 'external', installed);
+    this.recordInstallation('@playwright/mcp', { status: 'ready', source: 'reused', scope: 'system-or-user', path: this.globalTool('playwright-mcp') ?? this.playwrightMcpPackage, package_path: this.playwrightMcpPackage, version: installed });
+    let browser = this.findBrowser();
+    if (!browser) {
+      const preferred = this.environment.QA_BROWSER_CHANNEL;
+      if (preferred || this.environment.QA_BROWSER_EXECUTABLE_PATH) {
+        throw new Error(`Requested browser channel or executable was not found or is invalid; check QA_BROWSER_CHANNEL and QA_BROWSER_EXECUTABLE_PATH`);
+      }
+      this.recordInstallation('chromium', { status: 'pending', source: 'unknown', scope: 'environment', path: join(this.root, 'cache', 'browsers') });
+      console.log('No existing Chrome, Edge, or Chromium found; installing environment Chromium.');
+      this.run([this.node, entry, 'install-browser', 'chromium']);
+      browser = this.findBrowser('chromium');
+      if (!browser) throw new Error('Playwright Chromium installation is incomplete');
+      this.recordInstallation('chromium', { status: 'ready', source: 'qa', scope: 'environment', path: browser.path, version: 'unknown' });
+    } else {
+      this.recordInstallation(browser.channel, { status: 'ready', source: 'reused', scope: browser.scope, path: browser.path, version: 'unknown' });
+    }
+    try {
+      this.registerMcp('playwright', this.playwrightMcpServer(entry), 'external', installed);
+    } catch (error) {
+      if (error instanceof Error && /already exists or differs|conflicting QA ownership record/u.test(error.message)) {
+        throw new Error(`${error.message}. Inspect the registration and ownership. If it belongs to this environment and is unmodified, run qa env uninstall and repeat env init with the original options.`);
+      }
+      throw error;
+    }
     return installed;
   }
 
@@ -1361,6 +1484,7 @@ export class Environment {
    * @returns Expected server configuration.
    */
   playwrightMcpServer(entry: string): McpServerConfig {
+    const browser = this.findBrowser();
     return {
       command: this.node,
       env: { PLAYWRIGHT_BROWSERS_PATH: join(this.root, 'cache/browsers') },
@@ -1369,6 +1493,7 @@ export class Environment {
         '--headless',
         '--browser',
         'chromium',
+        ...(browser ? ['--executable-path', browser.path] : []),
         '--isolated',
         '--output-dir',
         join(this.root, 'mcp-output'),
@@ -1456,6 +1581,31 @@ export class Environment {
       && keys(left.env) === keys(right.env);
   }
 
+  /** Restricts automatic re-registration to the selected browser executable. */
+  private browserPathOnlyChange(name: string, previous: McpServerConfig, expected: McpServerConfig): boolean {
+    if (name === 'playwright') {
+      const oldArgs = [...(previous.args ?? [])];
+      const newArgs = [...(expected.args ?? [])];
+      const oldIndex = oldArgs.indexOf('--executable-path');
+      const newIndex = newArgs.indexOf('--executable-path');
+      if (oldIndex < 0 && newIndex >= 0 && newArgs.lastIndexOf('--executable-path') === newIndex && newArgs[newIndex + 1]) {
+        newArgs.splice(newIndex, 2);
+        return this.sameMcpConfig(previous, { ...expected, args: newArgs });
+      }
+      if (oldIndex < 0 || oldIndex !== newIndex || oldArgs.lastIndexOf('--executable-path') !== oldIndex
+        || newArgs.lastIndexOf('--executable-path') !== newIndex || !oldArgs[oldIndex + 1] || !newArgs[newIndex + 1]) return false;
+      oldArgs[oldIndex + 1] = newArgs[newIndex + 1] ?? '';
+      return this.sameMcpConfig({ ...previous, args: oldArgs }, expected);
+    }
+    if (name === 'agent-browser') {
+      const key = 'AGENT_BROWSER_EXECUTABLE_PATH';
+      const nextPath = expected.env?.[key];
+      if (!nextPath) return false;
+      return this.sameMcpConfig({ ...previous, env: { ...previous.env, [key]: nextPath } }, expected);
+    }
+    return false;
+  }
+
   registerMcp(name: string, expected: McpServerConfig, sourceType: SkillSource, version: string): void {
     const manifest = mcpManifest(name, sourceType, this.repo);
     if (sourceType === 'builtin' && manifest.version !== version) throw new Error(`MCP manifest version mismatch for ${name}`);
@@ -1465,22 +1615,32 @@ export class Environment {
       const serverName = this.mcpName(name);
       const record = this.objectValue(servers[serverName]);
       const present = this.hasMcpConfig(serverName);
+      const recorded = this.objectValue(record.config) as McpServerConfig;
+      const owned = record.scope === 'user' && record.root === this.root && record.name === name
+        && record.source_type === sourceType && record.manifest === `packages/mcp/${sourceType}/${name}.json`
+        && typeof record.snapshot === 'string' && !!record.snapshot;
+      const browserMigration = owned && this.browserPathOnlyChange(name, recorded, expected);
       if (present) {
-        if (record.scope !== 'user' || record.root !== this.root || record.source_type !== sourceType
-          || !this.sameMcpConfig(this.objectValue(record.config) as McpServerConfig, expected)
-          || !this.sameMcpConfig(readMcpServerConfig(this.mcpConfig, serverName), expected)
+        if (!owned || !this.sameMcpConfig(readMcpServerConfig(this.mcpConfig, serverName), recorded)
           || !record.snapshot || record.snapshot !== this.mcpConfigSnapshot(serverName)) {
           throw new Error(`MCP ${serverName} already exists or differs from its QA record; preserve it and resolve the conflict manually`);
         }
-        console.log(`KEEP MCP ${serverName}`);
-      } else {
-        if (Object.keys(record).length && (record.root !== this.root || record.scope !== 'user' || record.source_type !== sourceType || !this.sameMcpConfig(this.objectValue(record.config) as McpServerConfig, expected))) {
+        if (!this.sameMcpConfig(recorded, expected)) {
+          if (!browserMigration) throw new Error(`MCP ${serverName} differs from its QA record; preserve it and resolve the conflict manually`);
+          this.codex(['mcp', 'remove', serverName]);
+          if (this.hasMcpConfig(serverName)) throw new Error(`MCP ${serverName} is still present after removal`);
+        } else console.log(`KEEP MCP ${serverName}`);
+      }
+      if (!this.hasMcpConfig(serverName)) {
+        if (Object.keys(record).length && (!owned || (!this.sameMcpConfig(recorded, expected) && !browserMigration))) {
           throw new Error(`MCP ${serverName} has a conflicting QA ownership record`);
         }
         const command = ['mcp', 'add', serverName];
         for (const [key, value] of Object.entries(expected.env ?? {})) command.push('--env', `${key}=${value}`);
         command.push('--', expected.command ?? '', ...(expected.args ?? []));
-        this.codex(command);
+        try { this.codex(command); } catch (error) {
+          throw new Error(`Could not register MCP ${serverName}; its ownership record is preserved. Retry env init or inspect the registration: ${String(error)}`);
+        }
       }
       const snapshot = this.mcpConfigSnapshot(serverName);
       if (!snapshot || !this.sameMcpConfig(readMcpServerConfig(this.mcpConfig, serverName), expected)) throw new Error(`Unable to verify MCP ${serverName}; its configuration is preserved`);
@@ -1522,12 +1682,12 @@ export class Environment {
 
     writeFileSync(
       join(this.root, 'activate.sh'),
-      `${bash.join('\n')}\n`,
+      `# Source this file to set the current shell's QA environment variables and PATH.\n${bash.join('\n')}\n`,
       'utf8',
     );
     writeFileSync(
       join(this.root, 'activate.ps1'),
-      `${powershell.join('\n')}\n`,
+      `# Dot-source this file to set the current shell's QA environment variables and PATH.\n${powershell.join('\n')}\n`,
       'utf8',
     );
   }
@@ -1546,6 +1706,8 @@ export class Environment {
     }
 
     this.state.schema = 1;
+    this.state.init_status = 'initializing';
+    this.state.init_options = { ...options, withCcSwitch: options.withCcSwitch === true };
     this.save();
     mkdirSync(join(this.root, 'tmp'), { recursive: true });
     if (profile === 'full' && !options.skipSkills) {
@@ -1578,15 +1740,22 @@ export class Environment {
       this.state.python = version;
       this.state.uv =
         this.run([this.uv, '--version'], { capture: true }) ?? '';
+      this.recordInstallation('python', { status: 'ready', source: 'unknown', scope: 'environment', path: python, version });
+      this.recordInstallation('uv', { status: 'ready', source: typeof this.state.uv_sha256 === 'string' ? 'qa' : 'unknown', scope: 'environment', path: this.uv, version: this.state.uv });
     }
 
     this.state.node = await this.ensureNode();
+    this.recordInstallation('node', { status: 'ready', source: 'unknown', scope: within(resolve(this.node), this.root) ? 'environment' : 'system-or-user', path: this.node, version: this.state.node });
     const packageManagers = await this.ensurePackageManagers();
     this.discoverGlobalNpmBin();
     this.state.bun = packageManagers.bun;
     this.state.pnpm = packageManagers.pnpm;
-    this.state.cc_switch = await this.ensureCcSwitch();
-    this.state.cc_switch_version = this.state.cc_switch;
+    if (options.withCcSwitch) {
+      this.state.cc_switch = await this.ensureCcSwitch();
+      this.state.cc_switch_version = this.state.cc_switch;
+      const cc = this.objectValue(this.state.cc_switch_installation);
+      this.recordInstallation('cc-switch', { status: 'ready', ...cc });
+    }
     if (!options.skipCodex) {
       if (!this.codexBin) {
         const codex = this.codexManifest();
@@ -1594,6 +1763,8 @@ export class Environment {
       }
       const codexVersion = this.codex(['--version'], { capture: true });
       this.state.codex = codexVersion;
+      const codexPackage = this.globalPackage('@openai/codex', this.codexBin);
+      this.recordInstallation('@openai/codex', { status: 'ready', source: 'reused', scope: 'system-or-user', path: this.codexBin, package_path: codexPackage, version: this.globalPackageVersion(codexPackage) ?? codexVersion ?? 'unknown' });
       this.registerMcp(
         'qa',
         {
@@ -1612,6 +1783,22 @@ export class Environment {
       this.state.playwright_cli = await this.ensurePlaywrightCli();
       if (profile === 'full') {
         this.state.agent_browser = await this.ensureAgentBrowser();
+        if (options.skipCodex) {
+          let browser = this.findBrowser();
+          if (browser) {
+            this.recordInstallation(browser.channel, { status: 'ready', source: 'reused', scope: browser.scope, path: browser.path, version: 'unknown' });
+          } else {
+            if (this.environment.QA_BROWSER_CHANNEL || this.environment.QA_BROWSER_EXECUTABLE_PATH) {
+              throw new Error('Requested browser channel or executable was not found or is invalid; check QA_BROWSER_CHANNEL and QA_BROWSER_EXECUTABLE_PATH');
+            }
+            this.recordInstallation('chromium', { status: 'pending', source: 'unknown', scope: 'environment', path: join(this.root, 'cache', 'browsers') });
+            console.log('No existing Chrome, Edge, or Chromium found; installing environment Chromium.');
+            this.runGlobal(this.playwrightCliBin, ['install-browser', 'chromium'], { env: { NO_UPDATE_NOTIFIER: '1' } });
+            browser = this.findBrowser('chromium');
+            if (!browser) throw new Error('Playwright Chromium installation is incomplete');
+            this.recordInstallation('chromium', { status: 'ready', source: 'qa', scope: 'environment', path: browser.path, version: 'unknown' });
+          }
+        }
       }
       if (profile === 'full' && !options.skipCodex) {
         this.state.agent_browser_mcp =
@@ -1629,7 +1816,7 @@ export class Environment {
       agent_browser: profile === 'full' && !options.skipSkills,
       agent_browser_mcp:
         profile === 'full' && !options.skipCodex && !options.skipSkills,
-      cc_switch: true,
+      cc_switch: options.withCcSwitch === true,
     };
     this.state.policy = {
       profile,
@@ -1642,12 +1829,13 @@ export class Environment {
       agent_browser_version: this.agentBrowserVersion,
       cc_switch_version: this.ccSwitchVersion,
     };
-    this.save();
     this.activate();
+    this.state.init_status = 'ready';
+    this.save();
     console.log(
       `Ready. Local activation files: ${join(this.root, 'activate.ps1')} / activate.sh`,
     );
-    console.log(`CC Switch ${this.state.cc_switch} is available at ${this.findCcSwitch() ?? "unknown"}`);
+    if (options.withCcSwitch) console.log(`CC Switch ${this.state.cc_switch} is available at ${this.findCcSwitch() ?? "unknown"}`);
     if (!options.skipCodex) {
       console.log(
         'Codex uses the selected user CODEX_HOME and its shared credentials.',
@@ -1675,6 +1863,9 @@ export class Environment {
   /** Probes components while preserving the caller's cache and temporary paths. */
   private checkComponents(options: EnvironmentCheckOptions): number {
     const missing: string[] = [];
+    if (this.state.init_status === 'initializing' || this.state.init_status === 'uninstalled') {
+      missing.push('environment-initialization');
+    }
     if (!options.skipSkills) {
       try { this.discoverGlobalNpmBin(); } catch { /* Component checks report missing tools below. */ }
     }
@@ -1729,7 +1920,7 @@ export class Environment {
         missing.push(name);
       }
     }
-    if (!this.findCcSwitch()) {
+    if ((options.withCcSwitch ?? this.objectValue(this.state.components).cc_switch === true) && !this.findCcSwitch()) {
       missing.push('cc-switch');
     }
 
@@ -1771,6 +1962,7 @@ export class Environment {
       const current = readMcpServerConfig(this.mcpConfig, this.mcpName('playwright'));
       const expected = this.playwrightMcpServer(entry);
       if (
+        !this.findBrowser() ||
         !this.globalPackageVersion(this.playwrightMcpPackage) ||
         !this.sameMcpConfig(current, expected)
       ) {
@@ -1781,6 +1973,7 @@ export class Environment {
     if (!options.skipSkills) {
       if (options.profile === 'full') {
         const agentVersion = this.globalPackageVersion(this.agentBrowserPackage);
+        if (!this.findBrowser()) missing.push('agent-browser-browser');
         if (
           !agentVersion ||
           !existsSync(this.agentBrowser)

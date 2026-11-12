@@ -16,7 +16,7 @@
 - 每个 Skill 单独检查：当前会话、项目 `.agents/skills/`、`CODEX_HOME/skills/`、`~/.codex/skills/`、`~/.agents/skills/`。已有可用项直接读取，不安装或覆盖。
 - 跨作用域的 QA Skill 的同级链接不一定存在。按 Skill 名称重新查找，缺失时只安装所需项。
 - 缺少 QA Skill 时，从本仓库 `QA_REPO/packages/skills/builtin/` 对应目录安装到业务项目。先激活 QA 环境以设置 `QA_REPO`。找不到源或安装失败时报告，不伪造成功。
-- 在业务项目根目录安装缺失的 `qa-core`：PowerShell 使用 `bunx skills@1.7.6 add "$env:QA_REPO/packages/skills/builtin/qa-core" --skill qa-core --agent codex --copy --yes`；Bash 使用 `bunx skills@1.7.6 add "$QA_REPO/packages/skills/builtin/qa-core" --skill qa-core --agent codex --copy --yes`。其他 QA Skill 替换目录名与 `--skill` 名称。安装后确认项目文件并读取。
+- 在业务项目根目录安装缺失的 `qa-core`：PowerShell 使用 `bunx skills@1.8.1 add "$env:QA_REPO/packages/skills/builtin/qa-core" --skill qa-core --agent codex --copy --yes`；Bash 使用 `bunx skills@1.8.1 add "$QA_REPO/packages/skills/builtin/qa-core" --skill qa-core --agent codex --copy --yes`。其他 QA Skill 替换目录名与 `--skill` 名称。安装后确认项目文件并读取。
 - 项目目标目录已存在但不完整时不要覆盖。安装失败或权限不足时报告，并继续不依赖它的工作。无需为了 Skill 写全局目录。
 - 成功安装到项目后，在 `docs/qa/tasks/skill-installs.md` 记录 Skill 名称、`scope=project`、来源及实际版本或提交。不修改第三方锁文件。复用已有 Skill 时不新增安装记录。
 - 公共 fixture、辅助函数和复杂分支使用 docstring，说明用途、参数、返回值与非显然约束。
@@ -29,6 +29,7 @@
 - 凭证来自环境变量；认证状态、报告及抓包可能包含敏感信息，不得提交。
 - 从公共和环境示例文件复制 `.env`、`.env.dev`、`.env.stg`。真实文件已被忽略。
 - 用 `QA_ENV` 选择 `.env.<环境>` 文件。各环境文件使用相同的变量名。
+- 优先复用可用的系统浏览器。使用 `QA_BROWSER_CHANNEL=chrome` 或 `msedge` 选择对应通道。自定义安装位置使用 `QA_BROWSER_EXECUTABLE_PATH`。通道为空时，路径指向系统 Chromium；路径也为空时使用 Playwright 管理的 Chromium。
 - `QA_ENV`、`UI_BASE_URL` 和 `API_BASE_URL` 是基础示例。项目变量按契约增加并登记到 `docs/qa/inputs/input-index.md`。
 - UI 与 API 地址不同时分别配置。`BASE_URL` 仅用于兼容旧项目。
 - API 请求必须设置超时，检查状态码和适用的业务契约。

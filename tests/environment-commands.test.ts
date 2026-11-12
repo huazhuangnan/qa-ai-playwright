@@ -16,13 +16,14 @@ test('environment list reports recorded and discovered information without write
     const env = new Environment({ root, env: { PATH: '' } });
     assert.equal((environmentStatus(env) as { initialized: boolean }).initialized, false);
     assert.equal(existsSync(root), false);
-    Object.assign(env.state, { stack: 'typescript', profile: 'standard', bun: '1.0.0', components: { codex: false } });
+    Object.assign(env.state, { stack: 'typescript', profile: 'standard', bun: '1.0.0', components: { codex: false }, installations: { bun: { source: 'reused', path: join(base, 'bun'), status: 'ready' } } });
     env.save();
     const before = readFileSync(env.stateFile);
     env.listDiscoveredTools = () => [{ name: 'bun', path: join(base, 'bun'), scope: 'system-or-user', source: 'unknown' }];
-    const result = environmentStatus(env) as { initialized: boolean; stack: string; tools: { recordedVersion: string; detectedVersion: null; source: string }[] };
+    const result = environmentStatus(env) as { initialized: boolean; stack: string; installations: { bun: { source: string; path: string; status: string } }; tools: { recordedVersion: string; detectedVersion: null; source: string }[] };
     assert.equal(result.initialized, true);
     assert.equal(result.stack, 'typescript');
+    assert.deepEqual(result.installations.bun, { source: 'reused', path: join(base, 'bun'), status: 'ready' });
     assert.deepEqual(result.tools.map(({ recordedVersion, detectedVersion, source }) => ({ recordedVersion, detectedVersion, source })), [
       { recordedVersion: '1.0.0', detectedVersion: null, source: 'unknown' },
     ]);
@@ -42,7 +43,7 @@ test('environment repair restores recorded configuration even when Bun and pnpm 
     env.init = async (options) => { selected = options; return 0; };
     const result = await executeEnvironment({ command: 'env', action: 'repair', root: env.root }, env, async () => true);
     assert.equal(result, 0);
-    assert.deepEqual(selected, { stack: 'python', profile: 'full', skipCodex: true, skipSkills: false });
+    assert.deepEqual(selected, { stack: 'python', profile: 'full', skipCodex: true, skipSkills: false, withCcSwitch: false });
   } finally {
     rmSync(base, { recursive: true, force: true });
   }
@@ -54,6 +55,46 @@ test('environment repair rejects missing ownership and state', async () => {
     const env = new Environment({ root: join(base, 'environment'), env: { PATH: '' } });
     await assert.rejects(executeEnvironment({ command: 'env', action: 'repair', root: env.root }, env, async () => true), /ownership or state/);
   } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('repair resumes interrupted options and successful uninstall invalidates the environment', async () => {
+  const base = mkdtempSync(join(tmpdir(), 'qa-env-resume-'));
+  try {
+    const env = new Environment({ root: join(base, 'environment'), env: { PATH: '' } });
+    const options: EnvironmentInitOptions = { stack: 'typescript', profile: 'full', skipCodex: true, skipSkills: false, withCcSwitch: true };
+    Object.assign(env.state, { stack: 'typescript', profile: 'full', init_status: 'initializing', init_options: options });
+    env.save();
+    assert.equal((environmentStatus(env) as { initialized: boolean }).initialized, false);
+    let selected: EnvironmentInitOptions | undefined;
+    env.init = async (value) => { selected = value; return 0; };
+    await executeEnvironment({ command: 'env', action: 'repair', root: env.root }, env, async () => true);
+    assert.deepEqual(selected, options);
+    env.removeSharedMcpRegistrations = () => ({ removed: [], absent: [], preserved: [], failed: [] });
+    assert.equal(await executeEnvironment({ command: 'env', action: 'uninstall', root: env.root }, env, async () => true), 20);
+    assert.equal(env.state.init_status, 'uninstalled');
+    assert.equal((environmentStatus(env) as { initialized: boolean }).initialized, false);
+    assert.equal(parseArgs(['env', 'init', 'typescript', '--with-cc-switch']).withCcSwitch, true);
+    assert.throws(() => parseArgs(['env', 'init', 'typescript', '--with-cc-switch=false']), /Unknown option/);
+  } finally { rmSync(base, { recursive: true, force: true }); }
+});
+
+test('environment check reports incomplete or uninstalled status', () => {
+  const base = mkdtempSync(join(tmpdir(), 'qa-env-status-'));
+  const oldLog = console.log;
+  try {
+    const env = new Environment({ root: join(base, 'environment'), env: { PATH: '' } });
+    const logs: string[] = [];
+    console.log = (...values: unknown[]) => { logs.push(values.join(' ')); };
+    for (const status of ['initializing', 'uninstalled']) {
+      env.state.init_status = status;
+      assert.equal(env.check({ stack: 'typescript', profile: 'standard', skipCodex: true, skipSkills: true }), 1);
+      const report = JSON.parse(logs.at(-1) ?? '{}') as { missing: string[] };
+      assert.ok(report.missing.includes('environment-initialization'));
+    }
+  } finally {
+    console.log = oldLog;
     rmSync(base, { recursive: true, force: true });
   }
 });

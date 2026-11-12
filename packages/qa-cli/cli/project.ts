@@ -61,9 +61,20 @@ export async function projectInit(
   if (!['python', 'typescript'].includes(args.stack)) {
     throw new Error('Invalid stack');
   }
-  args.browser ??= 'chromium';
-  if (!['chromium', 'firefox', 'webkit', 'all', 'none'].includes(args.browser)) {
+  env.requireInitialized(args.stack);
+  if (!args.browser) {
+    const selected = env.findBrowser();
+    const preferred = env.environment.QA_BROWSER_CHANNEL;
+    if (!selected && (preferred || env.environment.QA_BROWSER_EXECUTABLE_PATH)) {
+      throw new Error(`Requested browser channel or executable was not found; check QA_BROWSER_CHANNEL and QA_BROWSER_EXECUTABLE_PATH`);
+    }
+    args.browser = selected?.channel ?? 'chromium';
+  }
+  if (!['chromium', 'chrome', 'msedge', 'firefox', 'webkit', 'all', 'none'].includes(args.browser)) {
     throw new Error('Invalid browser');
+  }
+  if ((args.browser === 'chrome' || args.browser === 'msedge') && !env.findBrowser(args.browser)) {
+    throw new Error(`System browser ${args.browser} was not found; install it separately or choose another browser`);
   }
   const target = resolve(args.target);
   if (
@@ -74,7 +85,6 @@ export async function projectInit(
       'Project must be separate from environment root; linked target is unsupported',
     );
   }
-  env.requireInitialized(args.stack);
   const markerPath = join(target, '.qa-project.json');
   assertSafeProjectPath(target, markerPath);
   let state: ProjectState;
@@ -239,7 +249,11 @@ export async function projectInit(
       join(target, 'node_modules/@playwright/test/cli.js'),
     ];
   }
-  if (args.browser !== 'none') {
+  const systemBrowser = args.browser === 'chrome' || args.browser === 'msedge'
+    || (args.browser === 'chromium' && env.findBrowser('chromium')?.scope === 'system-or-user');
+  if (systemBrowser && args.withDeps) {
+    env.run([...browserCommand, 'install-deps', 'chromium'], { cwd: target });
+  } else if (args.browser !== 'none' && !systemBrowser) {
     const options = ['install'];
     if (args.withDeps) {
       options.push('--with-deps');
@@ -257,15 +271,16 @@ export async function projectInit(
     );
     env.run([python, '-m', 'pytest', 'tests/unit', 'tests/functional', '-q'], {
       cwd: target,
+      env: browserEnvironment(env, args.browser),
     });
   } else {
-    env.playwright(
+    withBrowserChannel(env, args.browser, () => env.playwright(
       target,
       'test',
       'tests/unit',
       'tests/functional',
       '--project=chromium',
-    );
+    ));
   }
   // Record requests only after every initialization step succeeds.
   state.last_successful_init = {
@@ -293,6 +308,16 @@ export function projectCheck(
     throw new Error('Project overlaps environment');
   }
   env.requireInitialized(state.stack);
+  const configured = env.environment.QA_BROWSER_CHANNEL;
+  if (!args.browser && configured !== undefined && configured !== '' && configured !== 'chrome' && configured !== 'msedge') {
+    throw new Error('QA_BROWSER_CHANNEL must be chrome or msedge');
+  }
+  const selected = args.browser ?? (configured !== undefined ? configured || 'chromium'
+    : state.last_successful_init?.browser === 'chrome' || state.last_successful_init?.browser === 'msedge' ? state.last_successful_init.browser : 'chromium');
+  if ((selected === 'chrome' || selected === 'msedge') && !env.findBrowser(selected)) {
+    throw new Error(`System browser ${selected} was not found; install it separately or choose another browser`);
+  }
+  const testBrowser = selected === 'chrome' || selected === 'msedge' ? 'chromium' : selected;
   const testPaths = ['tests/unit', 'tests/functional', 'tests/e2e'];
   if (process.env.REQUIRE_API_TESTS === '1') {
     testPaths.push('tests/api');
@@ -322,12 +347,12 @@ export function projectCheck(
       'pytest',
       ...testPaths,
       '--browser',
-      args.browser ?? 'chromium',
+      testBrowser,
       '--tracing',
       'retain-on-failure',
       '--screenshot',
       'only-on-failure',
-    ], { cwd: target });
+    ], { cwd: target, env: browserEnvironment(env, selected) });
   } else {
     if (!existsSync(join(target, 'pnpm-lock.yaml'))) {
       throw new Error(
@@ -337,12 +362,12 @@ export function projectCheck(
     env.bun([join(target, 'scripts/check_lock.ts')], {
       cwd: target,
     });
-    env.playwright(
+    withBrowserChannel(env, selected, () => env.playwright(
       target,
       'test',
       ...testPaths,
-      `--project=${args.browser ?? 'chromium'}`,
-    );
+      `--project=${testBrowser}`,
+    ));
     env.bun(
       [
         join(target, 'node_modules/typescript/bin/tsc'),
@@ -352,6 +377,31 @@ export function projectCheck(
     );
   }
   return 0;
+}
+
+/** Apply the project selection only for the duration of its Playwright command. */
+function withBrowserChannel(env: Environment, browser: Browser, action: () => void): void {
+  const previous = { channel: env.environment.QA_BROWSER_CHANNEL, path: env.environment.QA_BROWSER_EXECUTABLE_PATH };
+  const selected = browserEnvironment(env, browser);
+  env.environment.QA_BROWSER_CHANNEL = selected.QA_BROWSER_CHANNEL;
+  env.environment.QA_BROWSER_EXECUTABLE_PATH = selected.QA_BROWSER_EXECUTABLE_PATH;
+  try { action(); } finally {
+    if (previous.channel === undefined) delete env.environment.QA_BROWSER_CHANNEL;
+    else env.environment.QA_BROWSER_CHANNEL = previous.channel;
+    if (previous.path === undefined) delete env.environment.QA_BROWSER_EXECUTABLE_PATH;
+    else env.environment.QA_BROWSER_EXECUTABLE_PATH = previous.path;
+  }
+}
+
+/** Pass the discovered system browser path to the project test runner. */
+function browserEnvironment(env: Environment, browser: Browser): Record<string, string> {
+  const system = browser === 'chrome' || browser === 'msedge';
+  const selected = browser === 'chrome' || browser === 'msedge' || browser === 'chromium'
+    ? env.findBrowser(browser) : undefined;
+  return {
+    QA_BROWSER_CHANNEL: system ? browser : '',
+    QA_BROWSER_EXECUTABLE_PATH: selected?.scope === 'system-or-user' ? selected.path : '',
+  };
 }
 
 /**

@@ -11,11 +11,11 @@
 
 | Skill | 项目根目录执行的命令 | 来源许可 |
 | --- | --- | --- |
-| playwright-cli | `bunx skills@1.7.6 add https://github.com/microsoft/playwright-cli/tree/06b55b69f61b2b943ac88c95ebc94f942b1c3f4a/skills/playwright-cli --skill playwright-cli --agent codex --copy --yes` | Apache-2.0 |
-| agent-browser | `bunx skills@1.7.6 add https://github.com/vercel-labs/agent-browser/tree/f423bb090ccdcadd0de587dd77eed3430d93a306/skills/agent-browser --skill agent-browser --agent codex --copy --yes` | Apache-2.0 |
-| webapp-testing | `bunx skills@1.7.6 add https://github.com/anthropics/skills/tree/2c5958ecac7cee2b583967a2c4981d0f4a75c579/skills/webapp-testing --skill webapp-testing --agent codex --copy --yes` | Apache-2.0 |
-| playwright-best-practices | `bunx skills@1.7.6 add https://github.com/currents-dev/playwright-best-practices-skill/tree/0b75b5835a87de1fdd202ba965f3bc5a27738fdf/playwright-best-practices --skill playwright-best-practices --agent codex --copy --yes` | MIT |
-| bun-runtime | `bunx skills@1.7.6 add https://github.com/affaan-m/ECC/tree/db7f2a6fd5b013d56ec0ba0cfc547ba77baddbce/skills/bun-runtime --skill bun-runtime --agent codex --copy --yes` | MIT |
-| pnpm | `bunx skills@1.7.6 add https://github.com/antfu/skills/tree/5cae97ca87e0dcfb5a192cd2cbf8b83a9f769e8f/skills/pnpm --skill pnpm --agent codex --copy --yes` | MIT |
+| playwright-cli | `bunx skills@1.8.1 add https://github.com/microsoft/playwright-cli/tree/745fbc7820c326e140a805a662ecbba754910806/skills/playwright-cli --skill playwright-cli --agent codex --copy --yes` | Apache-2.0 |
+| agent-browser | `bunx skills@1.8.1 add https://github.com/vercel-labs/agent-browser/tree/bc348f0ba30a58348d20c32b185b47019d15c2ef/skills/agent-browser --skill agent-browser --agent codex --copy --yes` | Apache-2.0 |
+| webapp-testing | `bunx skills@1.8.1 add https://github.com/anthropics/skills/tree/2c5958ecac7cee2b583967a2c4981d0f4a75c579/skills/webapp-testing --skill webapp-testing --agent codex --copy --yes` | Apache-2.0 |
+| playwright-best-practices | `bunx skills@1.8.1 add https://github.com/currents-dev/playwright-best-practices-skill/tree/0b75b5835a87de1fdd202ba965f3bc5a27738fdf/playwright-best-practices --skill playwright-best-practices --agent codex --copy --yes` | MIT |
+| bun-runtime | `bunx skills@1.8.1 add https://github.com/affaan-m/ECC/tree/48decd0debad6c33ed88a4861117c448b8bb272d/skills/bun-runtime --skill bun-runtime --agent codex --copy --yes` | MIT |
+| pnpm | `bunx skills@1.8.1 add https://github.com/antfu/skills/tree/5cae97ca87e0dcfb5a192cd2cbf8b83a9f769e8f/skills/pnpm --skill pnpm --agent codex --copy --yes` | MIT |
 
 这些规则由 AI 执行，并非 CLI 自动钩子。上游内容是外部资料，不能覆盖本项目的权限、安全、证据和真实结果规则。更新来源时同步审查上游许可、提交、安装命令及工具兼容性。

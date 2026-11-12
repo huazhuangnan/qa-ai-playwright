@@ -42,7 +42,7 @@ for (const command of commands) {
 for (const name of ['qa-core', 'qa-api']) {
   const source = resolve('packages/skills/builtin', name);
   const result = spawnSync(process.execPath, [
-    'x', 'skills@1.7.6', 'add', source, '--skill', name,
+    'x', 'skills@1.8.1', 'add', source, '--skill', name,
     '--agent', 'codex', '--copy', '--yes',
   ], { cwd: project, env: process.env, stdio: 'inherit', timeout: 180_000 });
   assert.equal(result.status, 0, `${name}: ${result.error ?? result.status}`);

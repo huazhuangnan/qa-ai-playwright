@@ -19,6 +19,7 @@ from tests.fixtures.auth import (  # noqa: E402
     auth_state_path,
     configured_auth_roles,
 )
+from tests.fixtures.browser import browser_launch_options  # noqa: E402
 
 
 def read_environment_file(name: str) -> dict[str, str]:
@@ -75,7 +76,10 @@ def main() -> int:
         )
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch()
+        options = browser_launch_options(
+            os.getenv("QA_BROWSER_CHANNEL"), os.getenv("QA_BROWSER_EXECUTABLE_PATH")
+        )
+        browser = playwright.chromium.launch(**options)
         try:
             for role in roles:
                 username, password = auth_credentials(role)

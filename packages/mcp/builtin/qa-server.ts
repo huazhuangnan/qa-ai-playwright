@@ -25,7 +25,7 @@ const schema = (properties: JsonObject = {}, required: string[] = []): JsonObjec
   type: 'object', properties, required, additionalProperties: false,
 });
 const project = stringProperty('Project directory, absolute or relative to the server working directory.');
-const browser = stringProperty('Browser to use.', ['chromium', 'firefox', 'webkit', 'all', 'none']);
+const browser = stringProperty('Browser to use.', ['chromium', 'chrome', 'msedge', 'firefox', 'webkit', 'all', 'none']);
 const tools: Tool[] = [
   { name: 'qa_template_list', description: 'List delivered QA and language templates.', inputSchema: schema() },
   { name: 'qa_template_check', description: 'Check delivered template directories and versions.', inputSchema: schema() },
@@ -38,7 +38,7 @@ const tools: Tool[] = [
   { name: 'qa_env_uv_rollback', description: 'Restore an environment-owned uv snapshot.', inputSchema: schema({ snapshot: stringProperty('Snapshot identifier.') }, ['snapshot']) },
   { name: 'qa_doctor', description: 'Diagnose the configured QA environment.', inputSchema: schema() },
   { name: 'qa_project_init', description: 'Initialize a project and install its dependencies.', inputSchema: schema({ project, language: stringProperty('Project language.', ['python', 'typescript']), browser, withDeps: { type: 'boolean' } }, ['project', 'language']) },
-  { name: 'qa_project_check', description: 'Run the managed project checks and tests; this can take time.', inputSchema: schema({ project, browser: stringProperty('Browser to use.', ['chromium', 'firefox', 'webkit']) }, ['project']) },
+  { name: 'qa_project_check', description: 'Run the managed project checks and tests; this can take time.', inputSchema: schema({ project, browser: stringProperty('Browser to use.', ['chromium', 'chrome', 'msedge', 'firefox', 'webkit']) }, ['project']) },
   { name: 'qa_project_plan', description: 'Compare the project with its templates without changing files.', inputSchema: schema({ project }, ['project']) },
   { name: 'qa_project_upgrade', description: 'Report manual project template upgrade guidance without changing files.', inputSchema: schema({ project }, ['project']) },
   { name: 'qa_project_repair', description: 'Restore missing managed project files.', inputSchema: schema({ project }, ['project']) },

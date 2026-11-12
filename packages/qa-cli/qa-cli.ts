@@ -44,6 +44,7 @@ export interface ParsedArguments {
   full?: boolean;
   skipCodex?: boolean;
   skipSkills?: boolean;
+  withCcSwitch?: boolean;
   includeExternal?: boolean;
   target?: string;
   snapshotId?: string;
@@ -247,6 +248,8 @@ export function parseArgs(
         parsed.skipCodex = true;
       } else if (command === 'env' && (action === 'init' || action === 'check') && name === '--skip-skills') {
         parsed.skipSkills = true;
+      } else if (command === 'env' && (action === 'init' || action === 'check') && name === '--with-cc-switch' && inline === undefined) {
+        parsed.withCcSwitch = true;
       } else if (
         command === 'env'
         && (action === 'init' || action === 'check')
@@ -266,7 +269,7 @@ export function parseArgs(
       } else if (command === 'project' && (action === 'init' || action === 'check') && name === '--browser') {
         const browser = parseBrowser(takeValue());
         if (action === 'check' && (browser === 'all' || browser === 'none')) {
-          throw new Error('project check --browser requires chromium, firefox, or webkit');
+          throw new Error('project check --browser requires chromium, chrome, msedge, firefox, or webkit');
         }
         parsed.browser = browser;
       } else {
@@ -390,7 +393,7 @@ export async function execute(args: ParsedArguments): Promise<number> {
       browser:
         args.browser && !['all', 'none'].includes(args.browser)
           ? (args.browser as Exclude<Browser, 'all' | 'none'>)
-          : 'chromium',
+          : undefined,
     };
     return args.action === 'check'
       ? projectCheck(env, projectArgs)
@@ -466,14 +469,14 @@ export function runCommand(env: Environment, initial: string[]): number {
 
 function helpText(): string {
   return [
-    'qa env init <python|typescript|both> [--full]',
+    'qa env init <python|typescript|both> [--full] [--with-cc-switch]',
     'qa env list',
     'qa env repair',
     'qa env plan uv',
     'qa env upgrade uv  (manual-only guidance; no automatic upgrade)',
     'qa env snapshots uv',
     'qa env rollback <snapshot>',
-    'qa env check <python|typescript|both> [--full]',
+    'qa env check <python|typescript|both> [--full] [--with-cc-switch]',
     'qa env uninstall [--include-external]',
     '  --include-external: unavailable while shared usage cannot be verified',
     'qa project init <project> --language <python|typescript> [--browser <name>]',
@@ -537,6 +540,8 @@ function quoteShell(value: string): string {
 function parseBrowser(value: string): Browser {
   if (
     value === 'chromium' ||
+    value === 'chrome' ||
+    value === 'msedge' ||
     value === 'firefox' ||
     value === 'webkit' ||
     value === 'all' ||

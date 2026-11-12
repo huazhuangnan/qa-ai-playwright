@@ -49,6 +49,15 @@ const configuredAuthState = process.env.QA_AUTH_STATE;
 const authRoles = configuredAuthRoles();
 const authRole = selectedAuthRole();
 const authSetupEnabled = authRoles.length > 0;
+const browserChannel = process.env.QA_BROWSER_CHANNEL?.trim() || undefined;
+const browserExecutablePath = process.env.QA_BROWSER_EXECUTABLE_PATH?.trim() || undefined;
+if (browserChannel && !['chrome', 'msedge'].includes(browserChannel)) {
+  throw new Error('QA_BROWSER_CHANNEL must be chrome or msedge');
+}
+const chromiumLaunch = {
+  ...(browserChannel ? { channel: browserChannel } : {}),
+  ...(browserExecutablePath ? { launchOptions: { executablePath: browserExecutablePath } } : {}),
+};
 const authState = configuredAuthState || authSetupEnabled
   ? authStatePath(authRole)
   : undefined;
@@ -65,6 +74,7 @@ function browserProject(
     name,
     use: {
       ...device,
+      ...(name === 'chromium' ? chromiumLaunch : {}),
       storageState: authState,
     },
     ...(authSetupEnabled ? { dependencies: ['auth-setup'] } : {}),
@@ -104,7 +114,7 @@ export default defineConfig({
     : undefined,
   projects: [
     ...(authSetupEnabled
-      ? [{ name: 'auth-setup', testMatch: /auth\.setup\.ts/ }]
+      ? [{ name: 'auth-setup', testMatch: /auth\.setup\.ts/, use: chromiumLaunch }]
       : []),
     browserProject('chromium', devices['Desktop Chrome']),
     browserProject('firefox', devices['Desktop Firefox']),

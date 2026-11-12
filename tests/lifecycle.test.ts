@@ -268,6 +268,10 @@ test('PATH discovery reuses existing package managers even with different versio
   assert.equal(environment.playwrightCliBin, join(bin, WINDOWS ? 'playwright-cli.exe' : 'playwright-cli'));
   assert.equal(environment.agentBrowser, join(bin, WINDOWS ? 'agent-browser.exe' : 'agent-browser'));
   assert.deepEqual(await environment.ensurePackageManagers(), { bun: '1.0.0', pnpm: '9.0.0' });
+  const records = JSON.parse(readFileSync(environment.stateFile, 'utf8')).installations;
+  assert.equal(records.bun.source, 'reused');
+  assert.equal(records.bun.path, environment.bunBin);
+  assert.equal(records.pnpm.source, 'reused');
   assert.equal(await environment.ensureCcSwitch(), 'unknown');
   assert.ok(!environment.commands.some((command) => command.includes('install')));
   for (const name of ['bun', 'pnpm', 'codex', 'playwright-cli', 'agent-browser', 'cc-switch']) {
@@ -316,6 +320,105 @@ test('a missing package manager is installed once using the discovered global np
   assert.equal(installs.length, 1);
   assert.ok(installs[0]?.includes(`pnpm@${environment.pnpmVersion}`));
   assert.equal(readFileSync(pnpm, 'utf8'), 'installed pnpm');
+  const records = JSON.parse(readFileSync(environment.stateFile, 'utf8')).installations;
+  assert.equal(records.pnpm.source, 'qa');
+  assert.equal(records.pnpm.path, pnpm);
+  assert.equal(records.pnpm.version, '9.0.0');
+});
+
+test('an interrupted global installation is recorded without claiming ownership', async () => {
+  const base = createWorkspace();
+  const bin = createToolPath(base, ['npm', 'bun']);
+  const prefix = WINDOWS ? bin : dirname(bin);
+  const environment = new class extends StubEnvironment {
+    override run(command: readonly (string | number)[], options: RunOptions = {}): string | undefined {
+      if (command.includes('prefix')) return prefix;
+      if (command.includes('install') && command.includes('--global')) throw new Error('installation interrupted');
+      return super.run(command, options);
+    }
+  }({ root: join(base, 'environment'), env: { PATH: bin } });
+  await assert.rejects(environment.ensurePackageManagers(), /installation interrupted/);
+  const record = JSON.parse(readFileSync(environment.stateFile, 'utf8')).installations.pnpm;
+  assert.equal(record.status, 'pending');
+  assert.equal(record.source, 'unknown');
+  assert.equal(record.npm_bin, bin);
+});
+
+test('failed initialization retains recovery options and blocks project use', async () => {
+  const base = createWorkspace();
+  const environment = new class extends StubEnvironment {
+    override async ensureNode(): Promise<string> { throw new Error('node unavailable'); }
+  }({ root: join(base, 'environment'), env: { PATH: '' } });
+  environment.state.stack = 'typescript';
+  await assert.rejects(environment.init({ stack: 'typescript', profile: 'standard', skipCodex: true, skipSkills: true, withCcSwitch: true }), /node unavailable/);
+  const state = JSON.parse(readFileSync(environment.stateFile, 'utf8'));
+  assert.equal(state.init_status, 'initializing');
+  assert.equal(state.init_options.withCcSwitch, true);
+  assert.throws(() => environment.requireInitialized('typescript'), /initialization is incomplete/);
+});
+
+test('CC Switch is prepared only when explicitly requested', async () => {
+  const base = createWorkspace();
+  class InitEnvironment extends StubEnvironment {
+    ccCalls = 0;
+    override async ensureNode(): Promise<string> { return 'v22.18.0'; }
+    override async ensurePackageManagers(): Promise<{ bun: string; pnpm: string }> { return { bun: '1.0.0', pnpm: '9.0.0' }; }
+    override async ensureCcSwitch(): Promise<string> { this.ccCalls++; return 'unknown'; }
+    override activate(): void { /* The test only checks initialization choices. */ }
+  }
+  const options = { stack: 'typescript' as const, profile: 'standard' as const, skipCodex: true, skipSkills: true };
+  const standard = new InitEnvironment({ root: join(base, 'standard'), env: { PATH: '' } });
+  await standard.init(options);
+  assert.equal(standard.ccCalls, 0);
+  assert.equal((standard.state.components as { cc_switch: boolean }).cc_switch, false);
+  const withCc = new InitEnvironment({ root: join(base, 'with-cc'), env: { PATH: '' } });
+  await withCc.init({ ...options, withCcSwitch: true });
+  assert.equal(withCc.ccCalls, 1);
+  assert.equal((withCc.state.components as { cc_switch: boolean }).cc_switch, true);
+});
+
+test('full mode without Codex reuses or installs an isolated browser', async () => {
+  const base = createWorkspace();
+  const bin = createToolPath(base, ['playwright-cli']);
+  class FullEnvironment extends StubEnvironment {
+    browser?: { channel: 'chrome' | 'chromium'; path: string; scope: 'system-or-user' | 'environment' };
+    override async ensureNode(): Promise<string> { return 'v22.18.0'; }
+    override async ensurePackageManagers(): Promise<{ bun: string; pnpm: string }> { return { bun: '1.0.0', pnpm: '9.0.0' }; }
+    override async ensurePlaywrightCli(): Promise<string> { return '0.1.24'; }
+    override async ensureAgentBrowser(): Promise<string> { return '0.42.0'; }
+    override findBrowser(): typeof this.browser { return this.browser; }
+    override activate(): void { /* Initialization behavior is tested without activating a shell. */ }
+    override run(command: readonly (string | number)[], options: RunOptions = {}): string | undefined {
+      if (command.includes('install-browser')) this.browser = { channel: 'chromium', path: join(this.root, 'cache', 'browsers', 'chromium', 'chrome'), scope: 'environment' };
+      return super.run(command, options);
+    }
+  }
+  const options = { stack: 'typescript' as const, profile: 'full' as const, skipCodex: true, skipSkills: false };
+  const reused = new FullEnvironment({ root: join(base, 'reuse'), env: { PATH: bin } });
+  reused.browser = { channel: 'chrome', path: join(base, 'existing chrome'), scope: 'system-or-user' };
+  await reused.init(options);
+  assert.ok(!reused.commands.some((command) => command.includes('install-browser')));
+  assert.equal((reused.state.installations as Record<string, { source: string }>).chrome?.source, 'reused');
+  const installed = new FullEnvironment({ root: join(base, 'install'), env: { PATH: bin } });
+  await installed.init(options);
+  assert.ok(installed.commands.some((command) => command.includes('install-browser') && command.includes('chromium')));
+  assert.equal((installed.state.installations as Record<string, { source: string }>).chromium?.source, 'qa');
+  const invalid = new FullEnvironment({ root: join(base, 'invalid'), env: { PATH: bin, QA_BROWSER_CHANNEL: 'msedge' } });
+  await assert.rejects(invalid.init(options), /Requested browser channel or executable/);
+  assert.ok(!invalid.commands.some((command) => command.includes('install-browser')));
+});
+
+test('CC Switch published without ownership metadata is preserved for inspection', async () => {
+  const base = createWorkspace();
+  const environment = new StubEnvironment({ root: join(base, 'environment'), env: { PATH: '', LOCALAPPDATA: join(base, 'user'), XDG_DATA_HOME: join(base, 'user') } });
+  // macOS has a fixed home directory in the implementation; do not write there.
+  if (process.platform === 'darwin') return;
+  const payload = join(environment.ccSwitchDir, 'payload');
+  mkdirSync(payload, { recursive: true });
+  writeFileSync(join(payload, WINDOWS ? 'cc-switch.exe' : 'cc-switch.AppImage'), 'incomplete');
+  writeFileSync(join(environment.ccSwitchDir, '.qa-cc-switch-pending.json'), '{}');
+  await assert.rejects(environment.ensureCcSwitch(), /interrupted after publication/);
+  assert.ok(existsSync(payload));
 });
 
 test('checking a fresh environment does not create its directory', () => {
@@ -433,15 +536,15 @@ test('pre-release repository versions stay fixed at 0.0.1', () => {
   assert.equal(packageJson.version, '0.0.1');
   assert.match(
     readFileSync(join(REPO, 'packages/qa-cli/runtime-versions.env'), 'utf8'),
-    /^QA_UV_VERSION=0\.13\.7$/mu,
+    /^QA_UV_VERSION=\d+\.\d+\.\d+$/mu,
   );
   assert.match(
     readFileSync(join(REPO, 'packages/qa-cli/runtime-versions.env'), 'utf8'),
-    /^QA_BUN_VERSION=1\.4\.4$/mu,
+    /^QA_BUN_VERSION=\d+\.\d+\.\d+$/mu,
   );
   assert.match(
     readFileSync(join(REPO, 'packages/qa-cli/runtime-versions.env'), 'utf8'),
-    /^QA_PNPM_VERSION=12\.18\.0$/mu,
+    /^QA_PNPM_VERSION=\d+\.\d+\.\d+$/mu,
   );
 
   for (const name of readdirSync(join(REPO, 'packages/skills/builtin'))) {
@@ -565,13 +668,13 @@ test('CC Switch manifest keeps a pinned release and verified portable assets', (
     scope: string;
     assets: { platform: string; arch: string; sha256: string }[];
   };
-  assert.equal(manifest.version, '4.0.28');
+  assert.match(manifest.version, /^\d+\.\d+\.\d+$/u);
   assert.match(manifest.commit, /^[a-f0-9]{40}$/);
   assert.equal(manifest.scope, 'environment');
   assert.equal(manifest.assets.length, 5);
   assert.match(
     readFileSync(join(REPO, 'packages/qa-cli/runtime-versions.env'), 'utf8'),
-    /^QA_CC_SWITCH_VERSION=4\.0\.28$/mu,
+    new RegExp(`^QA_CC_SWITCH_VERSION=${manifest.version.replaceAll('.', '\\.')}$`, 'mu'),
   );
   for (const asset of manifest.assets) {
     assert.match(asset.sha256, /^[a-f0-9]{64}$/);

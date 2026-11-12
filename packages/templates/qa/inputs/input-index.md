@@ -21,6 +21,8 @@
 | `UI_BASE_URL` | 页面入口 | 页面服务地址 | UI | `.env.<环境>` 或 `vars` | 按项目 | 可访问且协议正确 |
 | `API_BASE_URL` | API 入口 | 接口服务地址 | API | `.env.<环境>`、`vars` 或 secret | 按项目 | 可访问且协议正确 |
 | `BASE_URL` | 兼容入口 | 旧项目回退地址 | 全部 | `.env.<环境>`、`vars` 或 secret | 否 | 新项目优先用分离变量 |
+| `QA_BROWSER_CHANNEL` | 浏览器 | 选择 Chromium 浏览器通道 | UI | `.env.<环境>`、进程环境或 CI | 否 | `chrome`、`msedge` 或空值；空值使用 Chromium |
+| `QA_BROWSER_EXECUTABLE_PATH` | 浏览器 | 指定系统浏览器的可执行文件路径 | UI | `.env.<环境>`、进程环境或 CI | 否 | 路径指向对应浏览器；通道为空时指定 Chromium |
 | `QA_API_TOKEN` | 认证 | API Token | 按项目 | secret 或密钥系统 | 按项目 | Token 有效且权限最小 |
 | `QA_API_TOKEN_HEADER` | 认证 | Token 请求头名称 | 按项目 | `.env.<环境>` | 否 | 与接口契约一致 |
 | `QA_API_AUTH_SCHEME` | 认证 | Token 认证前缀 | 按项目 | `.env.<环境>` | 否 | 与接口契约一致 |

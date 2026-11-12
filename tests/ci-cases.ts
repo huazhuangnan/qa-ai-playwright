@@ -133,6 +133,9 @@ async function environmentCase(): Promise<void> {
   assert.ok(playwright.args?.includes('--isolated'));
   assert.ok((playwright.args?.indexOf('--browser') ?? -1) >= 0);
   assert.equal(playwright.args?.[playwright.args.indexOf('--browser') + 1], 'chromium');
+  const browserIndex = playwright.args?.indexOf('--executable-path') ?? -1;
+  assert.ok(browserIndex >= 0);
+  assert.ok(playwright.args?.[browserIndex + 1]);
   assert.ok(playwright.args?.includes(join(ROOT, 'mcp-output')));
   const agentBrowser = readMcpServerConfig(
     CONFIG,
@@ -183,7 +186,7 @@ async function environmentCase(): Promise<void> {
   writeFileSync(legacy, 'preserve existing Skill', 'utf8');
   writeFileSync(lock, '{"schema":1,"skills":{"qa-python":{"scope":"environment"}}}', 'utf8');
   const before = readFileSync(lock);
-  const repeat = spawnSync(launcher[0] as string, [...launcher.slice(1), 'env', 'init', 'both', '--full'], {
+  const repeat = spawnSync(launcher[0] as string, [...launcher.slice(1), 'env', 'init', 'both', '--full', '--with-cc-switch'], {
     cwd: REPO,
     env: process.env,
     encoding: 'utf8',

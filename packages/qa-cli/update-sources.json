@@ -1,5 +1,5 @@
 {
-  "qa": { "repository": "", "ref": "" },
+  "qa": { "repository": "huazhuangnan/qa-ai-playwright", "ref": "" },
   "sources": [
     { "name": "bun", "type": "github-release", "target": "oven-sh/bun", "tagPrefix": "bun-v", "currentFrom": "runtime:QA_BUN_VERSION" },
     { "name": "pnpm", "type": "npm", "target": "pnpm", "currentFrom": "runtime:QA_PNPM_VERSION" },
