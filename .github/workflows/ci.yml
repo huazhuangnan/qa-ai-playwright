@@ -504,7 +504,7 @@ jobs:
     permissions:
       contents: write
     env:
-      QA_ROOT: ${{ runner.temp }}/qa-release-environment
+      QA_ROOT: ${{ github.workspace }}/workspaces/qa-release-environment
       QA_NODE_MAJOR: '26'
       QA_PYTHON_VERSION: '3.15'
       CI: 'true'

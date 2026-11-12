@@ -164,10 +164,48 @@ jobs:
             $env:Path = $originalProcessPath
           }
 
+  package-macos:
+    name: Verify package on macOS
+    needs: package
+    runs-on: macos-15-intel
+    timeout-minutes: 10
+    steps:
+      - name: Download package artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: qa-ai-playwright-package-${{ github.run_id }}
+          path: ${{ runner.temp }}/release
+      - name: Install and uninstall package
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive=$(find "$RUNNER_TEMP/release" -maxdepth 1 -name '*.zip' -print -quit)
+          test -n "$archive"
+          unpacked="$RUNNER_TEMP/unpacked-macos-package"
+          smoke_home="$RUNNER_TEMP/package install home with spaces"
+          mkdir -p "$unpacked" "$smoke_home"
+          printf 'export QA_PACKAGE_SETTING=1' > "$smoke_home/.bashrc"
+          unzip -q "$archive" -d "$unpacked"
+          root=$(find "$unpacked" -mindepth 1 -maxdepth 1 -type d -print -quit)
+          test -f "$root/packages/qa-cli/bin/install.sh"
+          HOME="$smoke_home" QA_ROOT="$RUNNER_TEMP/package-macos-environment" \
+            bash "$root/packages/qa-cli/bin/install.sh"
+          (cd "$RUNNER_TEMP" && HOME="$smoke_home" bash -lc 'test "$(command -v qa)" = "$HOME/.local/bin/qa" && qa --help | grep -F "qa project init" >/dev/null')
+          (cd "$RUNNER_TEMP" && HOME="$smoke_home" zsh -lc 'test "$(command -v qa)" = "$HOME/.local/bin/qa" && qa --help | grep -F "qa project init" >/dev/null')
+          HOME="$smoke_home" QA_ROOT="$RUNNER_TEMP/package-macos-environment" \
+            bash "$root/packages/qa-cli/bin/install.sh" --uninstall
+          test ! -e "$smoke_home/.local/share/qa-ai-playwright"
+          test ! -e "$smoke_home/.profile"
+          test ! -e "$smoke_home/.bash_profile"
+          test ! -e "$smoke_home/.bash_login"
+          test ! -e "$smoke_home/.zprofile"
+          test ! -e "$smoke_home/.zshrc"
+          grep -Fx 'export QA_PACKAGE_SETTING=1' "$smoke_home/.bashrc"
+
   publish:
     name: Publish GitHub Release
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release }}
-    needs: [package, package-windows]
+    needs: [package, package-macos, package-windows]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:

@@ -371,7 +371,7 @@ Release 工作流将该文件作为正文前缀，再追加 GitHub 自动生成�
 手动打包使用独立的 `Package` 工作流。它从 GitHub Actions 中所选分支运行
 `package:release` 对应的 Bun 脚本生成使用者包。
 相关 push 和 pull request 会执行同一打包检查。
-工作流在临时用户目录中安装、启动并卸载打包结果，再上传 ZIP 与 `SHA256SUMS.txt`。
+工作流在 Linux、macOS 和 Windows 临时用户目录中安装、启动并卸载打包结果，再上传 ZIP 与 `SHA256SUMS.txt`。
 默认只保存 Actions Artifact。
 启用 `publish_release` 后按 `package.json` 版本创建 GitHub Release。
 同名 Release 只有在同时启用 `force_overwrite` 时才会更新用户包和校验文件。
