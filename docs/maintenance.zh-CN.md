@@ -372,6 +372,12 @@ Release 工作流将该文件作为正文前缀，再追加 GitHub 自动生成�
 
 主 CI 的触发边界见[CI 触发与验证范围](#ci-触发与验证范围)。
 
+手动打包使用独立的 `Package` 工作流。它从 GitHub Actions 中所选分支运行
+`package:release` 对应的 Bun 脚本，校验 ZIP 内容并上传 ZIP 与
+`SHA256SUMS.txt`。默认只保存 Actions Artifact。
+启用 `publish_release` 后按 `package.json` 版本创建 GitHub Release。
+同名 Release 只有在同时启用 `force_overwrite` 时才会更新资产和说明。
+
 Tag 必须与根 `package.json` 的版本一致。
 例如版本 `0.0.1` 对应 `v0.0.1`。
 主 CI 的质量、三平台环境 smoke 和双语言项目 smoke 全部成功后，Release 检查才会运行。

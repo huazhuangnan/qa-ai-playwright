@@ -1,0 +1,115 @@
+name: Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: Create or update the GitHub Release for this package version
+        required: true
+        default: false
+        type: boolean
+      force_overwrite:
+        description: Update an existing same-version Release when publishing
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Build delivery archive
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.4'
+
+      - name: Create release archive
+        run: bun run package:release -- --output "$RUNNER_TEMP/release"
+
+      - name: Verify release archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive=$(find "$RUNNER_TEMP/release" -maxdepth 1 -name 'qa-ai-playwright-*.zip' -print -quit)
+          test -n "$archive"
+          unzip -t "$archive"
+          unzip -l "$archive" | grep -q 'packages/qa-cli/bin/qa.sh'
+
+      - name: Create checksums
+        shell: bash
+        working-directory: ${{ runner.temp }}/release
+        run: sha256sum qa-ai-playwright-*.zip > SHA256SUMS.txt
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: qa-ai-playwright-package-${{ github.ref_name }}-${{ github.run_number }}
+          path: |
+            ${{ runner.temp }}/release/qa-ai-playwright-*.zip
+            ${{ runner.temp }}/release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish GitHub Release
+    if: ${{ inputs.publish_release }}
+    needs: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      FORCE_OVERWRITE: ${{ inputs.force_overwrite }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download package artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: qa-ai-playwright-package-${{ github.ref_name }}-${{ github.run_number }}
+          path: ${{ runner.temp }}/release
+
+      - name: Create or update GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          tag="v${version}"
+          zip_asset=$(find "$RUNNER_TEMP/release" -maxdepth 1 -name 'qa-ai-playwright-*.zip' -print -quit)
+          checksum="$RUNNER_TEMP/release/SHA256SUMS.txt"
+          notes="docs/releases/${tag}.md"
+          test -n "$zip_asset"
+          test -f "$checksum"
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            if [[ "$FORCE_OVERWRITE" != 'true' ]]; then
+              echo "Release $tag already exists; enable force_overwrite to update it" >&2
+              exit 1
+            fi
+            gh release upload "$tag" "$zip_asset" "$checksum" --clobber
+            if [[ -f "$notes" ]]; then
+              gh release edit "$tag" --title "$tag" --notes-file "$notes"
+            else
+              gh release edit "$tag" --title "$tag"
+            fi
+          else
+            release_args=(gh release create "$tag" "$zip_asset" "$checksum" --target "$GITHUB_SHA" --title "$tag" --generate-notes)
+            if [[ -f "$notes" ]]; then
+              release_args+=(--notes-file "$notes")
+            fi
+            "${release_args[@]}"
+          fi

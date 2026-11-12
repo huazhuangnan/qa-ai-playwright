@@ -47,4 +47,14 @@
 
 没有对应版本文件时，工作流仍会使用 GitHub 自动生成的变更说明。
 
+## 手动生成交付包
+
+在 GitHub Actions 中手动运行 `Package` 工作流，可以从所选分支生成交付 ZIP。
+工作流会上传 ZIP 和 `SHA256SUMS.txt`，结果保存在该次运行的 Artifacts 中。
+默认只生成构件，不创建 GitHub Release。
+
+手动运行时可以启用 `publish_release` 发布 Release，并启用
+`force_overwrite` 更新同名 Release。Release 标签由根 `package.json` 的版本生成，格式为 `v<版本>`。
+同名 Release 已存在且未启用覆盖时，发布步骤会失败并保留原 Release。
+
 主 CI 只允许同一个 Tag 发布一次。若同名 Release 已存在，检查 job 会成功完成，发布 job 会跳过并保留原 Release，不会覆盖或重复上传。
