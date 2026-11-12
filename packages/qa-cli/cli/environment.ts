@@ -1580,13 +1580,25 @@ export class Environment {
     const sections: string[] = [];
     let selected = false;
     const section = new RegExp(`^\\[\\s*mcp_servers\\.${name}(?:\\.[^\\]]+)?\\s*\\]\\s*(?:#.*)?$`);
-    let array = false;
+    let arrayDepth = 0;
     for (const line of readFileSync(this.mcpConfig, 'utf8').split(/\r?\n/)) {
       const trimmed = line.trim();
-      if (!array && /^\[[^\]]+\](?:\s*#.*)?$/.test(trimmed)) selected = section.test(trimmed);
+      if (!arrayDepth && /^\[{1,2}[^\]]+\]{1,2}(?:\s*#.*)?$/.test(trimmed)) selected = section.test(trimmed);
       if (selected) sections.push(line);
-      if (array && trimmed.includes(']')) array = false;
-      else if (!array && /^[\w-]+\s*=\s*\[/.test(trimmed) && !trimmed.includes(']')) array = true;
+      const value = arrayDepth ? trimmed : trimmed.match(/^[\w-]+\s*=\s*(\[.*)$/)?.[1];
+      if (!value) continue;
+      let quote = '';
+      let escaped = false;
+      for (const character of value) {
+        if (escaped) { escaped = false; continue; }
+        if (quote === '"' && character === '\\') { escaped = true; continue; }
+        if (quote && character === quote) { quote = ''; continue; }
+        if (quote) continue;
+        if (character === '"' || character === "'") quote = character;
+        else if (character === '#') break;
+        else if (character === '[') arrayDepth += 1;
+        else if (character === ']') arrayDepth = Math.max(0, arrayDepth - 1);
+      }
     }
     return sections.join('\n').trim();
   }
@@ -1669,11 +1681,11 @@ export class Environment {
         for (const [key, value] of Object.entries(expected.env ?? {})) command.push('--env', `${key}=${value}`);
         command.push('--', expected.command ?? '', ...(expected.args ?? []));
         try { this.codex(command); } catch (error) {
-          throw new Error(`Could not register MCP ${serverName}; its ownership record is preserved. Retry env init or inspect the registration: ${String(error)}`);
+          throw new Error(`Could not register MCP ${serverName}; its ownership record is preserved. Inspect any existing registration before retrying: ${String(error)}`);
         }
       }
       const snapshot = this.mcpConfigSnapshot(serverName);
-      if (!snapshot || !this.sameMcpConfig(readMcpServerConfig(this.mcpConfig, serverName), expected)) throw new Error(`Unable to verify MCP ${serverName}; its configuration is preserved`);
+      if (!snapshot || !this.sameMcpConfig(readMcpServerConfig(this.mcpConfig, serverName), expected)) throw new Error(`Unable to verify MCP ${serverName}; its configuration is preserved. Inspect the registration before retrying`);
       servers[serverName] = {
         snapshot, scope: 'user', root: this.root, name, source_type: sourceType,
         manifest: `packages/mcp/${sourceType}/${name}.json`, source: manifest.source,

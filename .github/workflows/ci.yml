@@ -41,17 +41,32 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          . ./packages/qa-cli/bin/session.ps1
-          if ((Get-Alias qa).Definition -ne (Join-Path $PWD 'packages/qa-cli/bin/qa.cmd')) { throw 'Incorrect shortcut' }
+          $packageRoot = Join-Path $env:RUNNER_TEMP 'qa package with spaces'
+          New-Item -ItemType Directory -Force $packageRoot | Out-Null
+          Copy-Item -Recurse packages $packageRoot
+          Set-Alias qa (Join-Path $packageRoot 'packages/qa-cli/bin/qa.cmd')
+          Set-Location $env:RUNNER_TEMP
           qa --help
           if ($LASTEXITCODE -ne 0) { throw 'Shortcut failed' }
       - name: Check Bash shortcut
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          source packages/qa-cli/bin/session.sh
+          package_root="$RUNNER_TEMP/qa package with spaces"
+          mkdir -p "$package_root"
+          cp -R packages "$package_root/"
+          source "$package_root/packages/qa-cli/bin/session.sh"
           cd "$RUNNER_TEMP"
           qa --help
+          if qa --root '' --help; then
+            echo 'Expected invalid root to fail' >&2
+            exit 1
+          fi
+      - name: Check zsh shortcut
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          zsh -c 'source "$1/packages/qa-cli/bin/session.sh"; cd "$2"; qa --help' -- "$RUNNER_TEMP/qa package with spaces" "$RUNNER_TEMP"
 
   quality:
     name: Type check and maintenance tests

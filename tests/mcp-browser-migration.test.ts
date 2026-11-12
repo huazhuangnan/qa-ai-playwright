@@ -88,6 +88,8 @@ test('owned browser registrations migrate paths and preserve user edits', () => 
     const old: McpServerConfig = { command: 'node', args: ['entry'] };
     const updated: McpServerConfig = { command: 'node', args: ['entry', '--executable-path', 'new browser'] };
     env.registerMcp('playwright', old, 'external', '0.0.85');
+    writeFileSync(env.mcpConfig, `${readFileSync(env.mcpConfig, 'utf8')}\n[[skills.config]]\npath = "skill"\n`);
+    env.registerMcp('playwright', old, 'external', '0.0.85');
     env.registerMcp('playwright', updated, 'external', '0.0.85');
     assert.match(readFileSync(env.mcpConfig, 'utf8'), /new browser/);
     const beforeConflict = readFileSync(env.mcpConfig, 'utf8');

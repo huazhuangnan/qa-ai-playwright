@@ -24,15 +24,15 @@ Release 的 Assets 中还会显示 GitHub 自动生成的 `Source code (zip)` �
 使用顺序：准备环境和项目，向 Codex 提供任务资料，再执行测试并查看结果。
 
 Windows 优先使用 PowerShell 7；未安装时自动降级到 Windows PowerShell 5.1。
-每次打开新终端后，先手动加载对应的会话脚本。
+每次打开新终端后，先手动设置短命令。
 
 ```powershell
-. .\packages\qa-cli\bin\session.ps1
+Set-Alias qa (Join-Path $PWD 'packages/qa-cli/bin/qa.cmd')
 qa env init typescript
 qa project init my-qa --language typescript
 ```
 
-macOS / Linux / WSL：
+macOS / Linux / WSL（Bash 或 zsh）：
 
 ```bash
 source packages/qa-cli/bin/session.sh

@@ -50,7 +50,7 @@ packages/qa-cli/qa-cli.ts    →  命令分派
 ```
 
 - **入口**：平台入口只负责引导和参数转发。业务逻辑集中在 `packages/qa-cli/cli/`。
-- **会话短命令**：用户手动加载 `packages/qa-cli/bin/session.ps1` 或 `session.sh`。脚本只影响当前 shell，不修改 PATH 或启动配置。AI 按 `qa-setup` 规则定位启动器和环境。
+- **会话短命令**：Windows 用户用 `Set-Alias` 设置短命令。Bash 或 zsh 用户手动加载 `packages/qa-cli/bin/session.sh`。设置只影响当前 shell，不修改 PATH 或启动配置。AI 按 `qa-setup` 规则定位启动器和环境。
 - **运行时**：平台入口使用 Node 22.18 或更高版本。QA MCP 和项目维护脚本使用 Bun。
 - **分派**：环境、项目、Skill 和 MCP 共用 `qa` 命令。QA MCP 复用同一分派。
 - **名称**：项目对外名称为 `QA + AI + Playwright`，根包名为 `qa-ai-playwright`。

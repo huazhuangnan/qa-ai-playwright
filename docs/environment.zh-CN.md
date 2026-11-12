@@ -50,21 +50,21 @@ Linux/macOS 的引导脚本需要 Bash、tar、gzip、curl 或 wget、SHA256 工
 
 以下命令在解压后的交付包根目录或源码仓库根目录执行。
 
-每次打开新终端后，在交付包根目录手动执行一次对应的会话脚本，再使用 `qa`。
-脚本不自动加载，也不修改 PATH 或 shell 启动配置。
+每次打开新终端后，在交付包根目录手动设置一次短命令，再使用 `qa`。
+设置不会自动加载，也不修改 PATH 或 shell 启动配置。
 
 <details>
 <summary>Windows PowerShell</summary>
 
 ```powershell
-. .\packages\qa-cli\bin\session.ps1
+Set-Alias qa (Join-Path $PWD 'packages/qa-cli/bin/qa.cmd')
 qa env init typescript
 ```
 
 </details>
 
 <details>
-<summary>macOS / Linux（Bash）</summary>
+<summary>macOS / Linux（Bash 或 zsh）</summary>
 
 ```bash
 source packages/qa-cli/bin/session.sh

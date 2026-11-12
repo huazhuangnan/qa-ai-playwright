@@ -270,6 +270,10 @@ bash packages/qa-cli/bin/qa.sh update check --source ./update-sources.json
 当前 MCP 使用用户级 `CODEX_HOME/qa-ai-playwright-mcp.lock.json` 记录环境、来源、scope、版本和注册项配置快照。
 配置与记录不一致时保留注册并报告。
 
+注册成功后若验证失败，所有权记录可能尚未写入。例如，用 `codex mcp get qa-playwright --json` 核对注册。
+确认该注册由本次失败的初始化创建后，可用 `codex mcp remove qa-playwright` 移除它，再重跑原初始化命令。
+无法确认归属时保留注册，不要直接移除。
+
 浏览器路径迁移期间，旧注册可能已经移除，而新注册尚未写入。
 此时可使用相同配置重跑初始化。
 如果新注册已写入但所有权记录尚未更新，需要人工核对注册与记录。

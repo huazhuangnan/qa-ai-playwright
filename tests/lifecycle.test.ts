@@ -229,6 +229,9 @@ args = ['D:\\qa env\\agent-browser.js', "--session", 'qa', "--args", "--disable-
 [mcp_servers.agent-browser.env]
 AGENT_BROWSER_SOCKET_DIR = 'D:\\qa env\\s'
 TEMP = 'C:\\Users\\runner\\AppData\\Local\\Temp'
+
+[[skills.config]]
+path = 'C:\\Users\\runner\\skill\\SKILL.md'
 `,
     'utf8',
   );
@@ -247,6 +250,26 @@ TEMP = 'C:\\Users\\runner\\AppData\\Local\\Temp'
       AGENT_BROWSER_SOCKET_DIR: 'D:\\qa env\\s',
       TEMP: 'C:\\Users\\runner\\AppData\\Local\\Temp',
     },
+  });
+});
+
+test('parses MCP TOML comments and brackets inside multiline arguments', () => {
+  const config = join(createWorkspace(), 'config.toml');
+  writeFileSync(config, `[mcp_servers."qa-playwright"]
+command = 'node' # runtime
+args = [
+  'C:\\[qa]\\cli.js', # entry
+  '--headless',
+]
+[mcp_servers."qa-playwright".env]
+PLAYWRIGHT_BROWSERS_PATH = 'C:\\[qa]\\cache' # cache
+[[skills.config]]
+path = 'unrelated'
+`);
+  assert.deepEqual(readMcpServerConfig(config, 'qa-playwright'), {
+    command: 'node',
+    args: ['C:\\[qa]\\cli.js', '--headless'],
+    env: { PLAYWRIGHT_BROWSERS_PATH: 'C:\\[qa]\\cache' },
   });
 });
 test('PATH discovery reuses existing package managers even with different versions', async () => {
