@@ -1,7 +1,25 @@
 name: CI
 on:
   push:
+    paths-ignore:
+      - 'README.md'
+      - '**/README.md'
+      - 'AGENTS.md'
+      - '**/AGENTS.md'
+      - '**/CHANGELOG.md'
+      - '.agents/**'
+      - '.github/**/*.md'
+      - 'docs/**'
   pull_request:
+    paths-ignore:
+      - 'README.md'
+      - '**/README.md'
+      - 'AGENTS.md'
+      - '**/AGENTS.md'
+      - '**/CHANGELOG.md'
+      - '.agents/**'
+      - '.github/**/*.md'
+      - 'docs/**'
   workflow_dispatch:
 permissions:
   contents: read
@@ -92,6 +110,7 @@ jobs:
           stack: both
           codex: 'true'
           full: 'true'
+          cc-switch: 'true'
       - name: Install maintenance dependencies (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -115,6 +134,29 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: bash packages/qa-cli/bin/qa.sh run bun tests/ci-cases.ts env
+      - name: Verify full browser setup without Codex
+        shell: pwsh
+        run: |
+          $env:QA_ROOT = Join-Path $env:RUNNER_TEMP 'qa-full-without-codex'
+          if ($IsWindows) {
+            & .\packages\qa-cli\bin\qa.cmd env init typescript --full --skip-codex
+          } else {
+            & bash packages/qa-cli/bin/qa.sh env init typescript --full --skip-codex
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $state = Get-Content -Raw -LiteralPath (Join-Path $env:QA_ROOT 'state.json') | ConvertFrom-Json
+          $browser = @($state.installations.chrome, $state.installations.msedge, $state.installations.chromium) | Where-Object { $_.status -eq 'ready' } | Select-Object -First 1
+          if (-not $browser.path -or -not (Test-Path -LiteralPath $browser.path)) { throw 'Selected browser executable was not recorded' }
+          if ($IsWindows) {
+            & .\packages\qa-cli\bin\qa.cmd run agent-browser open about:blank
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & .\packages\qa-cli\bin\qa.cmd run agent-browser close
+          } else {
+            & bash packages/qa-cli/bin/qa.sh run agent-browser open about:blank
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & bash packages/qa-cli/bin/qa.sh run agent-browser close
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Upload environment evidence
         if: always()
         uses: actions/upload-artifact@v6
@@ -137,18 +179,26 @@ jobs:
         if: always()
 
   project-smoke:
-    name: Project smoke / ${{ matrix.os }} / ${{ matrix.stack }}
+    name: Project smoke / ${{ matrix.os }} / ${{ matrix.stack }} / ${{ matrix.browser }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, windows-2025, macos-15-intel]
         stack: [typescript, python]
+        browser: [chromium]
+        include:
+          - os: windows-2025
+            stack: typescript
+            browser: chrome
+          - os: windows-2025
+            stack: python
+            browser: chrome
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     env:
       QA_ROOT: ${{ github.workspace }}/workspaces/project smoke with spaces
       QA_TEST_STACK: ${{ matrix.stack }}
-      QA_TEST_BROWSERS: chromium
+      QA_TEST_BROWSERS: ${{ matrix.browser }}
       QA_NODE_MAJOR: '26'
       QA_PYTHON_VERSION: '3.15'
       CI: 'true'
@@ -195,9 +245,101 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: project-smoke-${{ matrix.os }}-${{ matrix.stack }}
-          path: workspaces/test project ${{ matrix.stack }}/.qa-project.json
+          name: project-smoke-${{ matrix.os }}-${{ matrix.stack }}-${{ matrix.browser }}
+          path: |
+            workspaces/test project ${{ matrix.stack }}/.qa-project.json
+            workspaces/test project ${{ matrix.stack }}/reports/
+            workspaces/test project ${{ matrix.stack }}/playwright-report/
+            workspaces/test project ${{ matrix.stack }}/test-results/
           if-no-files-found: ignore
           retention-days: 7
       - uses: ./.github/actions/cleanup
         if: always()
+
+  release-check:
+    name: Check existing GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [quality, environment-smoke, project-smoke]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      exists: ${{ steps.release-check.outputs.exists }}
+    steps:
+      - name: Check existing release
+        id: release-check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists; publish job will be skipped"
+            echo 'exists=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'exists=false' >> "$GITHUB_OUTPUT"
+          fi
+
+  release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v') && needs.release-check.outputs.exists != 'true'
+    needs: [quality, environment-smoke, project-smoke, release-check]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      QA_ROOT: ${{ runner.temp }}/qa-release-environment
+      QA_NODE_MAJOR: '26'
+      QA_PYTHON_VERSION: '3.15'
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Verify tag version
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          test "v$version" = "$GITHUB_REF_NAME"
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.4'
+      - name: Create release archive
+        shell: bash
+        run: bun run package:release -- --output "$RUNNER_TEMP/release"
+      - name: Verify release archive
+        shell: bash
+        run: |
+          mkdir "$RUNNER_TEMP/unpacked-release"
+          unzip -q "$RUNNER_TEMP/release/qa-ai-playwright-${GITHUB_REF_NAME}.zip" -d "$RUNNER_TEMP/unpacked-release"
+          root="$RUNNER_TEMP/unpacked-release/qa-ai-playwright-${GITHUB_REF_NAME#v}"
+          bash "$root/packages/qa-cli/bin/qa.sh" --help
+          QA_ROOT="$RUNNER_TEMP/release-env" bash "$root/packages/qa-cli/bin/qa.sh" env init typescript --skip-codex --skip-skills
+          QA_ROOT="$RUNNER_TEMP/release-env" bash "$root/packages/qa-cli/bin/qa.sh" project init "$RUNNER_TEMP/release-project" --language typescript
+      - name: Create checksums
+        shell: bash
+        working-directory: ${{ runner.temp }}/release
+        run: sha256sum qa-ai-playwright-*.zip > SHA256SUMS.txt
+      - name: Prepare release notes
+        shell: bash
+        run: |
+          notes="docs/releases/${GITHUB_REF_NAME}.md"
+          if [[ -f "$notes" ]]; then
+            cp "$notes" "$RUNNER_TEMP/release-notes.md"
+          else
+            : > "$RUNNER_TEMP/release-notes.md"
+          fi
+      - name: Publish GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          zip_asset=$(find "$RUNNER_TEMP/release" -maxdepth 1 -name 'qa-ai-playwright-*.zip' -print -quit)
+          gh release create "$GITHUB_REF_NAME" \
+            "$zip_asset" \
+            "$RUNNER_TEMP/release/SHA256SUMS.txt" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            --notes-file "$RUNNER_TEMP/release-notes.md"

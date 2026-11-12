@@ -13,6 +13,9 @@ inputs:
   full:
     description: Install the optional documentation and browser packs
     default: 'false'
+  cc-switch:
+    description: Include the optional CC Switch desktop app
+    default: 'false'
 runs:
   using: composite
   steps:
@@ -24,11 +27,13 @@ runs:
         WITH_CODEX: ${{ inputs.codex }}
         WITH_SKILLS: ${{ inputs.skills }}
         WITH_FULL: ${{ inputs.full }}
+        WITH_CC_SWITCH: ${{ inputs.cc-switch }}
       run: |
         $options = @($env:PROFILE)
         if ($env:WITH_CODEX -ne 'true') { $options += '--skip-codex' }
         if ($env:WITH_SKILLS -ne 'true') { $options += '--skip-skills' }
         if ($env:WITH_FULL -eq 'true') { $options += '--full' }
+        if ($env:WITH_CC_SWITCH -eq 'true') { $options += '--with-cc-switch' }
         & .\packages\qa-cli\bin\qa.cmd --root $env:QA_ROOT env check @options
         if ($LASTEXITCODE -ne 1) { throw 'Fresh check should report missing environment' }
         if (Test-Path -LiteralPath $env:QA_ROOT) {
@@ -45,11 +50,13 @@ runs:
         WITH_CODEX: ${{ inputs.codex }}
         WITH_SKILLS: ${{ inputs.skills }}
         WITH_FULL: ${{ inputs.full }}
+        WITH_CC_SWITCH: ${{ inputs.cc-switch }}
       run: |
         options=("$PROFILE")
         if [[ "$WITH_CODEX" != true ]]; then options+=(--skip-codex); fi
         if [[ "$WITH_SKILLS" != true ]]; then options+=(--skip-skills); fi
         if [[ "$WITH_FULL" == true ]]; then options+=(--full); fi
+        if [[ "$WITH_CC_SWITCH" == true ]]; then options+=(--with-cc-switch); fi
         set +e
         bash packages/qa-cli/bin/qa.sh --root "$QA_ROOT" env check "${options[@]}"
         code=$?

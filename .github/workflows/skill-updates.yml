@@ -14,6 +14,8 @@ on:
       - 'packages/qa-cli/bin/**'
       - 'tests/skill-updates.test.ts'
       - 'tests/update-check.test.ts'
+      - 'tests/upstream-sync.test.ts'
+      - 'scripts/sync-upstream.ts'
       - '.github/actions/bootstrap/action.yml'
       - '.github/workflows/skill-updates.yml'
   workflow_dispatch:
@@ -42,6 +44,8 @@ jobs:
         run: |
           set -o pipefail
           bash packages/qa-cli/bin/qa.sh run bun packages/qa-cli/qa-cli.ts update check | tee skill-updates.txt
+      - name: Test release asset validation
+        run: bash packages/qa-cli/bin/qa.sh run bun test tests/upstream-sync.test.ts
       - name: Publish check results
         if: always()
         shell: bash
