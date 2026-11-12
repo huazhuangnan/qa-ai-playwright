@@ -107,6 +107,10 @@ jobs:
               echo "Release $tag already exists; enable force_overwrite to update it" >&2
               exit 1
             fi
+            legacy_asset="qa-ai-playwright-v${version}.zip"
+            if gh release view "$tag" --json assets --jq ".assets[].name" | grep -Fxq "$legacy_asset"; then
+              gh release delete-asset "$tag" "$legacy_asset" --yes
+            fi
             gh release upload "$tag" "$user_zip" "$developer_zip" "$checksum" --clobber
             if [[ -f "$notes" ]]; then
               gh release edit "$tag" --title "$tag" --notes-file "$notes"

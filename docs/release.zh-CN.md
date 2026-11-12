@@ -54,9 +54,11 @@
 默认只生成构件，不创建 GitHub Release。
 
 使用者包面向解压后直接运行 QA CLI 的场景。开发者包保留完整源码、测试和维护文件。
+普通使用者下载文件名包含 `-user.zip` 的资产。需要修改仓库或运行维护测试时下载 `-developer.zip`。
 
 手动运行时可以启用 `publish_release` 发布 Release，并启用
 `force_overwrite` 更新同名 Release。Release 标签由根 `package.json` 的版本生成，格式为 `v<版本>`。
 同名 Release 已存在且未启用覆盖时，发布步骤会失败并保留原 Release。
+启用覆盖时会替换同名新资产，并删除旧的单包资产 `qa-ai-playwright-v<版本>.zip`。
 
 主 CI 只允许同一个 Tag 发布一次。若同名 Release 已存在，检查 job 会成功完成，发布 job 会跳过并保留原 Release，不会覆盖或重复上传。

@@ -9,10 +9,13 @@
 ### 下载交付包
 
 1. 打开 [GitHub Releases](https://github.com/huazhuangnan/qa-ai-playwright/releases)。如需权限，请联系仓库维护人员。
-2. 选择已发布的版本。在 Assets 中下载 `qa-ai-playwright-v版本号.zip`。
-3. 解压 ZIP，进入其中的 `qa-ai-playwright-版本号` 目录。以下命令均在该目录执行。
+2. 选择已发布的版本。在 Assets 中下载 `qa-ai-playwright-v版本号-user.zip`。
+   该包面向使用者，包含运行 QA CLI 所需的文件。
+3. 如果需要修改仓库、运行维护测试或参与开发，下载 `qa-ai-playwright-v版本号-developer.zip`。
+4. 解压 ZIP，进入其中的 `qa-ai-playwright-版本号-user` 或
+   `qa-ai-playwright-版本号-developer` 目录。以下命令均在对应目录执行。
 
-Windows、macOS 和 Linux 使用同一个 ZIP。如果没有可下载的 Release，请向维护人员获取交付包。
+Windows、macOS 和 Linux 使用同一个使用者 ZIP。如果没有可下载的 Release，请向维护人员获取交付包。
 
 ### 初始化环境和项目
 
