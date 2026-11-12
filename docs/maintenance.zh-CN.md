@@ -32,14 +32,11 @@ packages/qa-cli/qa-cli.ts    →  参数解析和命令分派
       └── .github/workflows/      → 验收矩阵
 ```
 
-平台入口只负责引导和参数转发。
-业务逻辑集中到 `packages/qa-cli/cli/`。
-不要把安装、配置或删除逻辑复制到启动器。
-平台入口使用 Node 22.18 或更高版本运行 TypeScript 兼容入口。环境命令和 QA 项目、Skill、MCP 命令共享一个 `qa` 命令，不复制业务逻辑。
-QA MCP 使用 Bun 启动，并复用同一命令分派。项目维护脚本使用 Bun。
-项目对外名称统一为 `QA + AI + Playwright`。
-仓库根包名为 qa-ai-playwright。
-Codex CLI 的 npm 来源保存在 `packages/apps/codex/manifest.json`。优先复用已安装的 CLI。缺失时使用清单指定的包安装，并记录实际版本。Codex 桌面应用不由该清单安装。
+- **入口**：平台入口只负责引导和参数转发。业务逻辑集中在 `packages/qa-cli/cli/`。
+- **运行时**：平台入口使用 Node 22.18 或更高版本。QA MCP 和项目维护脚本使用 Bun。
+- **分派**：环境、项目、Skill 和 MCP 共用 `qa` 命令。QA MCP 复用同一分派。
+- **名称**：项目对外名称为 `QA + AI + Playwright`，根包名为 `qa-ai-playwright`。
+- **Codex CLI**：npm 来源位于 `packages/apps/codex/manifest.json`。优先复用已有安装，缺失时按清单安装并记录实际版本。该清单不安装桌面应用。
 
 仓库根目录使用 pnpm workspace 管理示例工作区。根锁文件管理维护工具和示例工作区。
 
@@ -55,18 +52,20 @@ Codex CLI 的 npm 来源保存在 `packages/apps/codex/manifest.json`。优先�
 示例应用和 QA 项目独立维护。测试只通过 HTTP 和浏览器访问应用。
 CLI 中的 `REPO` 和 `QA_REPO` 指向仓库根目录。安装记录中的源码路径相对该目录。
 
-旧启动器 `packages/qa-ai-playwright/src/bin/` 已迁移到 `packages/qa-cli/bin/`。
-已有环境应先退出旧激活脚本，再使用新入口执行 `env init`。新激活脚本将 `QA_REPO` 指向仓库根目录。
-旧 QA MCP 注册若仍指向迁移前的路径，初始化可能报告配置冲突。先核对旧注册和 QA 锁记录，再手动处理已确认由 QA 管理的条目。不要覆盖用户修改的配置。
-旧环境内的 `codex/config.toml` 和 `mcp.lock.json` 不会自动迁移。旧 shell 可能仍设置 `CODEX_HOME`，请先检查该变量。
-重跑会保留已有 Skill 和项目文件。旧的环境与项目数据不会自动搬迁。
+旧启动器 `packages/qa-ai-playwright/src/bin/` 已迁移到 `packages/qa-cli/bin/`。迁移旧环境时：
+
+1. 退出旧激活脚本，检查 shell 中的 `CODEX_HOME`。
+2. 使用新入口执行 `env init`。新激活脚本将 `QA_REPO` 指向仓库根目录。
+3. 如果旧 MCP 注册产生冲突，核对注册和 QA 锁记录。只手动处理已确认由 QA 管理的条目。
+
+重跑会保留已有 Skill 和项目文件。旧环境与项目数据、旧 `codex/config.toml` 和 `mcp.lock.json` 不会自动迁移。
 
 ## 生命周期管理
 
 | 对象 | 当前命令 | 当前作用 |
 | --- | --- | --- |
-| 环境 | `env init/list/check/repair/uninstall`，`env plan/upgrade/snapshots uv`，`env rollback` | 初始化、列出当前环境、检查、修复，以及检测环境内 uv 的人工升级信息和回滚。详见[环境组件升级](environment-managed-upgrades.zh-CN.md) |
-| 项目 | `project init/check/plan/upgrade/repair/snapshots/rollback/uninstall` | 生成、检查及按所有权管理模板文件。`upgrade` 只检测并给出人工迁移建议。详见[项目模板管理](project-template-management.zh-CN.md) |
+| 环境 | `env init/list/check/repair/uninstall`，`env plan/upgrade/snapshots uv`，`env rollback` | 环境生命周期和 uv 升级规则。详见[环境组件升级](environment-managed-upgrades.zh-CN.md) |
+| 项目 | `project init/check/plan/upgrade/repair/snapshots/rollback/uninstall` | 项目模板生命周期和迁移规则。详见[项目模板管理](project-template-management.zh-CN.md) |
 | 模板 | `template list/check` | 查看仓库内语言模板和 QA 文档模板的版本及文件状态 |
 | MCP | `mcp list`、`mcp check`、`mcp add`、`mcp repair`、`mcp remove` | 查询状态、安装或复用、修复缺失项、移除符合记录的注册 |
 | 内置 Skill | `skills list/check/install/upgrade/repair/snapshots/rollback/recover/uninstall` | 检查项目内置 Skill，`upgrade` 只给出人工变更建议。外部 Skill 按上游方式管理 |
@@ -80,32 +79,35 @@ QA MCP 使用对应 CLI 操作，并传递退出码和输出。升级相关工�
 项目模板提供只读升级检测和修复。环境修复沿用已记录配置。
 共享工具和 MCP 的通用升级及快照回滚不在这些命令中执行。
 
-更新检查不安装组件，也不修改来源清单、锁记录或已安装文件。
-可选 MCP 状态分别报告注册、所有权和共享包。包版本来自实际发现的包元数据。未记录全局 npm 位置时报告未知。状态检查不安装软件或修改配置。
-可选 MCP 修复只接受完整的本环境所有权记录。缺失共享包按记录版本补装。已修改的注册、损坏的共享包和未知所有权均停止处理。修复不升级共享软件。
-项目模板文件和 MCP 注册的卸载遵循路径边界和所有权记录。环境卸载默认保留受管环境目录。项目卸载保留依赖目录及目录中的数据。详细删除范围见环境指南。
-环境卸载默认保留整个环境目录与共享软件。它清理可确认属于当前环境的 MCP 注册。外部软件清理另有显式选项和保护条件，详见环境指南。
+- **更新检查**：不安装组件，也不修改来源清单、锁记录或已安装文件。
+- **MCP 状态**：分别报告注册、所有权和共享包。包版本取自实际发现的包元数据。未记录全局 npm 位置时报告未知。
+- **MCP 修复**：需要完整的本环境所有权记录。缺失共享包按记录版本补装。注册已修改、共享包损坏或所有权未知时停止。
+- **浏览器迁移**：注册、所有权记录和配置快照一致，且差异仅限浏览器配置时才更新注册。无法确认时保留原配置并报告。
+- **迁移中断**：旧注册已移除而新注册尚未写入时，可按原配置重跑。新注册已写入但所有权记录未更新时，需要人工核对。处理残留的并发保护目录前，先确认没有其他初始化进程。
+- **卸载**：项目卸载保留依赖目录。环境卸载保留环境目录和共享软件，只清理可确认归属的 MCP 注册。`--include-external` 当前拒绝执行。详细范围见环境指南。
 
 共享组件和外部 Skill 只提供检测结果。版本升级由维护者使用其原有工具人工执行。
 每阶段同步文档和 GitHub Actions 验证。详细任务见[管理能力 TODO](qa-cli-management-todo.zh-CN.md)。
 ## 浏览器 CLI 入口与 CI 组织
 
-`@playwright/cli` 的运行入口由安装包 `package.json` 的 `bin` 字段解析。
-安装校验、`qa run playwright-cli` 和 CI 版本检查必须使用同一个入口。
-不能根据旧版包结构拼接 `cli.js`。
-Agent Browser 的 socket 使用环境根目录下的短目录 `s`，默认会话名为 `qa`，避免长工作区路径超过 Unix socket 的 103 字节限制。
-Chromium 的临时文件使用系统临时目录，避免浏览器内部 socket 继承长工作区路径。Windows 同时设置 `TEMP`、`TMP` 和 `TMPDIR`，Unix 使用 `/tmp`。Agent Browser 的截图、下载、流程、配置和 socket 仍写入环境目录。
+- **Playwright CLI**：从安装包 `package.json` 的 `bin` 字段解析入口。安装校验、`qa run playwright-cli` 和 CI 检查使用同一入口。不能拼接旧版 `cli.js` 路径。
+- **浏览器检查**：发现阶段只检查可执行文件存在且可访问。CI 的启动检查只验证所测组合。
+- **Agent Browser**：socket 使用环境根目录下的短目录 `s`，默认会话名为 `qa`。截图、下载、流程、配置和 socket 留在环境目录。
+- **Chromium 临时文件**：使用系统临时目录，避免 Unix socket 路径超出 103 字节。Windows 设置 `TEMP`、`TMP` 和 `TMPDIR`。Unix 使用 `/tmp`。
 
-GitHub Actions 统一由根目录的 CI 工作流承载。
-普通 push、pull request 和手动运行均验证 Ubuntu、Windows 和 macOS。
-验证范围包括三平台环境、项目生成与检查、共享卸载保护和维护单元测试。
-项目 smoke 覆盖 TypeScript 与 Python、带空格路径以及 Chromium 浏览器检查。
-暂不执行项目卸载集成、lint、示例业务测试和兼容版本专项验证。
-平台差异通过复合 Action 和统一启动器处理。
+根目录的 GitHub Actions 工作流承担验证：
+
+- **触发**：代码、配置、模板行为、测试和工作流变更启动主 CI。纯文档变更不启动，手动运行不受路径过滤影响。
+- **覆盖**：验证三平台环境、项目生成与检查、共享卸载保护和维护单元测试。
+- **项目 smoke**：覆盖 TypeScript、Python、带空格路径和 Chromium 检查。失败时归档可用证据；未生成证据时查看 Actions 日志。
+- **暂未执行**：项目卸载集成、lint、示例业务测试和兼容版本专项验证。
+- **平台差异**：通过复合 Action 和统一启动器处理。
 
 ## 维护语言
 
-生成项目的跨语言分层和风格规范见[代码风格与架构规范](code-style-architecture.zh-CN.md)。该规范统一测试边界、fixture 生命周期、数据隔离和依赖方向；TypeScript 与 Python 分别使用各自的类型、fixture 和运行器约定。
+生成项目的跨语言分层和风格规范见[代码风格与架构规范](code-style-architecture.zh-CN.md)。
+该规范统一测试边界、fixture 生命周期、数据隔离和依赖方向。
+TypeScript 与 Python 分别使用各自的类型、fixture 和运行器约定。
 
 - 仓库自身的 CLI、工具和测试统一使用 TypeScript。
 - 根目录的 `package.json`、`pnpm-lock.yaml` 和 `tsconfig.json` 是维护工具链入口。
@@ -125,19 +127,13 @@ bun run typecheck
 bun run test:unit
 ```
 
-在仓库根目录运行示例：
+示例应用和两套 QA 项目的命令见[从需求到执行](qa-workflow.zh-CN.md)。
+各项目的具体说明见：
 
-```bash
-bun run dev:example
-bun run build:example
-bun run test:example:typescript
-bun run test:example:python
-```
-
-开发命令会初始化示例数据库，并将演示账号密码恢复为默认值。
-Python 测试前先按 [Python 示例说明](../apps/qa-ticket-app-suite-python/README.md)准备 .venv 和 Chromium。
-测试参数可直接追加到对应命令。
-两套测试和开发服务使用相同端口，须分别运行。
+- [示例应用](../apps/qa-ticket-app/README.md)
+- [TypeScript 示例 QA](../apps/qa-ticket-app-suite-typescript/README.md)
+- [Python 示例 QA](../apps/qa-ticket-app-suite-python/README.md)
+本页只维护仓库自身的检查和发布门禁。
 
 `bun run test:ci env` 可执行环境集成套件。
 当前 GitHub Actions 运行维护单元测试、类型检查和跨平台环境验证。
@@ -265,11 +261,26 @@ Skill 使用 SemVer。
 
 ## 统一更新检查
 
-`qa update check` 只读检查 QA CLI、内置 MCP、外部 Skill、npm 包和 GitHub Release 版本。来源配置位于 `packages/qa-cli/update-sources.json`。`qa.repository` 是 GitHub 仓库，`qa.ref` 为可选分支。两者默认留空。QA 发布来源尚未确定，不能推断 SSH 别名对应的公开仓库。Skill 使用 `packages/skills/external-sources.json`。
+`qa update check` 只读检查 QA CLI、内置 MCP、外部 Skill、npm 包和 GitHub Release 版本。
+来源配置位于 `packages/qa-cli/update-sources.json`。
+`qa.repository` 是 GitHub 仓库，`qa.ref` 是可选分支。
+当前 QA Release 来源为 `huazhuangnan/qa-ai-playwright`。
+未设置分支时检查默认分支。
+Skill 使用 `packages/skills/external-sources.json`。
 
-npm 和 Release 来源从运行时、MCP 和应用清单读取固定版本。候选版本不同只代表变化，不代表兼容或可安全升级。Release 资产和哈希仍需人工审查。检查不读取实际安装版本。Node 和 Python 的版本策略尚未配置，报告 `unconfigured`。失败不能当作最新。
+npm 和 Release 来源从运行时、MCP 和应用清单读取固定版本。
+候选版本不同只代表变化，不代表兼容或可安全升级。
+Release 资产和哈希仍需人工审查。
+检查不读取实际安装版本。
+Node 和 Python 的版本策略尚未配置，报告 `unconfigured`。
+检查失败时，不能当作最新。
 
-相关来源、版本、检查实现或工作流文件推送时触发 Actions。也可手动触发。不使用定时任务。上游仓库自身的 push 不会触发本仓库工作流。检查不安装组件，不更新清单或锁记录，也不覆盖用户文件。
+执行 `pnpm upstream:sync` 同步已配置的运行时、MCP 和 CC Switch 发布基线。使用范围与审查步骤见[上游版本同步](upstream-sync.zh-CN.md)。
+
+相关来源、版本、检查实现或工作流文件推送时触发 Actions。
+也可手动触发。不使用定时任务。
+上游仓库自身的 push 不会触发本仓库工作流。
+检查不安装组件，不更新清单或锁记录，也不覆盖用户文件。
 
 维护测试及实际工作流结果以 GitHub Actions 为准。
 ## 外部 Skill 更新检查
@@ -294,19 +305,22 @@ GitHub Actions 在来源清单、安装说明或检查实现等相关文件推�
 
 | Workflow | 覆盖内容 |
 | --- | --- |
-| [ci](../.github/workflows/ci.yml) | 三平台环境验证 |
+| [ci](../.github/workflows/ci.yml) | 三平台环境验证、项目 smoke 和 Tag 发布门禁 |
+| [skill-updates](../.github/workflows/skill-updates.yml) | 来源清单、安装说明和更新检查 |
 
 Windows 主路径使用 PowerShell 7。
 PowerShell 5.1 降级专项验证暂不执行。
 CI runner 固定为 `ubuntu-24.04`、`windows-2025` 和 `macos-15-intel`。
 不使用 `*-latest` 标签，避免系统迁移和 macOS ARM 排队改变验证环境。
 最小 Linux 容器专项验证暂不执行。
-生成项目 CI 在 PR 使用快速矩阵，完整矩阵只通过手动任务。
+Tag 发布使用主 CI 的完整矩阵。普通 push 和 pull request 使用相同的三平台验证；纯文档变更由路径过滤跳过。
 测试或运行器失败时，不得只增加重试或跳过门禁。
 
 ## CI 触发与验证范围
 
-普通 push、pull request 和手动运行使用相同的三平台矩阵。
+普通 push 和 pull request 只有在涉及代码、配置、模板行为、测试或工作流时才启动主 CI。
+README、AGENTS、CHANGELOG、`.agents/`、`.github/**/*.md` 和 `docs/` 变更不会启动主 CI。
+手动运行始终执行主 CI。`v<版本>` Tag 不受文档过滤影响，并进入发布门禁。
 环境验证使用 Node 26、Python 3.15 和固定工具版本。
 环境验证包含 MCP 和浏览器 smoke。
 
@@ -334,8 +348,26 @@ CI runner 固定为 `ubuntu-24.04`、`windows-2025` 和 `macos-15-intel`。
 1. 更新源码、固定版本和迁移说明。
 2. 运行受影响 Actions，保留日志和失败证据。
 3. 在干净 `--root` 中验证升级和重复执行。
-4. 发布自有 Skill、模板和锁文件，不只发布单个 `SKILL.md`。
-5. 回滚时恢复完整目录和清单，再重新执行验收。
+4. 由 Release 工作流生成跨平台 ZIP，并上传 SHA256 清单。
+5. 发布完整交付目录，包括自有 Skill、模板、MCP 清单和运行入口，不只发布单个 `SKILL.md`。
+6. 回滚时恢复完整目录和清单，再重新执行验收。
+
+Release 不发布 npm 包。
+当前交付是跨平台源码和启动器，因此只生成一个 ZIP。
+用户解压后直接运行 `packages/qa-cli/bin/qa.cmd` 或 `packages/qa-cli/bin/qa.sh`。
+以后如果加入平台二进制，再按平台增加 ZIP 或 `tar.gz` 资产。
+
+每个版本的用户变更说明维护在 `docs/releases/v<版本>.md`。
+Release 工作流将该文件作为正文前缀，再追加 GitHub 自动生成的变更。
+说明格式和发布前检查见[Release 发布指南](release.zh-CN.md)。
+
+主 CI 的触发边界见[CI 触发与验证范围](#ci-触发与验证范围)。
+
+Tag 必须与根 `package.json` 的版本一致。
+例如版本 `0.0.1` 对应 `v0.0.1`。
+主 CI 的质量、三平台环境 smoke 和双语言项目 smoke 全部成功后，Release 检查才会运行。
+发布前会在干净目录中启动 CLI、初始化环境并生成项目。
+同名 Release 已存在时，检查成功，发布 job 跳过，不覆盖原版本。
 
 已有环境升级前备份整个 `CODEX_HOME` 和项目所有权文件。
 禁止通过删除整个项目来替代模板迁移。

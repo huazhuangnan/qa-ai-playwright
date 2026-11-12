@@ -36,17 +36,17 @@ metadata:
 - 外部 Skill 不随仓库交付。AI 按 qa-core 规则检查并按需安装到业务项目。
 - packages/mcp/builtin/ 和 packages/mcp/external/ 分别保存自建和下载的 MCP 清单。
 - 软件和 MCP 优先复用系统或用户级安装。缺失时才全局安装，并在执行命令前提示。QA 和外部 Skill 按任务检查，缺失时安装到业务项目。
-- 标准模式安装 Playwright CLI 和 Playwright MCP。启用 Codex 时注册内置 QA MCP。
+- 标准模式准备 Playwright CLI。启用 Codex 且未跳过浏览器工具时准备 Playwright MCP。启用 Codex 时注册内置 QA MCP。
 - full 模式增加 Agent Browser CLI 和 Agent Browser MCP。qa-docs 按需安装。
 - 业务项目级配置放项目目录。MCP 注册使用用户级 Codex 配置，保留用户已有配置。
 - `playwright-cli` 来自 Microsoft 官方仓库。已有时复用，缺失时安装清单版本。
 - `agent-browser` 来自 Vercel 官方仓库，仅 full 模式安装。
 - 外部 Skill 来源、固定提交和安装命令保存在 qa-core 的引用文件中。
 - packages/apps/ 保存官方桌面应用清单、许可证和固定资产哈希。
-- CC Switch 优先复用已有安装。缺失时使用清单中的官方资产安装到用户级共享目录。
-- Agent Browser 复用 Playwright Chromium，不另建用户级浏览器缓存。
-- 默认使用已有 `@playwright/mcp`，缺失时安装清单版本。
-- 启用 Codex 时默认注册 `qa`。标准模式注册 `playwright`，full 模式增加 `agent-browser`。
+- 仅在显式选择时准备 CC Switch。优先复用已有安装，缺失时使用清单中的官方资产安装到用户级共享目录。
+- 浏览器先检测并复用用户已有的兼容安装。确认缺失后才安装。用户指定浏览器时按其选择处理。Agent Browser 复用选定的浏览器，不另建用户级浏览器缓存。
+- 需要 Playwright MCP 时复用已有 `@playwright/mcp`，缺失时安装清单版本。
+- 启用 Codex 时注册 `qa`。未跳过浏览器工具时注册 `playwright`，full 模式再增加 `agent-browser`。
 - 浏览器和运行输出保持在环境根目录。MCP 程序和注册可跨环境复用。
 - qa-core 路由到职责及语言适配。跨作用域按名称重新定位 QA Skill，不假设同级目录。
 - 公共规则集中在 qa-core/references/common-workflow.md。

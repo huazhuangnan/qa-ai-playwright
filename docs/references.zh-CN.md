@@ -1,10 +1,10 @@
 # 参考来源与行业实践
 
-[使用人员](../README.md) | [维护人员](maintenance.zh-CN.md)
+[使用人员](../README.md)
 
 本仓库的实现依据官方文档和可核验的行业实践。
 
-适用对象：需要核对依据的使用人员和维护人员。阅读顺序：先看官方框架，再看落地链路、采纳取舍和许可证。
+适用对象：需要核对依据的使用人员和业务项目 QA 开发与维护人员。阅读顺序：先看官方框架，再看落地链路、采纳取舍和许可证。
 安装量为 skills.sh 当期页面快照（核对日期 2026-11-11），不等于下载次数、独立用户或质量评分。
 
 ## 官方框架
@@ -106,4 +106,4 @@ dogfood 无独立 skills.sh 页面，源码见
 - <https://github.com/microsoft/playwright-cli/blob/main/skills/playwright-cli/SKILL.md>
 - <https://github.com/anthropics/skills/blob/main/skills/webapp-testing/SKILL.md>
 - <https://github.com/currents-dev/playwright-best-practices-skill/blob/main/playwright-best-practices/SKILL.md>
-- <https://github.com/farion1231/cc-switch/tree/v4.0.28>
+- <https://github.com/farion1231/cc-switch/tree/v4.0.30>

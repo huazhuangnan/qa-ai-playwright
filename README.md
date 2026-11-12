@@ -1,18 +1,14 @@
 # QA + AI + Playwright
 
-用一套本地 CLI 准备测试环境、生成项目、运行 API 与浏览器测试，并通过 Codex Skills、MCP 和桌面辅助工具维护。
+帮助使用 Codex 完成 QA 任务。CLI 用于准备环境和项目，Skills 与 MCP 协助测试设计、执行和结果分析。
 
 **使用人员** | [维护人员](docs/maintenance.zh-CN.md)
 
 ## 快速开始
 
-使用顺序：
+正式使用时，先从 GitHub Releases 下载对应版本的 ZIP 压缩包。ZIP 可由 Windows、macOS 和 Linux 解压。解压后使用包内的 `qa.cmd` 或 `qa.sh`，不需要克隆仓库。
 
-1. 准备 QA 环境。
-2. 生成并检查语言项目。
-3. 配置测试环境、角色、数据和清理方式。
-4. 按[从需求到执行](docs/qa-workflow.zh-CN.md)的对话流程生成或维护测试。
-5. 执行测试并保存报告、日志和失败证据。
+使用顺序：准备环境和项目，向 Codex 提供任务资料，再执行测试并查看结果。
 
 Windows 优先使用 PowerShell 7；未安装时自动降级到 Windows PowerShell 5.1。
 
@@ -28,27 +24,21 @@ bash packages/qa-cli/bin/qa.sh env init typescript
 bash packages/qa-cli/bin/qa.sh project init my-qa --language typescript
 ```
 
-首次运行可能需要联网。CLI 优先复用系统已有工具，并在缺失时提示安装。Python 测试环境仍由 QA 管理。
+首次运行可能需要联网。CLI 优先复用系统工具，缺少时提示安装。
 
-环境位于当前目录 `.qa-env`。测试项目必须放在环境目录之外。
-完整参数和目录说明见[环境初始化](docs/environment.zh-CN.md)。
-想了解如何在 Codex 中组合 Skill、QA MCP 和项目命令，可阅读[从需求到执行教程](docs/qa-workflow.zh-CN.md#在-codex-中执行一条完整任务)；完整工单示例见[工单示例](docs/qa-workflow.zh-CN.md#工单示例)。
+环境默认位于当前目录的 `.qa-env`，测试项目须放在环境目录之外。
 
-完整流程：
+参数和目录说明见[环境初始化](docs/environment.zh-CN.md)。
 
-| 步骤 | 操作 | 入口 |
-| --- | --- | --- |
-| 1 | 准备环境 | `qa.cmd env init <语言>` |
-| 2 | 生成项目 | `qa.cmd project init <项目目录> --language <语言>` |
-| 3 | 配置测试环境 | 复制 `.env*.example`；`QA_ENV` 选择配置，业务变量按项目契约补充 |
-| 4 | 接入测试 | 修改项目 `tests/` 与 `docs/qa/` |
-| 5 | 执行测试 | 按所选语言运行 |
-| 6 | 查看报告 | 打开 `reports/`、`test-results/` 或语言报告 |
+配置测试环境、角色、数据和清理方式后，按[从需求到执行](docs/qa-workflow.zh-CN.md#在-codex-中执行一条完整任务)开展测试。
 
-JavaScript/TypeScript 依赖使用 pnpm。
-仓库 TypeScript 脚本使用 Bun。
-TypeScript Playwright 与原生 SQLite 使用 Node.js。
-Python 示例使用 `requirements.lock` 和 Playwright Python。
+报告位置见语言指南。完整示例见[工单示例](docs/qa-workflow.zh-CN.md#工单示例)。
+
+运行时和依赖：
+
+- JavaScript/TypeScript 依赖使用 pnpm，仓库 TypeScript 脚本使用 Bun。
+- TypeScript Playwright 与原生 SQLite 使用 Node.js。
+- Python 示例使用 `requirements.lock` 和 Playwright Python。
 
 仓库是 pnpm monorepo：
 
@@ -57,12 +47,12 @@ Python 示例使用 `requirements.lock` 和 Playwright Python。
 - `apps/qa-ticket-app-suite-typescript/`：TypeScript QA 项目。
 - `apps/qa-ticket-app-suite-python/`：Python QA 项目。
 
-`QA_ENV` 选择环境。
-`UI_BASE_URL` 和 `API_BASE_URL` 分别配置页面和接口入口。
-`BASE_URL` 只作兼容回退。
-认证、角色、租户、资源、测试数据、清理和功能开关等变量按实际项目添加。
-浏览器多角色登录态使用官方 `storageState` 方案，状态文件不提交。
-变量名登记在生成项目的 `docs/qa/inputs/input-index.md`。
+项目配置要点：
+
+- `QA_ENV` 选择环境。
+- `UI_BASE_URL` 和 `API_BASE_URL` 分别配置页面和接口入口。`BASE_URL` 仅作兼容回退。
+- 认证、角色、租户、数据和清理等变量按项目需要添加，并登记在 `docs/qa/inputs/input-index.md`。
+- 多角色浏览器登录态使用 `storageState`。状态文件不提交。
 
 ## 选择语言
 
@@ -82,16 +72,21 @@ MCP 注册写入用户级 `CODEX_HOME`，各 QA 环境使用独立的注册名�
 
 环境 CLI 默认安装 Playwright CLI，并注册 QA MCP 和 Playwright MCP。
 `env init <语言> --full` 只在需要 Agent Browser CLI 或 MCP 时使用。
-QA、Bun、pnpm 和其他 Skill 由 AI 按任务检查。缺失的 Skill 安装到业务项目。
-不熟悉业务时使用 `$qa-business-guide` 获取步骤、边界和下一步。
-所有语言方案都会检查 CC Switch。已有时复用，缺失时安装到用户级共享目录。
-CC Switch 用户数据仍按上游设计写入 `~/.cc-switch`。
-环境提供初始化、检查和修复。项目提供模板规划、升级和修复。可选 MCP 和项目内置 Skill 提供独立管理命令。`update check` 只检查来源更新。具体范围和限制见环境指南与 Skills/MCP 指南。
-来源和作用域见 [Skills 与 MCP](docs/skills-mcp.zh-CN.md)。管理范围和待确认事项见 [QA CLI 管理能力 TODO](docs/qa-cli-management-todo.zh-CN.md)。
+
+- **浏览器**：优先复用已有兼容浏览器。确认缺失后才下载。用户指定浏览器时按其选择处理。
+- **Skill**：AI 按任务检查 QA、Bun、pnpm 等 Skill。缺失时安装到业务项目。不熟悉业务时可使用 `$qa-business-guide`。
+- **CC Switch**：需要时添加 `--with-cc-switch`。已有时复用，缺失时安装到用户级共享目录。用户数据写入 `~/.cc-switch`。
+- **管理命令**：环境、项目、可选 MCP 和项目内置 Skill 提供检查或修复命令。`update check` 只检查来源更新。
+
+详细范围见[环境初始化](docs/environment.zh-CN.md)和 [Skills 与 MCP](docs/skills-mcp.zh-CN.md)。
 
 ## 文档
 
-文档按两类阅读：环境、语言和工作流页面按步骤使用；架构、参考、版本和维护页面按主题查阅。
+文档按三类阅读：
+
+- 最终使用人员看环境、语言和工作流页面。
+- 业务项目 QA 开发与维护人员看架构和语言规范。
+- 仓库维护人员看版本、发布和维护页面。
 
 - [环境初始化](docs/environment.zh-CN.md)：系统要求、参数、目录和卸载
 - [TypeScript 指南](docs/typescript.zh-CN.md)：快速开始、测试和报告
@@ -103,7 +98,7 @@ CC Switch 用户数据仍按上游设计写入 `~/.cc-switch`。
 - [从需求到执行](docs/qa-workflow.zh-CN.md)：输入、调用、执行和证据
 - [参考来源](docs/references.zh-CN.md)：官方文档和许可证
 - [版本记录](docs/version-history.zh-CN.md)：组件、验证范围与迁移变化
-- [维护指南](docs/maintenance.zh-CN.md)：实现、版本、发布、CI 矩阵与验证缓存
+- [Release 发布指南](docs/release.zh-CN.md)：版本说明、资产和发布前检查
 - [全栈示例](apps/qa-ticket-app/README.md)：Hono、Drizzle、SQLite、React 和 shadcn/ui
 - [示例 QA 文档](apps/qa-ticket-app/docs/qa/inputs/input-index.md)：共享需求、契约与测试设计
 - [TypeScript 示例 QA](apps/qa-ticket-app-suite-typescript/README.md)：Playwright Test、fixtures 和 E2E

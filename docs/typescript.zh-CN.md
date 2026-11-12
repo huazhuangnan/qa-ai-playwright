@@ -1,6 +1,6 @@
 # TypeScript 使用指南
 
-[使用人员](../README.md) | [维护人员](maintenance.zh-CN.md)
+[使用人员](../README.md)
 
 **TypeScript** | [Python](python.zh-CN.md)
 
@@ -43,8 +43,8 @@ bash packages/qa-cli/bin/qa.sh env check typescript
 <summary>Windows（PowerShell 7 优先，5.1 降级）</summary>
 
 ```powershell
-.\packages\qa-cli\bin\qa.cmd project init .\workspaces\my-qa --language typescript --browser chromium
-.\packages\qa-cli\bin\qa.cmd project check .\workspaces\my-qa --browser chromium
+.\packages\qa-cli\bin\qa.cmd project init .\workspaces\my-qa --language typescript
+.\packages\qa-cli\bin\qa.cmd project check .\workspaces\my-qa
 ```
 
 </details>
@@ -53,8 +53,8 @@ bash packages/qa-cli/bin/qa.sh env check typescript
 <summary>macOS / Linux</summary>
 
 ```bash
-bash packages/qa-cli/bin/qa.sh project init ./workspaces/my-qa --language typescript --browser chromium
-bash packages/qa-cli/bin/qa.sh project check ./workspaces/my-qa --browser chromium
+bash packages/qa-cli/bin/qa.sh project init ./workspaces/my-qa --language typescript
+bash packages/qa-cli/bin/qa.sh project check ./workspaces/my-qa
 ```
 
 </details>
@@ -90,16 +90,20 @@ cd workspaces/my-qa
 
 </details>
 
-编辑 `.env` 选择环境。
-`QA_ENV` 是环境选择器。
-`UI_BASE_URL` 用于页面入口。
-`API_BASE_URL` 用于 API fixture。
-`BASE_URL` 只作兼容回退。
-设置 `PLAYWRIGHT_WEB_SERVER_COMMAND` 后，配置会在本地启动服务。
+编辑 `.env`，按需要配置：
+
+| 变量 | 用途 |
+| --- | --- |
+| `QA_ENV` | 选择环境 |
+| `UI_BASE_URL` | 页面入口 |
+| `API_BASE_URL` | API fixture 入口 |
+| `BASE_URL` | 兼容回退入口 |
+| `PLAYWRIGHT_WEB_SERVER_COMMAND` | 配置本地服务启动命令 |
+| `QA_AUTH_STATE` | 指向未提交的 UI 登录态文件 |
+
 按接口契约补充认证、角色、租户、资源、数据隔离、清理和功能开关变量。
 变量名登记到 `docs/qa/inputs/input-index.md`。
 系统和 CI 中的同名变量优先于 `.env`。
-UI 登录态可通过 `QA_AUTH_STATE` 指向未提交的 storage state 文件。
 
 ### 登录态集成
 
@@ -135,13 +139,15 @@ bun run auth:setup
 bun run test:e2e
 ```
 
-状态写入 `playwright/.auth/<role>.json`，该目录已被忽略。
-不设置 `QA_AUTH_ROLES` 时，setup project 不启用。
-`QA_AUTH_STATE` 可继续读取一个手工生成的状态文件。
-同一用例需要多个角色时使用 `loginAs('admin')`，每个页面使用独立 context。
-匿名测试用 `test.use({ storageState: { cookies: [], origins: [] } })` 清空默认状态。
-API 认证仍使用 `QA_API_TOKEN` 等显式配置，不与浏览器状态隐式共享。
-登录态不包含服务端业务数据，数据种子和重置仍由项目 API 负责。
+登录态使用规则：
+
+- 状态写入 `playwright/.auth/<role>.json`。该目录已被忽略。
+- 不设置 `QA_AUTH_ROLES` 时，setup project 不启用。
+- `QA_AUTH_STATE` 可读取手工生成的状态文件。
+- 多角色用例使用 `loginAs('admin')`。每个页面使用独立 context。
+- 匿名测试用 `test.use({ storageState: { cookies: [], origins: [] } })` 清空默认状态。
+- API 认证使用 `QA_API_TOKEN` 等显式配置，不与浏览器状态隐式共享。
+- 登录态不包含服务端业务数据。数据种子和重置仍由项目 API 负责。
 
 ### 第 4 步：运行第一个测试
 
@@ -166,21 +172,21 @@ bun run test:e2e
 bunx tsc --noEmit
 ```
 
-API 测试需先完成业务接入。
-API 测试默认跳过，CI 手动门禁会设置 `REQUIRE_API_TESTS=1`。
-缺少 `API_BASE_URL` 和 `BASE_URL` 时，门禁会失败。
-在 GitHub Actions 手动运行工作流，选择 `QA_ENV` 并启用 `run_api`。
-模板演示 `QA_API_BASE_URL`、`QA_BASE_URL` 和 `QA_API_TOKEN` 基线配置。
-按项目实际变量扩展工作流 `env` 和仓库 secrets。
-不要假设所有项目只使用这几个 secret。
-PR 和普通 push 运行 Linux Chromium smoke。
-手动 `suite=full` 运行完整环境和项目矩阵。
-仅安装 Chromium 时保留 `--project=chromium`。
-安装全部浏览器后可用 `bun run test`。
-生产类写操作调用 `requireWriteAccess` fixture。
-默认拒绝生产写入，除非显式设置 `QA_ALLOW_PRODUCTION_WRITES=true`。
-模板 API 认证适配支持 `QA_API_TOKEN`、`QA_API_TOKEN_HEADER` 和 `QA_API_AUTH_SCHEME`。
-账号、Cookie、OAuth、多租户或业务资源变量按项目实现。
+执行前检查以下配置：
+
+- **API 门禁**：先完成业务接入。API 测试默认跳过。
+  CI 手动门禁设置 `REQUIRE_API_TESTS=1`。缺少 `API_BASE_URL` 和 `BASE_URL` 时门禁失败。
+  在 GitHub Actions 手动运行工作流时，选择 `QA_ENV` 并启用 `run_api`。
+- **环境与认证**：模板演示 `QA_API_BASE_URL`、`QA_BASE_URL` 和 `QA_API_TOKEN`。
+  按项目变量扩展工作流 `env` 和仓库 secrets。不要假设所有项目只使用这几个 secret。
+  API 认证适配支持 `QA_API_TOKEN`、`QA_API_TOKEN_HEADER` 和 `QA_API_AUTH_SCHEME`。
+  账号、Cookie、OAuth、多租户或业务资源变量按项目实现。
+- **CI 范围**：PR 和普通 push 运行 Linux Chromium smoke。
+  手动 `suite=full` 运行完整环境和项目矩阵。
+- **浏览器**：仅安装 Chromium 时保留 `--project=chromium`。
+  安装全部浏览器后可用 `bun run test`。
+- **写入保护**：生产类写操作调用 `requireWriteAccess` fixture。
+  默认拒绝生产写入，除非显式设置 `QA_ALLOW_PRODUCTION_WRITES=true`。
 
 ## 项目结构
 
@@ -218,7 +224,8 @@ pnpm exec playwright show-trace test-results/<trace.zip路径>
 
 分享 Trace 前检查敏感信息。
 
-首次生成后提交 `pnpm-lock.yaml`。
-CI 会先检查锁文件，再执行 `pnpm install --frozen-lockfile`。
-`failOnFlakyTests` 在 CI 中阻止重试后通过掩盖不稳定测试。
-套件扩大后再启用 `--shard` 和 blob report 合并。
+CI 和报告配置：
+
+- 首次生成后提交 `pnpm-lock.yaml`。CI 检查锁文件后执行 `pnpm install --frozen-lockfile`。
+- `failOnFlakyTests` 在 CI 中阻止重试后通过掩盖不稳定测试。
+- 套件扩大后再启用 `--shard` 和 blob report 合并。

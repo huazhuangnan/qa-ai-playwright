@@ -1,6 +1,6 @@
 # Python 使用指南
 
-[使用人员](../README.md) | [维护人员](maintenance.zh-CN.md)
+[使用人员](../README.md)
 
 [TypeScript](typescript.zh-CN.md) | **Python**
 
@@ -43,8 +43,8 @@ bash packages/qa-cli/bin/qa.sh env check python
 <summary>Windows（PowerShell 7 优先，5.1 降级）</summary>
 
 ```powershell
-.\packages\qa-cli\bin\qa.cmd project init .\workspaces\python-qa --language python --browser chromium
-.\packages\qa-cli\bin\qa.cmd project check .\workspaces\python-qa --browser chromium
+.\packages\qa-cli\bin\qa.cmd project init .\workspaces\python-qa --language python
+.\packages\qa-cli\bin\qa.cmd project check .\workspaces\python-qa
 ```
 
 </details>
@@ -53,8 +53,8 @@ bash packages/qa-cli/bin/qa.sh env check python
 <summary>macOS / Linux</summary>
 
 ```bash
-bash packages/qa-cli/bin/qa.sh project init ./workspaces/python-qa --language python --browser chromium
-bash packages/qa-cli/bin/qa.sh project check ./workspaces/python-qa --browser chromium
+bash packages/qa-cli/bin/qa.sh project init ./workspaces/python-qa --language python
+bash packages/qa-cli/bin/qa.sh project check ./workspaces/python-qa
 ```
 
 </details>
@@ -90,15 +90,19 @@ cd workspaces/python-qa
 
 </details>
 
-编辑 `.env` 选择环境。
-`QA_ENV` 是环境选择器。
-`UI_BASE_URL` 用于浏览器 context。
-`API_BASE_URL` 用于 `qa_api`。
-`BASE_URL` 只作兼容回退。
+编辑 `.env`，按需要配置：
+
+| 变量 | 用途 |
+| --- | --- |
+| `QA_ENV` | 选择环境 |
+| `UI_BASE_URL` | 浏览器 context 入口 |
+| `API_BASE_URL` | `qa_api` 入口 |
+| `BASE_URL` | 兼容回退入口 |
+| `QA_AUTH_STATE` | 指向未提交的 UI 登录态文件 |
+
 按接口契约补充认证、角色、租户、资源、数据隔离、清理和功能开关变量。
 变量名登记到 `docs/qa/inputs/input-index.md`。
 系统和 CI 中的同名变量优先于 `.env`。
-UI 登录态可通过 `QA_AUTH_STATE` 指向未提交的 storage state 文件。
 
 ### 登录态集成
 
@@ -141,11 +145,13 @@ pytest-playwright 没有 setup project。
 
 </details>
 
-状态写入 `playwright/.auth/<role>.json`，该目录已被忽略。
-`QA_AUTH_STATE` 可继续读取一个手工生成的状态文件。
-同一用例需要多个角色时使用 `login_as('admin')`，每个页面使用独立 context。
-API 认证仍使用 `QA_API_TOKEN` 等显式配置，不与浏览器状态隐式共享。
-登录态不包含服务端业务数据，数据种子和重置仍由项目 API 负责。
+登录态使用规则：
+
+- 状态写入 `playwright/.auth/<role>.json`。该目录已被忽略。
+- `QA_AUTH_STATE` 可读取手工生成的状态文件。
+- 多角色用例使用 `login_as('admin')`。每个页面使用独立 context。
+- API 认证使用 `QA_API_TOKEN` 等显式配置，不与浏览器状态隐式共享。
+- 登录态不包含服务端业务数据。数据种子和重置仍由项目 API 负责。
 
 ### 第 4 步：运行第一个测试
 
@@ -201,20 +207,20 @@ API 认证仍使用 `QA_API_TOKEN` 等显式配置，不与浏览器状态隐式
 
 </details>
 
-API 测试需先完成业务接入。
-API 测试默认跳过，CI 手动门禁会设置 `REQUIRE_API_TESTS=1`。
-缺少 `API_BASE_URL` 和 `BASE_URL` 时，门禁会失败。
-在 GitHub Actions 手动运行工作流，选择 `QA_ENV` 并启用 `run_api`。
-模板演示 `QA_API_BASE_URL`、`QA_BASE_URL` 和 `QA_API_TOKEN` 基线配置。
-按项目实际变量扩展工作流 `env` 和仓库 secrets。
-不要假设所有项目只使用这几个 secret。
-PR 在 Linux 和 Chromium 上快速验证。
-手动启用 `full_suite` 后运行三平台和三浏览器矩阵。
-浏览器测试加 `--browser chromium --tracing retain-on-failure --screenshot only-on-failure`。
-生产类写操作使用 `require_write_access` fixture。
-默认拒绝生产写入，除非显式设置 `QA_ALLOW_PRODUCTION_WRITES=true`。
-模板 API 认证适配支持 `QA_API_TOKEN`、`QA_API_TOKEN_HEADER` 和 `QA_API_AUTH_SCHEME`。
-账号、Cookie、OAuth、多租户或业务资源变量按项目实现。
+执行前检查以下配置：
+
+- **API 门禁**：先完成业务接入。API 测试默认跳过。
+  CI 手动门禁设置 `REQUIRE_API_TESTS=1`。缺少 `API_BASE_URL` 和 `BASE_URL` 时门禁失败。
+  在 GitHub Actions 手动运行工作流时，选择 `QA_ENV` 并启用 `run_api`。
+- **环境与认证**：模板演示 `QA_API_BASE_URL`、`QA_BASE_URL` 和 `QA_API_TOKEN`。
+  按项目变量扩展工作流 `env` 和仓库 secrets。不要假设所有项目只使用这几个 secret。
+  API 认证适配支持 `QA_API_TOKEN`、`QA_API_TOKEN_HEADER` 和 `QA_API_AUTH_SCHEME`。
+  账号、Cookie、OAuth、多租户或业务资源变量按项目实现。
+- **CI 范围**：PR 在 Linux 和 Chromium 上快速验证。
+  手动启用 `full_suite` 后运行三平台和三浏览器矩阵。
+- **浏览器**：测试时加 `--browser chromium --tracing retain-on-failure --screenshot only-on-failure`。
+- **写入保护**：生产类写操作使用 `require_write_access` fixture。
+  默认拒绝生产写入，除非显式设置 `QA_ALLOW_PRODUCTION_WRITES=true`。
 
 ## 项目结构
 

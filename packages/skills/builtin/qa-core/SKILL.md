@@ -50,7 +50,7 @@ AI 测试任务按以下顺序组织。一个任务可以连续调用多个 Skil
 - 生成用例前检查 [输入清单](references/input-checklist.md)，合并缺失项一次提醒，能做的不停。
 - 项目 `docs/qa`：`inputs/` 只读保存资料，`tasks/` 保存确认任务，`generated/` 写产出。
 - 启用 Codex 的环境注册 `qa` MCP。标准环境还注册 `playwright` MCP。full 环境再增加 `agent-browser` MCP。
-- MCP 配置位于 `CODEX_HOME/config.toml`，使用局部 Chromium。
+- MCP 配置位于 `CODEX_HOME/config.toml`。浏览器优先复用已有兼容安装，缺失时准备环境内 Chromium。
 
 ## 文档产出
 

@@ -33,7 +33,7 @@ Windows 的启动顺序如下：
 - macOS 14 Sonoma 或更高。
 - Debian 12/13 或 Ubuntu 22.04/24.04/26.04。
 - x86-64 或 arm64。
-- 首次安装需要访问 Node、共享工具包、Python 包和浏览器下载域名。
+- 首次安装需要访问 Node、共享工具包和 Python 包下载域名。需要下载缺失的浏览器时还需要访问浏览器下载域名。
 
 Linux/macOS 的引导脚本需要 Bash、tar、gzip、curl 或 wget、SHA256 工具。
 不支持 musl/Alpine。
@@ -44,7 +44,7 @@ Linux/macOS 的引导脚本需要 Bash、tar、gzip、curl 或 wget、SHA256 工
 | 阶段 | 命令 | 结果 |
 | --- | --- | --- |
 | 环境 | `env init <语言>` | 共享工具检查、QA MCP、环境状态、缓存和输出 |
-| 检查 | `env check <语言>` | 检查版本、核心组件和 CC Switch |
+| 检查 | `env check <语言>` | 检查版本和所选组件 |
 | 项目 | `project init <目录> --language <语言>` | 模板、依赖和浏览器 |
 | 检查 | `project check <目录>` | 项目依赖锁、测试和浏览器检查 |
 
@@ -64,16 +64,26 @@ bash packages/qa-cli/bin/qa.sh project init ./workspaces/python-qa --language py
 bash packages/qa-cli/bin/qa.sh project check ./workspaces/python-qa
 ```
 
-`project` 要求先完成对应语言的 `env init`。
-`env init` 优先复用系统或用户级工具。缺失时，按组件安装到共享位置或环境目录。安装前输出将执行的命令。
-扩展包使用 `env init <语言> --full`。
+- **初始化**：`project` 要求先完成对应语言的 `env init`。初始化优先复用系统或用户级工具。缺少工具时，按组件安装到共享位置或环境目录，并在安装前输出命令。
+- **可选组件**：扩展包使用 `env init <语言> --full`。需要 CC Switch 时添加 `--with-cc-switch`。Python 环境会准备受管 Python。
+- **状态记录**：初始化写入环境状态和用户级 MCP 配置。安装及复用的工具会记录在环境状态中。共享工具的使用关系不能仅凭单个环境的记录确认。
+- **失败恢复**：初始化失败后，可使用相同参数重跑。检查已输出的安装操作。安装台账和中断处理见[环境安装台账](env-install-ledger.zh-CN.md)。
+- **版本兼容**：复用的 Bun 或 pnpm 主版本与配置基线不同时，会提示人工检查兼容性。CLI 不覆盖已有安装。
+
+浏览器按以下规则准备：
+
+- 优先检测并复用用户已有的兼容安装。确认缺失后才下载。用户指定浏览器时按其选择处理。
+- 检测只确认可执行文件存在且可访问，不保证版本与 Playwright 兼容。使用 `project check` 运行浏览器测试，验证当前组合。
+- 同时使用 `--skip-codex --full` 时，也先复用已有浏览器。缺失时准备环境内的 Chromium，供 Agent Browser 使用。
+- 浏览器自动化使用独立上下文，不使用用户日常浏览器的配置和登录状态。
+- 使用自定义 Chrome 或 Edge 路径时，设置 `QA_BROWSER_CHANNEL` 和 `QA_BROWSER_EXECUTABLE_PATH`。指定系统 Chromium 路径时，将通道设为空。
 
 ### 使用 Codex 准备环境
 
-执行测试前，Codex 应先确认项目语言、环境根目录和所需组件，再使用 QA MCP 或 CLI 检查环境。
-环境缺失或语言不匹配时，使用交付包启动器和相同根目录执行对应语言的 `env init`。安装缺失的共享工具前应告知用户。
-初始化后再次执行相同条件的 `env check`。检查通过后再继续依赖该环境的测试。
-找不到启动器、缺少必要参数或初始化失败时，报告原因，不声称安装或测试通过。
+1. 确认项目语言、环境根目录和所需组件。使用 QA MCP 或 CLI 检查环境。
+2. 环境缺失或语言不匹配时，使用交付包启动器和相同根目录执行对应语言的 `env init`。安装缺失的共享工具前告知用户。
+3. 初始化后，以相同条件执行 `env check`。检查通过后再继续依赖该环境的测试。
+4. 找不到启动器、缺少必要参数或初始化失败时，报告原因。不声称安装或测试通过。
 
 ### 命令输出示例
 
@@ -84,9 +94,11 @@ Ready. Local activation files: ［环境目录］/activate.ps1 / activate.sh
 Project ready: ［项目目录］. QA templates: ［版本］. Language template: ［版本］. Run: qa project check ［项目目录］
 ```
 
-`env check` 输出运行时信息，并在末尾输出包含 `root`、`missing` 和 `versions` 的 JSON 对象。
-`missing` 为空表示所选环境组件检查通过，不代表业务测试通过。检查会验证可用程序、实际版本和所需入口。命令成功返回 0，存在缺失项返回 1。
-重复初始化时，`KEEP` 表示保留已有项目文件。
+- `env check` 输出运行时信息。末尾 JSON 包含 `root`、`missing` 和 `versions`。
+- `missing` 为空表示环境组件检查通过，不代表业务测试通过。检查验证可用程序、实际版本和所需入口。
+- 命令成功返回 0，存在缺失项返回 1。
+- 重复初始化时，`KEEP` 表示保留已有项目文件。
+
 测试结果与证据位置见[从需求到执行](qa-workflow.zh-CN.md#可观察的执行示例)。
 
 ## 生命周期管理
@@ -94,25 +106,25 @@ Project ready: ［项目目录］. QA templates: ［版本］. Language template
 以下是当前支持的操作。使用相同的 `--root` 定位环境。项目命令要求环境已经初始化，且语言与项目匹配。
 
 - `env init <语言>`：准备所选环境，复用已发现的工具并安装缺失组件。重新执行可补齐缺失项并更新环境状态。它不是通用升级或回滚命令。
-- `env list`：只读列出当前环境记录的语言、配置和发现的工具。输出区分记录版本和发现的软件包版本。来源无法确认时显示 `unknown`。
+- `env list`：只读列出当前环境记录的语言、配置、安装台账和发现的工具。输出区分记录版本和发现的软件包版本。来源无法确认时显示 `unknown`。
 - `env repair`：使用已记录的语言和组件配置重新补齐环境。Bun 或 pnpm 缺失时也可执行。缺少初始化记录时拒绝执行。它不替换已复用的共享工具。
   如果 Node 缺失，先按原语言重新执行 `env init` 来引导 Node。
-- `env plan uv`、`env upgrade uv`、`env snapshots uv` 和 `env rollback <快照标识>`：检测、列出人工变更快照及恢复环境内受管 uv。`env upgrade uv` 不执行替换。共享工具不由这些命令覆盖。详见[uv 升级与恢复](environment-managed-upgrades.zh-CN.md)。
+- `env plan uv`、`env upgrade uv`、`env snapshots uv` 和 `env rollback <快照标识>`：维护环境内受管 uv。
+  详细规则见[环境组件升级](environment-managed-upgrades.zh-CN.md)。
 - `env check <语言>`：只读检查所选环境的组件、版本和配置。它不自动安装、升级或删除组件。检查时使用与初始化一致的语言和选项。
 - `project init <目录> --language <语言>`：创建或重新初始化项目，准备模板、依赖和所选浏览器。已有项目文件会保留。重新初始化不等同于模板升级。
 - `project check <目录>`：检查项目依赖锁并运行项目测试，包括浏览器检查。TypeScript 项目还会进行类型检查。此命令会运行测试，并非只读的环境检查。
-- `project plan <目录>`：只读比较项目和交付模板。
-- `project upgrade <目录>`：更新可确认归属且未修改的模板文件。冲突保留并返回失败。
-- `project repair <目录>`：补齐缺失的受管模板文件。具体规则见[项目模板管理](project-template-management.zh-CN.md)。
-- `project snapshots <目录>` 和 `project rollback <目录> <快照标识>`：列出和恢复升级前快照。回滚会检查受管文件是否发生后续修改。
+- `project plan/upgrade/repair/snapshots/rollback <目录>`：维护项目模板和升级快照。
+  详细规则见[项目模板管理](project-template-management.zh-CN.md)。
 - `project uninstall <目录>`：删除项目记录中的未修改模板文件。保留修改过的文件、未跟踪文件和依赖目录。存在受管保留项时保留项目记录，方便再次执行。
-- `env uninstall`：清理当前环境拥有且可安全识别的 MCP 注册。存在无法安全移除的受管注册时返回失败。环境目录及其中的数据默认保留。外部软件的处理见下方卸载说明。
+- `env uninstall`：清理当前环境拥有且可安全识别的 MCP 注册。
+  它不删除环境目录或其中的数据。存在无法安全移除的受管注册时返回失败。
+  外部软件的处理见下方卸载说明。
 - `mcp remove <名称>`：只移除当前环境拥有且未修改的可选 MCP 注册。无法确认所有权或移除后注册仍存在时返回失败并保留记录。
 - `mcp list` 和 `mcp check <名称>` 分别列出或检查可选 MCP 的注册、所有权和软件包状态。
-- `mcp repair <名称>` 按已有所有权记录补齐缺失注册或记录版本的软件包。无法确认所有权、共享包损坏或版本不符时停止。
+- `mcp repair <名称>`：按记录修复可选 MCP。所有权和失败处理见[Skills 与 MCP](skills-mcp.zh-CN.md)的维护章节。
 
-`project plan <目录>` 只读比较受管文件记录、当前项目文件和交付模板。计划列出可更新、与模板一致可接纳、已修改、缺失、新增、已移除和未知文件。它不会写入项目。Python 初始化生成的 `requirements.lock` 和元数据尚未包含在计划中，需要另行检查。
-环境修复不提供共享工具升级或通用回滚。外部安装步骤失败时可能需要重试。
+环境修复不提供共享工具升级或通用回滚。外部安装步骤失败时可能需要重试。模板差异、快照和所有权细节见[项目模板管理](project-template-management.zh-CN.md)。
 
 ## 参数
 
@@ -121,19 +133,26 @@ Project ready: ［项目目录］. QA templates: ［版本］. Language template
 | `--root <目录>` | 指定隔离环境目录，后续命令保持相同路径 |
 | `env init/check` 的位置参数 | `python`、`typescript` 或 `both` |
 | `--full` | 增加 Agent Browser CLI 和 MCP |
+| `--with-cc-switch` | 初始化或检查 CC Switch |
 | `--language python/typescript` | 选择新项目语言 |
-| `--browser chromium/firefox/webkit/all/none` | 选择项目浏览器 |
+| `--browser` | `project init` 支持 `chrome`、`msedge`、`chromium`、`firefox`、`webkit`、`all`、`none`；`project check` 支持前五项 |
 | `--skip-codex` | 不安装 Codex 和声明需要 Codex 的 MCP |
 | `--skip-skills` | 跳过 Playwright CLI、浏览器辅助 CLI 和浏览器 MCP；不影响 QA MCP 和 Skill 按需检查 |
 | `--with-deps` | Linux 安装浏览器系统库 |
 
 `--language` 也可写作 `--语言`。
-`--skip-skills` 不会跳过 CC Switch。
+`env check` 未指定该选项时，按已记录的环境配置决定是否检查 CC Switch。
 
-环境初始化复用已有工具版本。缺失时使用配置中的版本安装。
+- 未指定浏览器时，依次检测系统 Chrome、Edge、Chromium、环境内 Chromium。均未发现时，准备 Playwright 的 Chromium。
+- 项目检查优先使用 `--browser`，其次使用 `QA_BROWSER_CHANNEL`。两者均未指定时，沿用初始化记录的 Chrome 或 Edge，否则使用 Chromium。
+- 显式指定 `chrome` 或 `msedge` 时，使用对应系统浏览器。找不到时命令失败，并提示自行安装或选择其他浏览器。CLI 不会自动安装系统 Chrome 或 Edge。
+- `all` 和 `none` 仅用于项目初始化。
+
+环境初始化复用已有工具版本。
+缺失时使用配置中的版本安装。
 CI 的 `latest` 对应当前默认版本，`compatible` 对应仍需支持的兼容版本。
 `--full` 只在需要 Agent Browser CLI 或 Agent Browser MCP 时使用。
-版本变化、安装逻辑变化或平台变化会触发对应 CI 验证。
+版本、安装逻辑或平台变化会触发对应 CI 验证。
 
 ## 配置变量
 
@@ -158,6 +177,8 @@ CI 的 `latest` 对应当前默认版本，`compatible` 对应仍需支持的兼
 | `UI_BASE_URL` | 页面入口 |
 | `API_BASE_URL` | API 入口 |
 | `BASE_URL` | 兼容回退 |
+| `QA_BROWSER_CHANNEL` | 项目测试的 Chromium 通道；`chrome` 或 `msedge` 使用对应系统浏览器，空值使用 Chromium |
+| `QA_BROWSER_EXECUTABLE_PATH` | 系统浏览器可执行文件路径；通道为空时指定 Chromium，路径也为空时使用 Playwright 管理的 Chromium |
 | `QA_API_TOKEN` | API Token |
 | `QA_API_TOKEN_HEADER` | Token 请求头名称 |
 | `QA_API_AUTH_SCHEME` | Token 认证前缀 |
@@ -171,17 +192,14 @@ CI 的 `latest` 对应当前默认版本，`compatible` 对应仍需支持的兼
 | `REQUIRE_API_TESTS` | 缺少 API 配置时是否失败 |
 | `PLAYWRIGHT_WEB_SERVER_COMMAND` | TypeScript 可选本地服务启动命令 |
 
-没有跨项目通用的业务变量名称。
-以实际代码、OpenAPI 或脱敏样例为准。
-各环境文件保持相同变量名。
-取值优先级为进程环境或 CI、`.env.<环境>`、公共 `.env`、代码默认值。
-真实值放入进程环境、CI secret 或密钥系统。
-模板从环境变量或本地 `.env` 文件读取凭证，不直接连接密钥系统。
-使用密钥系统时，先由项目的安全机制将值注入进程环境。
-本地 `.env` 和浏览器登录态不加密。不要提交或分享这些文件。
-公开地址可使用 GitHub Actions `vars`，凭证使用 `secrets`。
-项目新增变量时必须同步扩展生成工作流的 `env` 映射。
-变量名和获取位置登记到生成项目的 `docs/qa/inputs/input-index.md`。
+项目变量按以下规则管理：
+
+- **变量名**：没有跨项目通用的业务变量名称。以实际代码、OpenAPI 或脱敏样例为准。各环境文件保持相同变量名。
+- **优先级**：进程环境或 CI、`.env.<环境>`、公共 `.env`、代码默认值，依次生效。
+- **凭证**：真实值放入进程环境、CI secret 或密钥系统。模板从环境变量或本地 `.env` 文件读取，不直接连接密钥系统。使用密钥系统时，先通过项目安全机制将值注入进程环境。
+- **文件保护**：本地 `.env` 和浏览器登录态不加密，不要提交或分享。
+- **CI 配置**：公开地址可使用 GitHub Actions `vars`，凭证使用 `secrets`。新增变量时同步扩展生成工作流的 `env` 映射。
+- **登记**：将变量名和获取位置登记到生成项目的 `docs/qa/inputs/input-index.md`。
 
 ## 环境目录
 
@@ -191,12 +209,18 @@ CI 的 `latest` 对应当前默认版本，`compatible` 对应仍需支持的兼
 | 用户级 `CODEX_HOME` | Codex 配置、MCP 注册和 MCP 锁记录 |
 | npm 全局前缀 | 缺失时安装的 Codex、Bun、pnpm、Playwright CLI、Playwright MCP 和 Agent Browser |
 | 用户级共享目录 | 缺失时安装的 Node 和 CC Switch |
-| `<root>/bin/cc-switch` | CC Switch 启动包装器 |
+| `<root>/bin/cc-switch`（Windows 为 `cc-switch.cmd`） | 启动已发现的 CC Switch 的快捷方式，并非应用本体 |
 | `<root>/codex/skills/` | 旧环境可能保留的 Skills |
 | `<root>/cache/` | npm、pnpm、Bun、pip、uv 和浏览器缓存 |
 | `<root>/state.json` | 实际复用或安装的工具路径和版本 |
 | `<root>/mcp-output/` | Playwright MCP 输出 |
 | `<root>/activate.ps1` / `activate.sh` | 当前 shell 的激活文件 |
+
+以下数据文件采用程序读取的固定格式，不能插入注释：
+
+- `.qa-managed`：环境归属标记。
+- `bootstrap/python-path.txt`：环境使用的 Python 路径。
+- `agent-browser-config.json`：Agent Browser 配置。
 
 激活 PowerShell 7 或 Windows PowerShell 5.1：
 
@@ -228,10 +252,10 @@ CC Switch 共享应用不会随环境卸载。
 ```
 
 执行前会校验所有权和路径边界。
-项目卸载删除未修改模板，保留 `.venv`、`node_modules`、用户修改与未跟踪文件。确认依赖目录无需保留后，可自行删除。
-环境卸载保留环境目录、初始化标记及其中的数据。它只清理可确认属于该环境的 MCP 注册。确认目录无需保留后，可自行删除。
-环境卸载默认保留发现的非 QA 安装软件，不进行交互询问。
-`env uninstall --include-external` 当前会拒绝执行。现有记录不能证明外部软件未被其他环境使用。请使用软件原有的安装工具自行管理。
+
+- **项目卸载**：删除未修改模板，保留 `.venv`、`node_modules`、用户修改与未跟踪文件。确认依赖目录无需保留后，可自行删除。
+- **环境卸载**：保留环境目录、所有权标记及其中的数据，只清理可确认属于该环境的 MCP 注册。卸载成功后环境标记为未初始化，项目命令需要重新初始化。确认目录无需保留后，可自行删除。
+- **外部软件**：默认保留发现的非 QA 安装软件。`env uninstall --include-external` 当前会拒绝执行，因为现有记录不能证明软件未被其他环境使用。请使用软件原有的安装工具管理。
 
 ## 故障排查
 
@@ -245,8 +269,6 @@ CC Switch 共享应用不会随环境卸载。
 | 找不到运行时或 Codex | 检查 `state.json`、激活文件和 `QA_ROOT` |
 | 浏览器 executable 不存在 | 安装对应浏览器并使用相同 `--root` |
 | `playwright-cli --version` 报 `MODULE_NOT_FOUND` | 使用相同 `--root` 重新执行 `env init`，再执行 `env check`；确认安装包 `bin` 入口和启动器指向同一文件 |
-| CI 重复执行完整环境矩阵 | 检查验证键、成功缓存和 `cache_buster`；必要时手动运行 `suite=full` |
-| CI 错误跳过环境验证 | 检查运行时、安装实现、工作流和测试入口是否已经改变验证键 |
 | API 测试 skipped | 检查 `QA_ENV`、`API_BASE_URL`、API 门禁和认证变量 |
 | Skill 或模板未更新 | 保留已有内容。升级前先合并本地修改 |
 | Python 锁文件未受管理或已修改 | 备份并手动处理 `requirements.lock` 和元数据后重跑初始化。失败前已复制的模板会保留 |

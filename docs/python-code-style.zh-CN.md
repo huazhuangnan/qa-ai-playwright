@@ -1,6 +1,6 @@
 # Python 风格与架构
 
-[使用人员](../README.md) | [维护人员](maintenance.zh-CN.md)
+[使用人员](../README.md) | [QA 工作流](qa-workflow.zh-CN.md)
 
 适用于 Python QA 项目。先读[公共架构与边界](code-style-architecture-common.zh-CN.md)。
 

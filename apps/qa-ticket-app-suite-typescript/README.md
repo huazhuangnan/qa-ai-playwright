@@ -1,8 +1,7 @@
 # QA Ticket App TypeScript 测试项目
 
-本目录使用 Playwright Test 验证独立示例应用。
-被测项目位于 [`qa-ticket-app`](../qa-ticket-app/README.md)。
-同一业务需求的 Python 实现在 [`qa-ticket-app-suite-python`](../qa-ticket-app-suite-python/README.md)。
+本目录使用 Playwright Test 验证[工单示例应用](../qa-ticket-app/README.md)。
+同一业务需求的 Python 实现见 [Python QA 项目](../qa-ticket-app-suite-python/README.md)。
 
 ## 文档
 
@@ -36,16 +35,23 @@ pnpm run test:a11y
 pnpm run test:mobile
 ```
 
-测试配置会自动启动示例应用。
-每次测试运行共用一个临时 SQLite 数据库，启动时重建。
-示例套件仅允许默认的本地页面和 API 地址。不得指向其他服务。
-运行 `pnpm run report` 查看 HTML 报告。JUnit 结果位于 `reports/junit.xml`。
+测试配置会自动启动示例应用：
+
+- 每次运行共用一个临时 SQLite 数据库，启动时重建。
+- 只允许默认的本地页面和 API 地址，不得指向其他服务。
+- 运行 `pnpm run report` 查看 HTML 报告。
+- JUnit 结果位于 `reports/junit.xml`。
 
 ## OpenAPI 输入与测试
 
-服务启动后，可提供文档页 `http://127.0.0.1:8787/api-docs` 或契约链接 `http://127.0.0.1:8787/openapi.json`。
-离线输入使用 `../qa-ticket-app/src/server/openapi.json`。
-向 AI 提供输入索引和任务目标，让它读取契约与需求，列出接口、预期和待确认项，再设计测试。
+服务启动后，可向 AI 提供以下资料：
+
+- 文档页：`http://127.0.0.1:8787/api-docs`
+- 契约链接：`http://127.0.0.1:8787/openapi.json`
+- 离线契约：`../qa-ticket-app/src/server/openapi.json`
+- 输入索引和任务目标。
+
+让 AI 读取契约和需求，列出接口、预期和待确认项，再设计测试。
 契约页面只展示文档，测试不会因导入而自动生成。
 
 在本目录运行：
@@ -55,10 +61,11 @@ pnpm exec playwright test tests/api/openapi.spec.ts --project=chromium
 ```
 
 该用例比较链接与本地文件，检查页面展示，并验证匿名拒绝和创建工单。
-终端列出用例结果，`playwright-report/` 保存 HTML 报告。
-失败时按配置保留 Trace、截图或视频；分享前应脱敏。
-命令输出取决于实际执行，不把未执行记为通过。
-仓库中的执行报告记录先前执行，不能作为当前代码的执行结果。
+
+- 终端列出用例结果，`playwright-report/` 保存 HTML 报告。
+- 失败时按配置保留 Trace、截图或视频。分享前应脱敏。
+- 命令输出取决于实际执行，不把未执行记为通过。
+- 仓库中的报告记录先前执行，不能作为当前代码的执行结果。
 
 ## 边界
 

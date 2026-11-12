@@ -14,9 +14,10 @@
 
 ## 目录边界
 
-本目录只放示例应用。
-TypeScript QA 位于 [`qa-ticket-app-suite-typescript`](../qa-ticket-app-suite-typescript/README.md)。
-Python QA 位于 [`qa-ticket-app-suite-python`](../qa-ticket-app-suite-python/README.md)。
+本目录只放示例应用。QA 项目分别维护：
+
+- [TypeScript QA](../qa-ticket-app-suite-typescript/README.md)
+- [Python QA](../qa-ticket-app-suite-python/README.md)
 
 应用架构见[架构](docs/architecture.md)。
 
@@ -35,6 +36,7 @@ bun run dev
 ```
 
 `dev` 会先自动执行 seed，再启动 API 和页面服务。
+
 如果只启动 API 或使用其他命令，先执行 `bun run db:seed`。
 
 页面：<http://127.0.0.1:5173>
@@ -45,10 +47,11 @@ API 契约：<http://127.0.0.1:8787/openapi.json>
 
 只读 API 文档：<http://127.0.0.1:8787/api-docs>
 
-本地契约文件为 `src/server/openapi.json`。页面从该接口读取同一份契约。
-它展示路径、请求和响应说明，不提供在线写入操作。
-当前重点描述创建工单请求和关键响应字段。其余响应的字段结构需要进一步补充。
-契约变更时同步检查实际接口和 QA 用例。
+本地契约文件为 `src/server/openapi.json`。文档页面读取同一份契约。
+
+- 页面展示路径、请求和响应说明，不提供在线写入操作。
+- 契约重点描述创建工单请求和关键响应字段。其余响应字段仍需补充。
+- 契约变更时，同步检查实际接口和 QA 用例。
 
 ## 应用检查
 

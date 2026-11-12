@@ -25,7 +25,7 @@
 | pnpm | 12.18.0 |
 | Playwright CLI 工具 | 0.1.24 |
 | Agent Browser 工具 | 0.42.0 |
-| cc-switch | 4.0.28 |
+| cc-switch | 4.0.30 |
 | qa-python | 0.0.1 |
 | qa-typescript | 0.0.1 |
 
@@ -45,8 +45,31 @@
 外部 Skill 按需安装，实际来源和版本以项目安装记录为准。
 MCP 清单和下载应用继续记录真实上游版本。
 首次提交后可再按 SemVer 管理兼容变化。
+外部运行时配置见 `packages/qa-cli/runtime-versions.env`。MCP 和应用版本以对应清单为准。
 
 ## 未发布
+
+- 环境生成的启动包装器和激活脚本增加用途注释，说明快捷入口与已有软件的关系。
+- 修正 qa-core 的浏览器说明，使其与优先复用已有浏览器的行为一致。
+
+- 重新划分文档读者边界，区分最终使用人员、业务项目 QA 开发与维护人员和仓库维护人员；README 保留唯一的维护人员入口，仓库维护指南不再承载示例项目日常运行命令。
+- 拆分 README、环境、维护、Skills 与 MCP 文档中的长句，分别说明命令、条件、结果和失败处理。
+- 明确项目以 Codex 完成 QA 为核心，整理使用入口、核心验收流程和管理能力优先级。
+- QA MCP 项目初始化和检查支持与 CLI 一致的 Chrome、Edge 浏览器选择。项目 smoke 失败时归档可用的测试报告和证据。
+- 浏览器准备依次检测系统 Chrome、Edge、Chromium 和环境内 Chromium。确认缺失后才安装。`--skip-codex --full` 也会准备缺失的环境内 Chromium。用户指定浏览器时按其选择处理。
+- 项目初始化先校验环境。浏览器路径变化时仅迁移所有权和配置快照均匹配的 MCP 注册。迁移中断后的不一致状态需要人工核对。
+- 环境初始化记录组件安装与复用状态。中断后可按记录修复。成功卸载后环境标记为未初始化。
+- CC Switch 改为通过 `--with-cc-switch` 显式选择。默认基线从 4.0.28 更新至 4.0.30。
+- 复用的 Bun 和 pnpm 主版本与配置基线不同时提示检查兼容性。
+- 增加 `pnpm upstream:sync`，同步已配置的上游版本与来源。更新 Skill 提交前校验许可证。
+- Skill 安装器基线从 1.7.6 更新至 1.8.1。更新已核实的 Microsoft、Vercel 和 ECC Skill 来源提交。
+- 更新 `qa-setup` 环境准备与 MCP 说明，使其与组件选择和实际配置位置一致。
+
+- 增加 Release 发布指南，并让 GitHub Release 工作流读取 `docs/releases/v<版本>.md` 作为手写说明，同时追加自动生成的变更。
+- 将 Release 发布 job 接入主 CI 门禁。质量、环境 smoke 和项目 smoke 全部成功后才发布，并拒绝重复版本。
+- 优化 CI 触发边界。纯文档变更不再启动主 CI；已存在的 Release 改为成功跳过发布。
+
+- 增加 GitHub Releases 交付方案。Release 生成跨平台 ZIP 和 SHA256 清单，不发布 npm 包。使用人员解压后直接运行平台入口。
 
 - 修复 MCP smoke 以环境根目录作为工作目录导致的 Windows 检查失败。工具调用失败时输出返回的诊断信息。
 
@@ -99,7 +122,12 @@ MCP 清单和下载应用继续记录真实上游版本。
 
 - 修复 qa-core 安装到业务项目后依赖仓库外部文档路径的问题。
 
-- 增加外部 Skill GitHub 来源清单、目录相关提交的只读更新检查及相关文件推送后的 Actions 检查。支持指定清单和分支，不自动应用更新。`qa update check` 覆盖可配置 GitHub 来源的 QA CLI、内置 MCP、外部 Skill、npm 包和 GitHub Release 版本。无有效来源时报告 `unconfigured`。仅在相关文件推送或手动触发时运行检查，不设定时任务。
+- 增加外部 Skill GitHub 来源清单和目录提交的只读更新检查。
+  相关文件推送后触发 Actions 检查。
+  支持指定清单和分支，不自动应用更新。
+  `qa update check` 覆盖 QA CLI、内置 MCP、外部 Skill、npm 包和 GitHub Release 版本。
+  无有效来源时报告 `unconfigured`。
+  检查只在相关文件推送或手动触发时运行，不设定时任务。
 
 - 增加只读项目模板升级计划，区分受管文件、用户修改和模板变化。
 
