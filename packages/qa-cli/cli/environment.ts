@@ -345,6 +345,16 @@ export class Environment {
   }
 
   get bunBin(): string { return this.globalTool('bun') ?? ''; }
+  /** Resolves the actual Bun executable when npm exposes a Windows command shim. */
+  get bunExecutable(): string {
+    const bun = this.bunBin;
+    if (!WINDOWS || !/\.(cmd|bat)$/i.test(bun)) return bun;
+    const executable = this.bun(['-p', 'process.execPath'], { capture: true })?.trim();
+    if (!executable || !existsSync(executable) || !/\.exe$/i.test(executable)) {
+      throw new Error('Unable to resolve the Bun executable from its command shim');
+    }
+    return executable;
+  }
   get pnpmBin(): string { return this.globalTool('pnpm') ?? ''; }
   /** Loads the reviewed Codex CLI source and executable identity. */
   private codexManifest(): { package: string; executable: string } {
@@ -1587,7 +1597,7 @@ export class Environment {
       this.registerMcp(
         'qa',
         {
-          command: this.bunBin,
+          command: this.bunExecutable,
           args: [join(this.repo, 'packages/mcp/builtin/qa-server.ts'), '--root', this.root],
         },
         'builtin',
@@ -1735,7 +1745,7 @@ export class Environment {
       const current = readMcpServerConfig(this.mcpConfig, this.mcpName('qa'));
       if (
         !existsSync(entry) ||
-        current.command !== this.bunBin ||
+        current.command !== this.bunExecutable ||
         JSON.stringify(current.args ?? []) !==
           JSON.stringify([entry, '--root', this.root])
       ) {

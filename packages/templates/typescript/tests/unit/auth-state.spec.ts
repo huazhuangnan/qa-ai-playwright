@@ -1,4 +1,4 @@
-import { join } from 'node:path';
+import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 import {
   authCredentials,
@@ -25,7 +25,7 @@ test('@unit selects an explicitly configured auth role', () => {
 
 test('@unit keeps role state files under the ignored auth directory', () => {
   expect(authStatePath('admin', {}, '/project')).toBe(
-    join('/project', 'playwright/.auth/admin.json'),
+    resolve('/project', 'playwright/.auth/admin.json'),
   );
 });
 

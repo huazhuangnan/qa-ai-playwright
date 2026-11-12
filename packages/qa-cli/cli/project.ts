@@ -334,7 +334,7 @@ export function projectCheck(
         'Missing pnpm-lock.yaml; rerun project init with the same target',
       );
     }
-    env.run([env.bunBin, join(target, 'scripts/check_lock.ts')], {
+    env.bun([join(target, 'scripts/check_lock.ts')], {
       cwd: target,
     });
     env.playwright(
@@ -343,9 +343,8 @@ export function projectCheck(
       ...testPaths,
       `--project=${args.browser ?? 'chromium'}`,
     );
-    env.run(
+    env.bun(
       [
-        env.bunBin,
         join(target, 'node_modules/typescript/bin/tsc'),
         '--noEmit',
       ],

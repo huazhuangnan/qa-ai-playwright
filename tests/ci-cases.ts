@@ -151,6 +151,9 @@ async function environmentCase(): Promise<void> {
     agentBrowser.env?.AGENT_BROWSER_CONFIG,
     join(ROOT, 'agent-browser-config.json'),
   );
+  const qaServer = readMcpServerConfig(CONFIG, mcpName('qa'));
+  assert.ok(qaServer.command);
+  if (process.platform === 'win32') assert.match(qaServer.command, /\.exe$/i);
   qa(['run', 'bun', 'tests/mcp-smoke.ts']);
 
   qa(['mcp', 'list']);

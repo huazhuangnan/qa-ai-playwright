@@ -115,7 +115,7 @@ flowchart TD
 - `docs/qa/tasks/` 保存一次已经确认的 AI 任务。
 - `docs/qa/generated/` 保存业务理解、测试计划、测试用例、执行报告和缺陷。
 - `tests/` 保存可复现的自动化实现。
-- `test-results/`、`reports/` 和 Trace 保存运行时证据，凭证和敏感数据必须脱敏。
+- `test-results/`、`reports/` 和 Trace 可能包含敏感数据。原始证据须限制访问和保留期限。分享或写入报告前须脱敏，无法确认安全时不分享。
 
 ## 测试层级和边界
 
