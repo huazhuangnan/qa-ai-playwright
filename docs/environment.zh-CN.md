@@ -48,7 +48,7 @@ Linux/macOS 的引导脚本需要 Bash、tar、gzip、curl 或 wget、SHA256 工
 | 项目 | `project init <目录> --language <语言>` | 模板、依赖和浏览器 |
 | 检查 | `project check <目录>` | 项目依赖锁、测试和浏览器检查 |
 
-以下命令在仓库根目录执行。
+以下命令在解压后的交付包根目录或源码仓库根目录执行。
 
 ```powershell
 .\packages\qa-cli\bin\qa.cmd env init typescript

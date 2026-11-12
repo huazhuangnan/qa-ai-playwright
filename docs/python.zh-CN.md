@@ -6,7 +6,7 @@
 
 ---
 
-用 pytest 跑测试，requests 处理 API，pytest-playwright 跑浏览器 E2E。以下从仓库根目录执行。
+用 pytest 跑测试，requests 处理 API，pytest-playwright 跑浏览器 E2E。以下命令从交付包或源码仓库根目录执行。
 首次运行需联网；CLI 会安装 Python。公共说明见 [使用指南](../README.md)。
 
 完整示例见 [Python 示例 QA](../apps/qa-ticket-app-suite-python/README.md)。

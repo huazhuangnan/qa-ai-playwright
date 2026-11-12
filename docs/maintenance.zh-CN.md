@@ -7,7 +7,23 @@
 日常操作见[环境初始化](environment.zh-CN.md)。
 组件管理基线和实施清单见[QA CLI 管理能力 TODO](qa-cli-management-todo.zh-CN.md)。
 
-阅读顺序：先看架构和生命周期，再看来源、所有权、验证门禁、发布与回滚。维护动作按主题组织，不与使用人员的操作步骤混排。
+## 获取源码与验证
+
+1. 打开 [GitHub 仓库](https://github.com/huazhuangnan/qa-ai-playwright)，获取仓库访问权限。
+2. 克隆源码并进入仓库根目录。HTTPS 示例适用于 Windows、macOS 和 Linux：
+
+   ```bash
+   git clone https://github.com/huazhuangnan/qa-ai-playwright.git
+   cd qa-ai-playwright
+   ```
+
+   也可使用仓库页面提供的 SSH 地址。
+3. 阅读根目录 `AGENTS.md` 和 `.agents/skills/qa-maintainer/SKILL.md`，再查看本页的架构与生命周期。
+4. 在 GitHub 仓库的 **Actions** 查看 CI 结果。需要时手动运行主 CI，并查看各平台日志。
+
+安装和测试由 GitHub Actions 执行，不在维护者本机运行。
+纯文档变更不会自动触发主 CI；需要验证时可在 Actions 手动运行。
+本机可使用 `git diff --check` 检查补丁空白。只有实际成功的 Actions 结果才能作为通过证据。
 
 ## 架构
 
@@ -119,13 +135,7 @@ TypeScript 与 Python 分别使用各自的类型、fixture 和运行器约定�
 - 启动器只使用 PowerShell 或 Bash 完成运行时引导。
 - Codex 已有的网页搜索、浏览器、文件读取、上下文压缩和文档生成能力不在仓库内重写。
 
-维护检查命令：
-
-```powershell
-pnpm install --frozen-lockfile
-bun run typecheck
-bun run test:unit
-```
+维护依赖安装、类型检查和单元测试由主 CI 执行。执行步骤及日志见 GitHub Actions。
 
 示例应用和两套 QA 项目的命令见[从需求到执行](qa-workflow.zh-CN.md)。
 各项目的具体说明见：
@@ -135,7 +145,6 @@ bun run test:unit
 - [Python 示例 QA](../apps/qa-ticket-app-suite-python/README.md)
 本页只维护仓库自身的检查和发布门禁。
 
-`bun run test:ci env` 可执行环境集成套件。
 当前 GitHub Actions 运行维护单元测试、类型检查和跨平台环境验证。
 
 维护测试中的控制台输出采集辅助必须定义在测试文件内，并通过 `tsc --noEmit`。

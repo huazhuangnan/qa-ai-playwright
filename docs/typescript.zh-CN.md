@@ -6,7 +6,7 @@
 
 ---
 
-用 Playwright Test 统一跑 API、功能逻辑和 E2E。以下从仓库根目录执行。
+用 Playwright Test 统一跑 API、功能逻辑和 E2E。以下命令从交付包或源码仓库根目录执行。
 首次运行需联网；CLI 会安装 Node。公共说明见 [使用指南](../README.md)。
 
 完整示例见 [TypeScript 示例 QA](../apps/qa-ticket-app-suite-typescript/README.md)。

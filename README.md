@@ -6,7 +6,15 @@
 
 ## 快速开始
 
-正式使用时，先从 GitHub Releases 下载对应版本的 ZIP 压缩包。ZIP 可由 Windows、macOS 和 Linux 解压。解压后使用包内的 `qa.cmd` 或 `qa.sh`，不需要克隆仓库。
+### 下载交付包
+
+1. 打开 [GitHub Releases](https://github.com/huazhuangnan/qa-ai-playwright/releases)。如需权限，请联系仓库维护人员。
+2. 选择已发布的版本。在 Assets 中下载 `qa-ai-playwright-v版本号.zip`。
+3. 解压 ZIP，进入其中的 `qa-ai-playwright-版本号` 目录。以下命令均在该目录执行。
+
+Windows、macOS 和 Linux 使用同一个 ZIP。如果没有可下载的 Release，请向维护人员获取交付包。
+
+### 初始化环境和项目
 
 使用顺序：准备环境和项目，向 Codex 提供任务资料，再执行测试并查看结果。
 
