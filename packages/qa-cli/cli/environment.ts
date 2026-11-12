@@ -828,7 +828,7 @@ export class Environment {
       if (typeof recordedHash !== 'string' || !/^[a-f0-9]{64}$/u.test(recordedHash) || digest(this.uv) !== recordedHash) {
         throw new Error('Cannot replace uv: ownership hash is missing or mismatched. Back up and move the existing uv manually, then rerun env init.');
       }
-      throw new Error('Installed uv differs from the configured version or cannot be verified; run qa env plan uv, update it manually, then run qa env check');
+      throw new Error('Installed uv differs from the configured version or cannot be verified; use qa env plan uv, update it manually, then run qa env check');
     }
     if (!/^(latest|\d+\.\d+\.\d+)$/.test(this.uvVersion)) {
       throw new Error('Invalid QA_UV_VERSION');

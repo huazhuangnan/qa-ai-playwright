@@ -170,7 +170,7 @@ export function parseArgs(
   if (command === 'mcp') {
     const action = cleaned[1] as ParsedArguments['mcpAction'] | undefined;
     if (!['add', 'remove', 'list', 'check', 'repair'].includes(action ?? '')) {
-      throw new Error('mcp requires add, remove, list, check, or repair');
+      throw new Error('mcp requires add, remove, or list; check and repair are also supported');
     }
     parsed.mcpAction = action;
     if (action === 'add' || action === 'remove' || action === 'check' || action === 'repair') {
