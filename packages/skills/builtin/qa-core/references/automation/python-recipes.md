@@ -35,4 +35,8 @@ def test_save_form(page):
     expect(page.get_by_role('status')).to_have_text('保存成功')
 ```
 
-来源：[pytest fixture 清理](https://docs.pytest.org/en/stable/how-to/fixtures.html)、[Python Playwright](https://playwright.dev/python/docs/intro)、[requests 超时](https://requests.readthedocs.io/en/latest/user/quickstart/#timeouts)。
+来源：
+
+- [pytest fixture 清理](https://docs.pytest.org/en/stable/how-to/fixtures.html)
+- [Python Playwright](https://playwright.dev/python/docs/intro)
+- [requests 超时](https://requests.readthedocs.io/en/latest/user/quickstart/#timeouts)

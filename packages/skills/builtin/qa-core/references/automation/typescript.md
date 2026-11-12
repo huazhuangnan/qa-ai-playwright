@@ -1,21 +1,18 @@
----
-name: qa-typescript
-description: 为现有 TypeScript QA 项目编写、运行和调试 Playwright Test 自动化；负责 fixture、request/context、断言及命令的技术适配，设计和职责使用公共 QA Skills，不用于通用前端开发。
-metadata:
-  version: "0.0.1"
----
-
 # TypeScript QA 技术适配
 
-先读项目 AGENTS.md、package.json、Playwright 配置、fixture 和目标用例。按名称查找并读取 qa-core，再按任务查找职责 Skill。缺失时按项目引导安装，不伪造预期或结果。
-实现前应用 TypeScript 专属的命名、fixture 注入、TSDoc、严格类型和 Playwright 门禁规则。仓库文档入口见 `docs/typescript-code-style.zh-CN.md`。
+先读项目 AGENTS.md、package.json、Playwright 配置、fixture 和目标用例。
+公共执行边界和测试设计由 `qa-core` 按需加载。缺失时按项目引导，不伪造预期或结果。
+实现前应用 TypeScript 专属的命名、fixture 注入、TSDoc、严格类型和 Playwright 门禁规则。
+常用命令见[操作卡](typescript-recipes.md)。
+生成代码前读取并按需应用[TSDoc、流程注释和可维护结构规则](../generated-code-quality.md)。
 
 ## 规则
 
 - 遵循 TypeScript 专属命名、fixture 注入、TSDoc、严格类型和 Playwright 门禁规则。
 
 - 沿用现有依赖和目录，不为通用测试设计引入运行器。
-- 生成测试写明业务目标和关键前置条件。复杂流程用 `test.step` 标出操作与可观察结果，并在失败时清理数据。
+- 生成前检查现有测试、脚本、`webServer` 和 fixtures。用户要求自动测试时先运行最小基线或目标用例，生成后按确认范围运行新增用例。
+- 生成测试写明业务目标和关键前置条件。复杂流程用业务化 `test.step`，注释说明准备、操作、断言和清理。公共辅助写 TSDoc。
 - Playwright 配置自动加载项目根目录 `.env`。系统和 CI 环境变量优先。
 - `QA_ENV` 选择 `.env.<环境>` 文件，各环境文件使用相同变量名。
 - UI 和 API 分别使用 `UI_BASE_URL` 与 `API_BASE_URL`，`BASE_URL` 仅作兼容回退。
@@ -27,9 +24,10 @@ metadata:
 - API 门禁使用 REQUIRE_API_TESTS=1。
 - 用 unit、smoke、regression、integration 标签选择执行范围。
 - CI 将重试后通过视为失败，生产写入默认拒绝。
-- API-only 不引入浏览器，按 qa-api 确认的契约写断言。
+- API-only 不引入浏览器，按[API 测试](../api-testing.md)确认的契约写断言。
 - UI 用 locator 与 await expect(locator) 等待业务结果。期望响应或弹窗先注册等待再触发。
 - 用独立 context、唯一数据和 fixture teardown 隔离。准备中途失败也清理，保留原错误。
+- 认证状态只复用于不会产生服务端状态冲突的测试。共享账号有写入竞争时使用独立账号。
 - 认证状态按角色管理且不提交。优先用`auth-setup` project生成 `playwright/.auth/<role>.json`。
 - 同一用例切换角色使用 `loginAs` fixture，每个角色使用独立 context。
 - 不通过 skip/fixme、删断言、放宽预期或提高重试掩盖失败。
@@ -42,7 +40,7 @@ metadata:
 
 ## 示例
 
-命令及示例见 [操作卡](references/recipes.md)，需要时读取。
+命令及示例见[操作卡](typescript-recipes.md)，需要时读取。
 仅装 Chromium 时显式 --project=chromium。先执行目标用例，再按影响回归。
 
 ## 参考
@@ -50,5 +48,7 @@ metadata:
 [Playwright 最佳实践](https://playwright.dev/docs/best-practices) ·
 [自动等待](https://playwright.dev/docs/actionability) ·
 [定位器](https://playwright.dev/docs/locators) ·
+[Playwright 隔离](https://playwright.dev/docs/browser-contexts) ·
+[Playwright 认证](https://playwright.dev/docs/auth) ·
 [playwright-best-practices（专项模式）](https://www.skills.sh/currents-dev/playwright-best-practices-skill) ·
 [tdd（先写失败用例）](https://www.skills.sh/mattpocock/skills/tdd)

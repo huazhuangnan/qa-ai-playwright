@@ -123,7 +123,7 @@ test('accepts valid source data and rejects malformed sources', () => {
 test('default source manifest matches the documented fixed installation commands', () => {
   const entries = loadSkillSources();
   const reference = readFileSync(new URL('../packages/skills/builtin/qa-core/references/external-skills.md', import.meta.url), 'utf8');
-  const commands = [...reference.matchAll(/`bunx skills@1\.7\.6 add https:\/\/github\.com\/([^/]+\/[^/]+)\/tree\/([a-f0-9]{40})\/([^ ]+) --skill ([a-z0-9-]+) --agent codex --copy --yes` \| ([^|]+) \|/gu)];
+  const commands = [...reference.matchAll(/`bunx skills@1\.8\.1 add https:\/\/github\.com\/([^/]+\/[^/]+)\/tree\/([a-f0-9]{40})\/([^ ]+) --skill ([a-z0-9-]+) --agent codex --copy --yes` \| ([^|]+) \|/gu)];
   assert.equal(commands.length, entries.length);
   for (const item of entries) {
     assert.ok(commands.some((match) => match[1] === item.repository && match[2] === item.commit && match[3] === item.path && match[4] === item.name && match[5]?.trim() === item.license), item.name);

@@ -1,22 +1,24 @@
 ---
 name: qa-setup
-description: 通过本仓库 CLI 为新电脑初始化本地 QA 环境、创建 Python/TypeScript 测试项目、检查安装或卸载受管理的环境和项目。
+description: 通过 QA CLI 为新电脑初始化本地 QA 环境、创建 Python/TypeScript 测试项目、检查安装或卸载受管理的环境和项目。
 metadata:
   version: "0.0.1"
 ---
 
 # QA 环境与项目管理
 
-找到包内的 packages/qa-cli/bin/qa.cmd（Windows）或 packages/qa-cli/bin/qa.sh（macOS/Linux）。已激活环境时包位置在 QA_REPO。
+优先使用用户级 `qa` 命令。
+未安装或需要在包内排查时，使用 `packages/qa-cli/bin/qa.cmd`（Windows）
+或 `packages/qa-cli/bin/qa.sh`（macOS/Linux）。
+已激活环境时，`QA_REPO` 指向交付包根目录。
 
 ## 规则
 
 - 管理操作通过 QA MCP 或 CLI 执行。两者复用同一实现。不另行全局安装运行时、修改系统 PATH 或手工删目录。
 - CLI 不读取交互输入。缺少参数时直接报错。
-- 调用 CLI 前确认交付包位置。使用完整启动器路径，或在同一次 shell 执行中设置短命令后调用 `qa`。Windows 使用 `Set-Alias`，Bash 或 zsh 加载 `session.sh`。不要假设不同工具调用共享 shell 会话。
-- 多环境操作使用明确的 `--root`。不要自动修改用户的 PATH 或 shell 启动配置。
+- 使用完整启动器路径或已安装的 `qa`。短命令只影响当前 shell，不要假设不同工具调用共享会话。
+- 环境根目录优先级为 `--root`、`QA_ROOT`、`~/.qa-ai-playwright`。后续命令保持相同 root。
 - project 命令先检查对应环境已初始化且语言匹配。
-- 安装根目录依次使用 `--root`、`QA_ROOT` 或当前目录下的 `.qa-env`。后续命令保持相同 root。
 - 项目放在环境目录之外。
 - QA 和外部 Skill 在任务需要时检查可用作用域。缺失时安装到业务项目，不写全局目录。
 - 卸载仅在用户明确要求时执行，先核对命令参数中的绝对路径。
@@ -27,22 +29,20 @@ metadata:
 - 执行依赖 QA 环境的测试前，确认项目语言、环境根目录和所需组件。用 `qa_env_check` 或相同条件的 `env check` 检查。
 - 环境缺失或语言不匹配时，通过交付包启动器使用同一根目录和所需选项执行对应语言的 `env init`。安装缺失的共享工具前告知用户。
 - 初始化后用相同语言、根目录和选项复查。检查通过后才执行依赖该环境的测试。找不到启动器、必要参数未知或初始化失败时报告阻塞，不虚构结果。
-- 浏览器先检测并复用用户已有的兼容安装。确认缺失后才下载。用户指定浏览器时按其选择处理。不要使用用户日常浏览器配置或登录状态。
+- 先检测并复用兼容浏览器。确认缺失后才下载。用户指定浏览器时按其选择。
+- 浏览器自动化使用独立上下文，不接管用户日常配置或登录状态。
 - 浏览器位于自定义路径时，项目测试通过 `QA_BROWSER_EXECUTABLE_PATH` 接收可执行文件路径。Chrome 和 Edge 指定对应通道。系统 Chromium 的通道留空。不要把本机绝对路径写入公共模板默认值。
-- MCP 写入遵循用户已授权的任务范围。卸载遵守用户要求和 CLI 的路径、所有权检查。
 - 不提供任意命令执行或环境自卸载 MCP 工具。
 
 ## 说明
 
 - 默认安装 Codex、Playwright CLI 和所选语言运行环境。
-- 环境初始化在 Node 完成后检查 Bun 和 pnpm。已有时复用，缺失时安装配置版本。
+- 环境初始化在 Node 完成后检查 Bun 和 pnpm。已有兼容版本时复用，缺失时安装配置版本。
 - `--full` 增加 Agent Browser CLI 和 MCP。
 - 仅在指定 `--with-cc-switch` 时检查 CC Switch。已有时复用，缺失时安装配置的便携版。
 - CC Switch 不写注册表或系统应用目录，安装器不自动启动程序。
-- `playwright-cli` 默认安装；`agent-browser` 仅在 `--full` 时安装。
-- 启用 Codex 时注册 `qa` MCP。未跳过浏览器工具时注册 `playwright` MCP；`--full` 再注册 `agent-browser` MCP。
-- `qa-docs` 与其他 QA Skills 按需使用。Skills 不随环境初始化安装。
-- Agent Browser 复用选定的兼容浏览器。
+- 启用 Codex 时注册 `qa` MCP。未跳过浏览器工具时注册 Playwright MCP；`--full` 再准备并注册 Agent Browser。
+- `qa-core` 的专项参考按任务使用。Skills 不随环境初始化安装。
 - Python 语言环境使用受管 Python。即使跳过 Codex 也准备 Node。
 - 项目依赖使用 pnpm。项目脚本使用 Bun。
 - Playwright MCP 和原生 Node 模块使用 Node。QA MCP 使用发现的 Bun。
@@ -53,7 +53,6 @@ metadata:
 - 项目清单记录 QA 文档模板和语言模板版本。依赖锁文件必须保留并提交。
 - 修改 `QA_ENV` 可切换 `.env.dev`、`.env.stg` 等环境文件。系统和 CI 变量优先。
 - 项目变量登记到 `docs/qa/inputs/input-index.md`，不要只依赖 `BASE_URL`。
-- 启用 Codex 且未跳过浏览器工具时准备 `@playwright/mcp`，并注册到用户级 `CODEX_HOME/config.toml`。
 - 重复执行保持已有文件。跳过组件时，检查传相同 skip 参数。
 
 ## 示例

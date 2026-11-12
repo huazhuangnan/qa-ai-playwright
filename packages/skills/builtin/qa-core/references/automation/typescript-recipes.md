@@ -46,4 +46,9 @@ await test.step('提交合法表单并看到保存结果', async () => {
 
 单个断言不需要包装 step。失败时的数据清理放在 `finally` 或 fixture teardown。
 
-来源：[Playwright 实践](https://playwright.dev/docs/best-practices)、[自动等待](https://playwright.dev/docs/actionability)、[隔离](https://playwright.dev/docs/browser-contexts)、[认证](https://playwright.dev/docs/auth)。
+来源：
+
+- [Playwright 实践](https://playwright.dev/docs/best-practices)
+- [自动等待](https://playwright.dev/docs/actionability)
+- [隔离](https://playwright.dev/docs/browser-contexts)
+- [认证](https://playwright.dev/docs/auth)

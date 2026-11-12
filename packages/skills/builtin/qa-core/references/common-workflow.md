@@ -66,6 +66,6 @@
 
 - 输入资料写 `docs/qa/inputs/`。
 - 已确认任务写 `docs/qa/tasks/`。
-- 计划和用例写 `docs/qa/generated/`，由 `qa-test-design` 负责。
-- 缺陷和执行报告写 `docs/qa/generated/`，由 `qa-triage` 负责。
-- 外部资料归档和静态导出仅在安装 `qa-docs` 时按其执行。
+- 计划和用例写 `docs/qa/generated/`，按[测试设计](test-design.md)处理。
+- 缺陷和执行报告写 `docs/qa/generated/`，按[失败分析](triage.md)处理。
+- 外部资料归档和静态导出按[资料处理](documents.md)执行。

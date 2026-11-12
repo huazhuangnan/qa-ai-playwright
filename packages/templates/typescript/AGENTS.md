@@ -9,6 +9,7 @@
 - 文件和目录使用小写；符号使用 `camelCase`、类型使用 `PascalCase`、常量使用 `UPPER_SNAKE_CASE`。
 
 - QA 任务先按名称查找 `qa-core`，然后按任务查找其他 QA Skill。
+- 当前任务已读取的 QA Skill 直接复用，不重复加载。
 - 执行依赖 QA 环境的测试前，按名称查找并读取 `qa-setup`。确认语言、环境根目录和所需组件，先用 QA MCP 或 CLI 检查。环境缺失或语言不匹配时，用交付包的 `packages/qa-cli/bin/qa.cmd` 或 `packages/qa-cli/bin/qa.sh` 执行 `env init`，再用相同条件执行 `env check`。安装缺失的共享工具前告知用户。找不到启动器或必要信息时报告阻塞。
 - 处理 Bun 运行、脚本或测试时检查 `bun-runtime`。处理 pnpm 配置、依赖、锁文件或 workspace 时检查 `pnpm`。这些检查不限于 QA 任务。
 - 复用的旧版 `qa-core` 可能缺少 Bun、pnpm 路由。需要安装外部 Skill 时，读取 `QA_REPO/packages/skills/builtin/qa-core/references/external-skills.md`。`QA_REPO` 未设置时先激活 QA 环境。

@@ -1,19 +1,17 @@
----
-name: qa-test-design
-description: 从需求和风险设计测试计划、用例、覆盖矩阵与回归范围；适用于手工测试及自动化前的测试设计，不要求选定 Python 或 TypeScript。
-metadata:
-  version: "0.0.1"
----
-
 # 测试设计
 
-先读取 [qa-core](../qa-core/SKILL.md) 的通用规则。
-读过不重复加载，不遍历其路由。
+先应用 `qa-core` 已加载的公共执行边界，不重复读取。
 
 ## 规则
 
-- 开工前按 [输入清单](../qa-core/references/input-checklist.md) 检查资料，缺失项合并列出。
-- 至少确认需求或验收标准、角色与权限、数据生命周期、可观察预期和范围。
+- 开工前按[输入清单](input-checklist.md)检查资料，缺失项合并列出。
+- 检查需求或验收标准、角色与权限、数据生命周期、可观察预期和范围。缺失时保留候选用例并标记待确认，不阻塞有依据的设计。
+- 每个功能先应用[通用测试基线](test-design/universal-baseline.md)。
+- 基线不足时再读取[功能风险建议目录](test-design/feature-patterns.md)中匹配的章节。推荐不是已确认需求，也不能直接作为通过预期。
+- 对每个候选判断业务相关性、风险、资料依据和执行条件。说明保留或不采用的理由，不机械套用目录。
+- 新模式加入参考目录，避免在路由 Skill 中持续堆积功能专用规则。
+- 选择最小基线和一至三个高风险模式，不把整个候选目录转成正式用例。
+- 默认输出 5 至 10 个高价值场景。需要更多时按 P0/P1/P2 分组，并说明扩大范围的原因。
 - 产出两份文档：测试计划 `docs/qa/generated/test-plan.md`、测试用例 `docs/qa/generated/test-cases.md`。
 - 逐项填写模板字段。不省略字段、不写“同上”、不把多条预期塞进一个单元格。
 - 每条用例只验证一个行为，保留需求标识、风险标识、优先级、测试层级、前置状态、数据、步骤、可观察预期和清理方法。
@@ -66,7 +64,7 @@ CASE-002 普通用户删除他人用户
 
 ## 参考
 
-[输入清单](../qa-core/references/input-checklist.md) ·
+[输入清单](input-checklist.md) ·
 [grill-me（需求追问）](https://www.skills.sh/mattpocock/skills/grill-me) ·
 [brainstorming（问题拆解）](https://www.skills.sh/obra/superpowers/brainstorming) ·
 [Playwright 最佳实践](https://playwright.dev/docs/best-practices)

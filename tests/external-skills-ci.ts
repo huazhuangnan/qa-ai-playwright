@@ -39,7 +39,7 @@ for (const command of commands) {
 }
 
 // QA Skills are installed one at a time from the local delivery package.
-for (const name of ['qa-core', 'qa-api']) {
+for (const name of ['qa-core', 'qa-setup']) {
   const source = resolve('packages/skills/builtin', name);
   const result = spawnSync(process.execPath, [
     'x', 'skills@1.8.1', 'add', source, '--skill', name,
@@ -49,5 +49,35 @@ for (const name of ['qa-core', 'qa-api']) {
   const installed = join(project, '.agents/skills', name, 'SKILL.md');
   assert.equal(readFileSync(installed, 'utf8'), readFileSync(join(source, 'SKILL.md'), 'utf8'));
 }
-assert.ok(existsSync(join(project, '.agents/skills/qa-core/references/external-skills.md')));
-assert.ok(!existsSync(join(project, '.agents/skills/qa-web')));
+for (const reference of [
+  'external-skills.md',
+  'business-guide.md',
+  'test-design.md',
+  'test-design/universal-baseline.md',
+  'test-design/feature-patterns.md',
+  'api-testing.md',
+  'web-testing.md',
+  'triage.md',
+  'documents.md',
+  'automation/typescript.md',
+  'automation/typescript-recipes.md',
+  'automation/python.md',
+  'automation/python-recipes.md',
+]) {
+  assert.ok(
+    existsSync(join(project, '.agents/skills/qa-core/references', reference)),
+    reference,
+  );
+}
+for (const removed of [
+  'qa-business-guide',
+  'qa-test-design',
+  'qa-api',
+  'qa-web',
+  'qa-typescript',
+  'qa-python',
+  'qa-triage',
+  'qa-docs',
+]) {
+  assert.ok(!existsSync(join(project, '.agents/skills', removed)), removed);
+}
