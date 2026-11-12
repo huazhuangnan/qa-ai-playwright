@@ -15,7 +15,7 @@ import {
   rmdirSync,
   writeFileSync,
 } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { homedir } from 'node:os';
 import { basename, delimiter, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { findSystemBrowser, type SelectedBrowser } from './browser-discovery.ts';
 
@@ -53,8 +53,15 @@ const AGENT_BROWSER_LAUNCH_ARGS = WINDOWS
   : undefined;
 
 /** Uses the host temporary directory for Chromium's own short-lived files. */
-export function browserTemporaryEnvironment(): NodeJS.ProcessEnv {
-  const temp = tmpdir();
+export function browserTemporaryEnvironment(
+  environment: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  const temp = WINDOWS
+    ? join(
+        environment.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'),
+        'Temp',
+      )
+    : '/tmp';
   mkdirSync(temp, { recursive: true });
   return { TEMP: temp, TMP: temp, TMPDIR: temp };
 }

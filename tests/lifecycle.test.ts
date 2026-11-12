@@ -607,6 +607,19 @@ test('browser test runners use the host temporary directory', () => {
   assert.ok(!within(String(expected.TEMP), environment.root));
 });
 
+test('browser temporary paths ignore inherited QA temp overrides', () => {
+  const environment = createEnvironment();
+  const inheritedTemp = join(environment.root, 'tmp');
+  const expected = browserTemporaryEnvironment({
+    TEMP: inheritedTemp,
+    TMP: inheritedTemp,
+    TMPDIR: inheritedTemp,
+    LOCALAPPDATA: process.env.LOCALAPPDATA,
+  });
+  assert.ok(existsSync(String(expected.TEMP)));
+  assert.ok(!within(String(expected.TEMP), environment.root));
+});
+
 test('MCP registration preserves a conflicting user configuration', () => {
   const environment = new StubEnvironment({
     root: join(createWorkspace(), 'environment'),
