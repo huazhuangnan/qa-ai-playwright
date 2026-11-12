@@ -13,27 +13,48 @@ const manifest = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8')) as
 const version = typeof manifest.version === 'string' ? manifest.version : '';
 if (!version || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(version)) throw new Error('Root package.json has no valid semantic version');
 
-mkdirSync(output, { recursive: true });
-const stage = join(output, `qa-ai-playwright-${version}`);
-rmSync(stage, { recursive: true, force: true });
-mkdirSync(stage, { recursive: true });
-
 const files = execFileSync('git', ['-C', repo, 'ls-files', '-z'], { encoding: 'buffer' })
   .toString('utf8').split('\0').filter(Boolean);
 if (!files.length) throw new Error('No tracked files found for release');
-for (const relative of files) {
-  const source = join(repo, relative);
-  const target = join(stage, relative);
-  mkdirSync(dirname(target), { recursive: true });
-  cpSync(source, target, { recursive: true });
+mkdirSync(output, { recursive: true });
+
+createArchive('user', files.filter(isUserFile));
+createArchive('developer', files);
+
+function createArchive(kind: 'user' | 'developer', selectedFiles: string[]): void {
+  const stage = join(output, `qa-ai-playwright-${version}-${kind}`);
+  rmSync(stage, { recursive: true, force: true });
+  mkdirSync(stage, { recursive: true });
+  for (const relative of selectedFiles) {
+    const source = join(repo, relative);
+    const target = join(stage, relative);
+    mkdirSync(dirname(target), { recursive: true });
+    cpSync(source, target, { recursive: true });
+  }
+
+  const zip = join(output, `qa-ai-playwright-v${version}-${kind}.zip`);
+  rmSync(zip, { force: true });
+  run('zip', ['-q', '-r', zip, basename(stage)], output);
+  rmSync(stage, { recursive: true, force: true });
+  console.log(`Created ${zip}`);
 }
 
-const archiveBase = `qa-ai-playwright-v${version}`;
-const zip = join(output, `${archiveBase}.zip`);
-rmSync(zip, { force: true });
-run('zip', ['-q', '-r', zip, basename(stage)], output);
-rmSync(stage, { recursive: true, force: true });
-console.log(`Created ${zip}`);
+function isUserFile(relative: string): boolean {
+  const normalized = relative.replaceAll('\\', '/');
+  if (normalized.startsWith('.github/') || normalized.startsWith('.agents/')) return false;
+  if (normalized.startsWith('apps/') || normalized.startsWith('scripts/') || normalized.startsWith('tests/')) return false;
+  if (normalized === 'AGENTS.md' || normalized.endsWith('/AGENTS.md')) return false;
+  if (normalized === 'package.json' || normalized === 'pnpm-lock.yaml' || normalized === 'tsconfig.json') return false;
+  if (normalized.startsWith('docs/')) {
+    return normalized === 'docs/environment.zh-CN.md'
+      || normalized === 'docs/python.zh-CN.md'
+      || normalized === 'docs/typescript.zh-CN.md'
+      || normalized === 'docs/skills-mcp.zh-CN.md'
+      || normalized === 'docs/qa-workflow.zh-CN.md'
+      || normalized.startsWith('docs/releases/');
+  }
+  return normalized === 'README.md' || normalized.startsWith('packages/');
+}
 
 function argumentValue(name: string): string | undefined {
   const index = process.argv.indexOf(name);

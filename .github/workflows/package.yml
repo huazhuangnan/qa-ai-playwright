@@ -43,10 +43,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          archive=$(find "$RUNNER_TEMP/release" -maxdepth 1 -name 'qa-ai-playwright-*.zip' -print -quit)
-          test -n "$archive"
-          unzip -t "$archive"
-          unzip -l "$archive" | grep -q 'packages/qa-cli/bin/qa.sh'
+          version=$(node -p "require('./package.json').version")
+          user_archive="$RUNNER_TEMP/release/qa-ai-playwright-v${version}-user.zip"
+          developer_archive="$RUNNER_TEMP/release/qa-ai-playwright-v${version}-developer.zip"
+          test -f "$user_archive"
+          test -f "$developer_archive"
+          unzip -t "$user_archive"
+          unzip -t "$developer_archive"
+          unzip -l "$user_archive" | grep -q 'packages/qa-cli/bin/qa.sh'
+          unzip -l "$developer_archive" | grep -q '.github/workflows/package.yml'
 
       - name: Create checksums
         shell: bash
@@ -89,10 +94,12 @@ jobs:
           set -euo pipefail
           version=$(node -p "require('./package.json').version")
           tag="v${version}"
-          zip_asset=$(find "$RUNNER_TEMP/release" -maxdepth 1 -name 'qa-ai-playwright-*.zip' -print -quit)
+          user_zip="$RUNNER_TEMP/release/qa-ai-playwright-v${version}-user.zip"
+          developer_zip="$RUNNER_TEMP/release/qa-ai-playwright-v${version}-developer.zip"
           checksum="$RUNNER_TEMP/release/SHA256SUMS.txt"
           notes="docs/releases/${tag}.md"
-          test -n "$zip_asset"
+          test -f "$user_zip"
+          test -f "$developer_zip"
           test -f "$checksum"
 
           if gh release view "$tag" >/dev/null 2>&1; then
@@ -100,14 +107,14 @@ jobs:
               echo "Release $tag already exists; enable force_overwrite to update it" >&2
               exit 1
             fi
-            gh release upload "$tag" "$zip_asset" "$checksum" --clobber
+            gh release upload "$tag" "$user_zip" "$developer_zip" "$checksum" --clobber
             if [[ -f "$notes" ]]; then
               gh release edit "$tag" --title "$tag" --notes-file "$notes"
             else
               gh release edit "$tag" --title "$tag"
             fi
           else
-            release_args=(gh release create "$tag" "$zip_asset" "$checksum" --target "$GITHUB_SHA" --title "$tag" --generate-notes)
+            release_args=(gh release create "$tag" "$user_zip" "$developer_zip" "$checksum" --target "$GITHUB_SHA" --title "$tag" --generate-notes)
             if [[ -f "$notes" ]]; then
               release_args+=(--notes-file "$notes")
             fi

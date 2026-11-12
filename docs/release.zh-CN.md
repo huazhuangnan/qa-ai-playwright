@@ -49,9 +49,11 @@
 
 ## 手动生成交付包
 
-在 GitHub Actions 中手动运行 `Package` 工作流，可以从所选分支生成交付 ZIP。
-工作流会上传 ZIP 和 `SHA256SUMS.txt`，结果保存在该次运行的 Artifacts 中。
+在 GitHub Actions 中手动运行 `Package` 工作流，可以从所选分支生成使用者包和开发者包。
+工作流会上传两个 ZIP 和 `SHA256SUMS.txt`，结果保存在该次运行的 Artifacts 中。
 默认只生成构件，不创建 GitHub Release。
+
+使用者包面向解压后直接运行 QA CLI 的场景。开发者包保留完整源码、测试和维护文件。
 
 手动运行时可以启用 `publish_release` 发布 Release，并启用
 `force_overwrite` 更新同名 Release。Release 标签由根 `package.json` 的版本生成，格式为 `v<版本>`。

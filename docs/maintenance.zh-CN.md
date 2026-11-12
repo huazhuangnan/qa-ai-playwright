@@ -357,12 +357,12 @@ README、AGENTS、CHANGELOG、`.agents/`、`.github/**/*.md` 和 `docs/` 变更�
 1. 更新源码、固定版本和迁移说明。
 2. 运行受影响 Actions，保留日志和失败证据。
 3. 在干净 `--root` 中验证升级和重复执行。
-4. 由 Release 工作流生成跨平台 ZIP，并上传 SHA256 清单。
+4. 由 Release 工作流生成使用者包和开发者包，并上传 SHA256 清单。
 5. 发布完整交付目录，包括自有 Skill、模板、MCP 清单和运行入口，不只发布单个 `SKILL.md`。
 6. 回滚时恢复完整目录和清单，再重新执行验收。
 
 Release 不发布 npm 包。
-当前交付是跨平台源码和启动器，因此只生成一个 ZIP。
+当前交付提供使用者 ZIP 和开发者 ZIP。使用者包包含运行入口和用户指南。开发者包保留完整源码、测试和维护文件。
 用户解压后直接运行 `packages/qa-cli/bin/qa.cmd` 或 `packages/qa-cli/bin/qa.sh`。
 以后如果加入平台二进制，再按平台增加 ZIP 或 `tar.gz` 资产。
 
@@ -373,8 +373,8 @@ Release 工作流将该文件作为正文前缀，再追加 GitHub 自动生成�
 主 CI 的触发边界见[CI 触发与验证范围](#ci-触发与验证范围)。
 
 手动打包使用独立的 `Package` 工作流。它从 GitHub Actions 中所选分支运行
-`package:release` 对应的 Bun 脚本，校验 ZIP 内容并上传 ZIP 与
-`SHA256SUMS.txt`。默认只保存 Actions Artifact。
+`package:release` 对应的 Bun 脚本，分别生成使用者包和开发者包，校验两个 ZIP
+并上传 ZIP 与 `SHA256SUMS.txt`。默认只保存 Actions Artifact。
 启用 `publish_release` 后按 `package.json` 版本创建 GitHub Release。
 同名 Release 只有在同时启用 `force_overwrite` 时才会更新资产和说明。
 

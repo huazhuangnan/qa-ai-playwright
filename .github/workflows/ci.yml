@@ -313,8 +313,8 @@ jobs:
         shell: bash
         run: |
           mkdir "$RUNNER_TEMP/unpacked-release"
-          unzip -q "$RUNNER_TEMP/release/qa-ai-playwright-${GITHUB_REF_NAME}.zip" -d "$RUNNER_TEMP/unpacked-release"
-          root="$RUNNER_TEMP/unpacked-release/qa-ai-playwright-${GITHUB_REF_NAME#v}"
+          unzip -q "$RUNNER_TEMP/release/qa-ai-playwright-${GITHUB_REF_NAME#v}-user.zip" -d "$RUNNER_TEMP/unpacked-release"
+          root="$RUNNER_TEMP/unpacked-release/qa-ai-playwright-${GITHUB_REF_NAME#v}-user"
           bash "$root/packages/qa-cli/bin/qa.sh" --help
           QA_ROOT="$RUNNER_TEMP/release-env" bash "$root/packages/qa-cli/bin/qa.sh" env init typescript --skip-codex --skip-skills
           QA_ROOT="$RUNNER_TEMP/release-env" bash "$root/packages/qa-cli/bin/qa.sh" project init "$RUNNER_TEMP/release-project" --language typescript
@@ -336,9 +336,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          zip_asset=$(find "$RUNNER_TEMP/release" -maxdepth 1 -name 'qa-ai-playwright-*.zip' -print -quit)
+          user_zip="$RUNNER_TEMP/release/qa-ai-playwright-${GITHUB_REF_NAME#v}-user.zip"
+          developer_zip="$RUNNER_TEMP/release/qa-ai-playwright-${GITHUB_REF_NAME#v}-developer.zip"
           gh release create "$GITHUB_REF_NAME" \
-            "$zip_asset" \
+            "$user_zip" \
+            "$developer_zip" \
             "$RUNNER_TEMP/release/SHA256SUMS.txt" \
             --title "$GITHUB_REF_NAME" \
             --generate-notes \
