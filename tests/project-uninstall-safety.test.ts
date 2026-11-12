@@ -35,21 +35,33 @@ test('preserves dependency data and tracks edits across repeated uninstalls', as
   writeFileSync(join(target, 'node_modules', 'user-data.txt'), 'keep');
   writeFileSync(marker, JSON.stringify(state));
 
-  await projectUninstall(env, { target });
+  expect(await projectUninstall(env, { target })).toBe(1);
   expect(existsSync(unchanged)).toBe(false);
   expect(readFileSync(edited, 'utf8')).toBe('user edit');
   expect(readFileSync(join(target, 'node_modules', 'user-data.txt'), 'utf8')).toBe('keep');
   const remaining = JSON.parse(readFileSync(marker, 'utf8'));
   expect(remaining.files).toEqual({ 'edited.txt': state.files['edited.txt'] });
   expect(remaining.directories).toEqual(['node_modules']);
-  await projectUninstall(env, { target });
+  expect(await projectUninstall(env, { target })).toBe(1);
   expect(JSON.parse(readFileSync(marker, 'utf8')).files).toEqual(remaining.files);
   expect(readFileSync(join(target, 'node_modules', 'user-data.txt'), 'utf8')).toBe('keep');
 
   rmSync(join(target, 'node_modules'), { recursive: true });
   rmSync(edited);
-  await projectUninstall(env, { target });
+  expect(await projectUninstall(env, { target })).toBe(0);
   expect(existsSync(marker)).toBe(false);
+});
+
+test('preserving only dependency and untracked files reports successful cleanup', async () => {
+  const { target, marker, state, env } = fixture();
+  mkdirSync(join(target, 'node_modules'));
+  writeFileSync(join(target, 'node_modules', 'user-data.txt'), 'keep');
+  writeFileSync(join(target, 'notes.txt'), 'keep');
+  writeFileSync(marker, JSON.stringify(state));
+  expect(await projectUninstall(env, { target })).toBe(0);
+  expect(existsSync(marker)).toBe(true);
+  expect(readFileSync(join(target, 'notes.txt'), 'utf8')).toBe('keep');
+  expect(readFileSync(join(target, 'node_modules', 'user-data.txt'), 'utf8')).toBe('keep');
 });
 
 test('refuses traversal before deleting any project files', async () => {

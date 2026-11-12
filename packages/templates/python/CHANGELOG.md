@@ -14,5 +14,7 @@
 - 变量名统一登记到 `docs/qa/inputs/input-index.md`。
 - GitHub Actions 区分快速验证、完整手动矩阵和手动 API 门禁。
 - 示例测试补充业务 docstring、流程注释和失败时数据清理。
+- 补充 Python 测试分层、fixture 生命周期、命名和类型标注约定。
+- 补充 AI 按 Python 语言读取风格与架构规则的路由说明。
 - Python 依赖锁改为 universal 解析，CI 强制校验哈希。
 - CI 改用固定 runner 标签，避免浮动系统迁移。

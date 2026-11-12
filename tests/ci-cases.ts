@@ -277,7 +277,7 @@ async function uninstallCase(): Promise<void> {
     writeFileSync(modified, stack === 'python' ? '# user test' : '// user test');
     const notes = join(target, 'user-notes.txt');
     writeFileSync(notes, 'must survive uninstall', 'utf8');
-    qa(['project', 'uninstall', target]);
+    qa(['project', 'uninstall', target], 1);
     assert.equal(readFileSync(notes, 'utf8'), 'must survive uninstall');
     assert.equal(readFileSync(rules, 'utf8'), 'preexisting project rules');
     assert.ok(existsSync(modified));

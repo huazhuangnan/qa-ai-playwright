@@ -14,4 +14,6 @@
 - 变量名统一登记到 `docs/qa/inputs/input-index.md`。
 - GitHub Actions 区分快速验证、完整手动矩阵和手动 API 门禁。
 - 示例测试补充业务说明、`test.step` 流程和失败时数据清理。
+- 补充 TypeScript 测试分层、fixture 注入、命名和严格类型约定。
+- 补充 AI 按 TypeScript 语言读取风格与架构规则的路由说明。
 - CI 改用固定 runner 标签，避免浮动系统迁移。

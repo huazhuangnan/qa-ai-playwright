@@ -1,5 +1,14 @@
 # 测试维护规则
 
+## 代码风格与架构
+
+- 测试按 `api/`、`functional/`、`e2e/` 和 `unit/` 分层。依赖方向由测试用例指向 fixtures 和 HTTP/浏览器边界。
+- 公共 fixture、API 客户端、页面对象和复杂分支使用 docstring 与类型标注。测试名称说明业务行为和结果。
+- 遵循 PEP 8。函数和变量使用 `snake_case`，类使用 `PascalCase`，常量使用 `UPPER_SNAKE_CASE`。
+- fixture 通过 `conftest.py` 和 `tests/fixtures/` 注入。fixture 管理资源生命周期，测试函数只编排动作和断言。
+- API 响应先检查状态码，再读取业务字段。浏览器角色切换使用 `login_as`，不共享可变会话。
+- `pytest.ini` 集中维护 markers、超时和测试目录；运行时启用 `--strict-config --strict-markers`。
+
 - QA 任务先按名称查找 `qa-core`，然后按任务查找其他 QA Skill。
 - 执行依赖 QA 环境的测试前，按名称查找并读取 `qa-setup`。确认语言、环境根目录和所需组件，先用 QA MCP 或 CLI 检查。环境缺失或语言不匹配时，用交付包的 `packages/qa-cli/bin/qa.cmd` 或 `packages/qa-cli/bin/qa.sh` 执行 `env init`，再用相同条件执行 `env check`。安装缺失的共享工具前告知用户。找不到启动器或必要信息时报告阻塞。
 - 处理 Bun 运行、脚本或测试时检查 `bun-runtime`。处理 pnpm 配置、依赖、锁文件或 workspace 时检查 `pnpm`。这些检查不限于 QA 任务。
