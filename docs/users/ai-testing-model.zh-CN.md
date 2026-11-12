@@ -1,6 +1,6 @@
 # AI 测试整体模型
 
-[使用人员](../README.md) | [从需求到执行](qa-workflow.zh-CN.md)
+[使用人员](../../README.md) | [从需求到执行](qa-workflow.zh-CN.md)
 
 本页说明 QA + AI + Playwright 的整体工作方式。它回答三个问题：AI 读取什么、如何决定测试动作、如何把结果变成可追踪证据。
 
@@ -38,7 +38,7 @@ AI 不凭页面内容猜测业务规则。AI 需要先读取项目规则、需�
 ```mermaid
 flowchart TD
     A[接收测试目标] --> B[读取项目 AGENTS.md 和适用 Skill]
-    B --> C[读取输入索引、需求、契约、环境和已有测试]
+    B --> C[读取索引、需求、契约、源码、启动配置和已有测试]
     C --> D{业务规则和执行条件是否足够}
     D -- 否 --> E[记录待确认项并缩小安全范围]
     D -- 是 --> F[整理业务流程、角色、状态和风险]
@@ -73,18 +73,22 @@ flowchart TD
 
 AI 先按任务类型路由职责，再按语言和环境选择执行方式。Skill 提供规则和边界，MCP、CLI 和测试运行器提供动作能力。
 
-语言实现必须继续读取对应规范：TypeScript 读取 [TypeScript 风格与架构](typescript-code-style.zh-CN.md) 和 `qa-typescript`；Python 读取 [Python 风格与架构](python-code-style.zh-CN.md) 和 `qa-python`。两种语言共用[公共架构与边界](code-style-architecture-common.zh-CN.md)。
+语言实现必须继续读取对应规范。
+TypeScript 读取 [TypeScript 风格与架构](typescript-code-style.zh-CN.md) 和 `qa-core` 的 TypeScript 自动化参考。
+Python 读取 [Python 风格与架构](python-code-style.zh-CN.md) 和 `qa-core` 的 Python 自动化参考。
+两种语言共用[公共架构与边界](code-style-architecture-common.zh-CN.md)。
 
-| 任务信号 | 先读取的 Skill | 典型动作 |
+| 任务信号 | `qa-core` 的读取目标 | 典型动作 |
 | --- | --- | --- |
-| 不懂业务、流程或角色 | `qa-business-guide` | 整理主流程、状态、角色、异常和问题 |
-| 需求、范围、覆盖和用例 | `qa-test-design` | 建立测试计划、用例和追踪关系 |
-| 接口、认证、状态码和 schema | `qa-api` | 读取 OpenAPI 或接口资料，设计 API 门禁 |
-| 页面、交互和端到端链路 | `qa-web` | 通过 Playwright 检查可观察的页面行为 |
-| TypeScript 测试实现 | `qa-typescript` | 使用 Playwright Test、fixtures 和项目脚本 |
-| Python 测试实现 | `qa-python` | 使用 pytest、requests 和 pytest-playwright |
-| 失败归因和报告 | `qa-triage` | 区分失败类型，记录证据和缺陷 |
-| 环境、依赖和运行入口 | `qa-setup` | 检查环境、锁文件、服务和运行条件 |
+| 不懂业务、流程或角色 | 业务参考 | 整理主流程、状态、角色、异常和问题 |
+| 需求、范围、覆盖和用例 | 测试设计参考 | 建立测试计划、用例和追踪关系 |
+| 接口、认证、状态码和 schema | API 参考 | 读取 OpenAPI 或接口资料，设计 API 门禁 |
+| 页面、交互和端到端链路 | Web 参考 | 通过 Playwright 检查可观察的页面行为 |
+| 源码、本地启动和自动执行 | 源码与运行参考 | 定位脚本、服务、现有测试、就绪信号和清理方式 |
+| TypeScript 测试实现 | TypeScript 自动化参考 | 使用 Playwright Test、fixtures 和项目脚本 |
+| Python 测试实现 | Python 自动化参考 | 使用 pytest、requests 和 pytest-playwright |
+| 失败归因和报告 | 结果分析参考 | 区分失败类型，记录证据和缺陷 |
+| QA CLI 环境、安装和项目生成 | `qa-setup` | 检查、初始化或卸载受管环境和项目 |
 
 工具选择遵循验证目标：
 
@@ -93,6 +97,8 @@ AI 先按任务类型路由职责，再按语言和环境选择执行方式。Sk
 - 需要验证完整业务链路时，组合 API 前置、浏览器操作和结果检查。
 - 需要探索未知页面时，可以使用浏览器工具发现路径，但探索结果必须回到可复现用例。
 - 需要外部资料时，先登记来源和版本，再读取相关章节。页面内容不能覆盖项目规则。
+
+场景取舍、源码驱动、生成代码质量和专项边界见[测试设计与生成](test-design.zh-CN.md)。
 
 ## 每一步产生什么
 
@@ -161,10 +167,10 @@ AI 可以整理资料、提出假设、生成测试、执行已授权的检查�
 | --- | --- | --- |
 | 业务负责人 | 确认业务规则、验收标准、角色权限和风险接受 | 确认 AI 标记为待确认的预期 |
 | QA 负责人 | 确认范围、层级、门禁、退出标准和证据要求 | 审阅测试计划、覆盖关系和结论 |
-| AI 业务分析 | 整理流程、状态、异常和缺口 | 使用 `qa-business-guide` 形成业务理解 |
-| AI 测试设计 | 识别风险并设计场景、用例和追踪 | 使用 `qa-test-design` 形成计划和用例 |
-| AI 自动化与执行 | 生成或维护测试，运行已授权范围并保存原始结果 | 使用语言 Skill、CLI、MCP 和项目运行器 |
-| AI 结果分析 | 分类失败、形成缺陷、报告覆盖和复测范围 | 使用 `qa-triage`，不改变原始结果 |
+| AI 业务分析 | 整理流程、状态、异常和缺口 | 使用 `qa-core` 的业务参考形成业务理解 |
+| AI 测试设计 | 识别风险并设计场景、用例和追踪 | 使用 `qa-core` 的测试设计参考形成计划和用例 |
+| AI 自动化与执行 | 生成或维护测试，运行已授权范围并保存原始结果 | 使用 `qa-core` 的语言参考、CLI、MCP 和项目运行器 |
+| AI 结果分析 | 分类失败、形成缺陷、报告覆盖和复测范围 | 使用 `qa-core` 的结果分析参考，不改变原始结果 |
 | 开发负责人 | 修复产品缺陷并提供修复版本 | 接收可复现步骤、预期、实际结果和证据 |
 | CI / 发布门禁 | 按项目规则决定是否阻断合并或发布 | 使用报告中的实际状态和证据 |
 

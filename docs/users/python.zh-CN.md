@@ -1,15 +1,13 @@
 # Python 使用指南
 
-[使用人员](../README.md)
+[使用人员](../../README.md)
 
 [TypeScript](typescript.zh-CN.md) | **Python**
 
 ---
 
 用 pytest 跑测试，requests 处理 API，pytest-playwright 跑浏览器 E2E。以下命令从交付包或源码仓库根目录执行。
-首次运行需联网；CLI 会安装 Python。公共说明见 [使用指南](../README.md)。
-
-完整示例见 [Python 示例 QA](../apps/qa-ticket-app-suite-python/README.md)。
+首次运行需联网；CLI 会安装 Python。公共说明见 [使用指南](../../README.md)。
 
 [快速开始](#快速开始) · [测试执行](#测试执行) · [项目结构](#项目结构) · [Python 风格与架构](python-code-style.zh-CN.md) · [报告与 Trace](#报告与-trace)
 
@@ -66,7 +64,7 @@ bash packages/qa-cli/bin/qa.sh project check ./workspaces/python-qa
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-. .\.qa-env\activate.ps1
+. "$HOME\.qa-ai-playwright\activate.ps1"
 Set-Location .\workspaces\python-qa
 if (!(Test-Path .env)) { Copy-Item .env.example .env }
 if (!(Test-Path .env.dev)) { Copy-Item .env.dev.example .env.dev }
@@ -81,7 +79,7 @@ if (!(Test-Path .env.stg)) { Copy-Item .env.stg.example .env.stg }
 <summary>macOS / Linux</summary>
 
 ```bash
-source .qa-env/activate.sh
+source ~/.qa-ai-playwright/activate.sh
 cd workspaces/python-qa
 [ -f .env ] || cp .env.example .env
 [ -f .env.dev ] || cp .env.dev.example .env.dev

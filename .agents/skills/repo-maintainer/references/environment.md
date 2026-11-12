@@ -1,0 +1,21 @@
+# CLI 与环境
+
+- CLI 不交互。`env init <语言>` 和 `project init <目录> --language <语言>` 使用位置参数。
+- 用户级 `qa` 命令支持 Windows、macOS 和 Linux。
+- QA 使用一套用户级环境，各项目独立管理语言、依赖、配置和测试数据。
+- 示例项目放在 `apps/`。CLI 启动器放在 `packages/qa-cli/bin/`，业务逻辑放在 `packages/qa-cli/cli/`。
+- 跨平台入口使用 Node。CLI 和共享模块兼容 Node 与 Bun。
+- 程序、MCP、Skills、模板和应用资产分别放在 `packages/` 对应目录。
+- 不重写 Codex 已有的搜索、浏览器、文件读取、压缩和文档能力。
+- MCP 分为 `packages/mcp/builtin/` 和 `packages/mcp/external/`。
+- 工具和 MCP 先复用，缺失时才安装。安装前说明范围。
+- 标准模式准备 Playwright CLI、QA MCP 和 Playwright MCP。`--full` 增加 Agent Browser CLI 和 MCP。
+- 浏览器优先复用已有兼容版本，确认缺失后才下载。登录态使用独立上下文。
+- MCP 写入用户级 Codex 配置。保留同名冲突和用户配置。
+- 安装记录包含 scope、来源、版本、路径和所有权。
+- 安装记录区分 `qa` 和 `reused`。只读发现只有匹配 QA 所有权时才报告 `qa`。
+- 软件升级和卸载只处理带 QA 所有权记录且路径匹配的内容。
+- 系统或用户已有软件只复用和保留，不提供覆盖升级或外部卸载入口。
+- 缓存、依赖、报告、凭证和临时文件加入 `.gitignore`。
+- 跨平台变更检查盘符、分隔符、空格和参数传递。
+- 安装、检查、卸载变更同步实现、文档、锁记录断言和 CI。

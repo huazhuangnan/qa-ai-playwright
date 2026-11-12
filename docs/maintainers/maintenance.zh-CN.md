@@ -1,10 +1,11 @@
 # QA + AI + Playwright 维护指南
 
-[使用人员](../README.md) | **维护人员**
+[使用人员](../../README.md) | **维护人员**
 
 本页面向仓库维护者。
 内容包括架构、不可变约束、发布门禁和回滚流程。
-日常操作见[环境初始化](environment.zh-CN.md)。
+日常操作见[环境初始化](../users/environment.zh-CN.md)。
+Skill 与 MCP 的来源、生命周期和维护规则见[维护参考](skills-mcp-maintenance.zh-CN.md)。
 组件管理基线和实施清单见[QA CLI 管理能力 TODO](qa-cli-management-todo.zh-CN.md)。
 
 ## 获取源码与验证
@@ -18,7 +19,7 @@
    ```
 
    也可使用仓库页面提供的 SSH 地址。
-3. 阅读根目录 `AGENTS.md` 和 `.agents/skills/qa-maintainer/SKILL.md`，再查看本页的架构与生命周期。
+3. 阅读根目录 `AGENTS.md` 和 `.agents/skills/repo-maintainer/SKILL.md`，再按任务查看本页的架构与生命周期。
 4. 在 GitHub 仓库的 **Actions** 查看 CI 结果。需要时手动运行主 CI，并查看各平台日志。
 
 安装和测试由 GitHub Actions 执行，不在维护者本机运行。
@@ -42,7 +43,8 @@ packages/qa-cli/qa-cli.ts    →  命令分派
       ├── cli/project.ts              → 项目生成、测试、卸载
       └── cli/shared.ts               → 配置、哈希、路径和锁记录
       │
-      ├── qa-docs                 → 按需使用的链接资料与静态导出
+      ├── qa-core                 → QA 工作流、路由和按需 references
+      ├── qa-setup                → 环境、安装和项目生命周期
       ├── packages/skills/             → 来源包
       ├── packages/apps/               → 官方桌面应用清单
       ├── packages/templates/          → 项目模板
@@ -50,7 +52,7 @@ packages/qa-cli/qa-cli.ts    →  命令分派
 ```
 
 - **入口**：平台入口只负责引导和参数转发。业务逻辑集中在 `packages/qa-cli/cli/`。
-- **会话短命令**：Windows 用户用 `Set-Alias` 设置短命令。Bash 或 zsh 用户手动加载 `packages/qa-cli/bin/session.sh`。设置只影响当前 shell，不修改 PATH 或启动配置。AI 按 `qa-setup` 规则定位启动器和环境。
+- **全局命令**：使用 `install.ps1` 或 `install.sh` 安装用户级 `qa` 命令。源码包启动器、`Set-Alias` 和 `session.sh` 仅作旧会话兼容入口。
 - **运行时**：平台入口使用 Node 22.18 或更高版本。QA MCP 和项目维护脚本使用 Bun。
 - **分派**：环境、项目、Skill 和 MCP 共用 `qa` 命令。QA MCP 复用同一分派。
 - **名称**：项目对外名称为 `QA + AI + Playwright`，根包名为 `qa-ai-playwright`。
@@ -82,7 +84,7 @@ CLI 中的 `REPO` 和 `QA_REPO` 指向仓库根目录。安装记录中的源码
 
 | 对象 | 当前命令 | 当前作用 |
 | --- | --- | --- |
-| 环境 | `env init/list/check/repair/uninstall`，`env plan/upgrade/snapshots uv`，`env rollback` | 环境生命周期和 uv 升级规则。详见[环境组件升级](environment-managed-upgrades.zh-CN.md) |
+| 环境 | `env init/list/check/repair/uninstall`，`env plan/upgrade/snapshots uv`，`env rollback` | 环境生命周期和 uv 升级，详见[组件升级](environment-managed-upgrades.zh-CN.md) |
 | 项目 | `project init/check/plan/upgrade/repair/snapshots/rollback/uninstall` | 项目模板生命周期和迁移规则。详见[项目模板管理](project-template-management.zh-CN.md) |
 | 模板 | `template list/check` | 查看仓库内语言模板和 QA 文档模板的版本及文件状态 |
 | MCP | `mcp list`、`mcp check`、`mcp add`、`mcp repair`、`mcp remove` | 查询状态、安装或复用、修复缺失项、移除符合记录的注册 |
@@ -102,10 +104,12 @@ QA MCP 使用对应 CLI 操作，并传递退出码和输出。升级相关工�
 - **MCP 修复**：需要完整的本环境所有权记录。缺失共享包按记录版本补装。注册已修改、共享包损坏或所有权未知时停止。
 - **浏览器迁移**：注册、所有权记录和配置快照一致，且差异仅限浏览器配置时才更新注册。无法确认时保留原配置并报告。
 - **迁移中断**：旧注册已移除而新注册尚未写入时，可按原配置重跑。新注册已写入但所有权记录未更新时，需要人工核对。处理残留的并发保护目录前，先确认没有其他初始化进程。
-- **卸载**：项目卸载保留依赖目录。环境卸载保留环境目录和共享软件，只清理可确认归属的 MCP 注册。`--include-external` 当前拒绝执行。详细范围见环境指南。
+- **卸载**：项目卸载保留依赖目录。环境卸载保留环境目录和共享软件，只清理可确认归属的 MCP 注册。
+- **软件所有权**：升级和卸载只处理 `source=qa` 且路径匹配的记录。普通复用观察标记为未知，不继承旧 QA 所有权。用户或系统已有软件只复用和保留。
 
 共享组件和外部 Skill 只提供检测结果。版本升级由维护者使用其原有工具人工执行。
 每阶段同步文档和 GitHub Actions 验证。详细任务见[管理能力 TODO](qa-cli-management-todo.zh-CN.md)。
+
 ## 浏览器 CLI 入口与 CI 组织
 
 - **Playwright CLI**：从安装包 `package.json` 的 `bin` 字段解析入口。安装校验、`qa run playwright-cli` 和 CI 检查使用同一入口。不能拼接旧版 `cli.js` 路径。
@@ -116,14 +120,14 @@ QA MCP 使用对应 CLI 操作，并传递退出码和输出。升级相关工�
 根目录的 GitHub Actions 工作流承担验证：
 
 - **触发**：代码、配置、模板行为、测试和工作流变更启动主 CI。纯文档变更不启动，手动运行不受路径过滤影响。
-- **覆盖**：验证三平台环境、项目生成与检查、共享卸载保护和维护单元测试。
+- **覆盖**：验证三平台全局命令安装、升级和卸载、环境、项目生成与检查、共享卸载保护和维护单元测试。
 - **项目 smoke**：覆盖 TypeScript、Python、带空格路径和 Chromium 检查。失败时归档可用证据；未生成证据时查看 Actions 日志。
 - **暂未执行**：项目卸载集成、lint、示例业务测试和兼容版本专项验证。
 - **平台差异**：通过复合 Action 和统一启动器处理。
 
 ## 维护语言
 
-生成项目的跨语言分层和风格规范见[代码风格与架构规范](code-style-architecture.zh-CN.md)。
+生成项目的跨语言分层和风格规范见[代码风格与架构规范](../users/code-style-architecture.zh-CN.md)。
 该规范统一测试边界、fixture 生命周期、数据隔离和依赖方向。
 TypeScript 与 Python 分别使用各自的类型、fixture 和运行器约定。
 
@@ -139,12 +143,12 @@ TypeScript 与 Python 分别使用各自的类型、fixture 和运行器约定�
 
 维护依赖安装、类型检查和单元测试由主 CI 执行。执行步骤及日志见 GitHub Actions。
 
-示例应用和两套 QA 项目的命令见[从需求到执行](qa-workflow.zh-CN.md)。
+示例应用和两套 QA 项目的命令见[从需求到执行](../users/qa-workflow.zh-CN.md)。
 各项目的具体说明见：
 
-- [示例应用](../apps/qa-ticket-app/README.md)
-- [TypeScript 示例 QA](../apps/qa-ticket-app-suite-typescript/README.md)
-- [Python 示例 QA](../apps/qa-ticket-app-suite-python/README.md)
+- [示例应用](../../apps/qa-ticket-app/README.md)
+- [TypeScript 示例 QA](../../apps/qa-ticket-app-suite-typescript/README.md)
+- [Python 示例 QA](../../apps/qa-ticket-app-suite-python/README.md)
 本页只维护仓库自身的检查和发布门禁。
 
 当前 GitHub Actions 运行维护单元测试、类型检查和跨平台环境验证。
@@ -160,7 +164,8 @@ Unix 启动器读取版本环境文件时必须兼容仓库文件的 CRLF 换行
 PowerShell 和 Windows CMD 脚本也保持 LF，Windows 运行器可以直接执行。
 二进制文件必须在 `.gitattributes` 中标记为 `binary`，避免换行转换。
 不修改用户全局 `core.autocrlf`；提交前使用 `git diff --check` 检查空白错误。
-提交前可使用 `git grep --cached` 检查提交中的 CRLF，二进制文件不参与检查。
+CI 检查受管文本的 CRLF 和 UTF-8 BOM。
+打包脚本重复检查交付文本，并拒绝 Windows 保留名及尾随空格或句点。
 
 ## 来源边界
 
@@ -177,7 +182,7 @@ MCP：
 官方或社区只是外部组件的来源属性，不增加目录层级。
 自有 Skill 从本仓库按任务安装到项目。外部 Skill 从固定上游按需安装。
 
-`qa-docs` 只定义调用顺序和归档约定。
+`qa-core` 的资料参考只定义调用顺序和归档约定。
 实际抓取、网页搜索、浏览器快照、上下文压缩和静态渲染使用 Codex 当前能力。
 
 ## 内置 QA MCP
@@ -248,7 +253,7 @@ CLI 面向直接操作，Skills 负责按任务选择工具和解释结果。
 
 ## 配置与版本
 
-默认运行时版本统一位于 [runtime-versions.env](../packages/qa-cli/runtime-versions.env)。
+默认运行时版本统一位于 [runtime-versions.env](../../packages/qa-cli/runtime-versions.env)。
 `uv` 使用固定版本，避免安装结果漂移。
 `env check` 同时校验 uv 版本；不一致时重新执行 `env init`。
 Bun 和 pnpm 优先复用已有版本，缺失时安装配置中的版本。
@@ -294,6 +299,7 @@ Node 和 Python 的版本策略尚未配置，报告 `unconfigured`。
 检查不安装组件，不更新清单或锁记录，也不覆盖用户文件。
 
 维护测试及实际工作流结果以 GitHub Actions 为准。
+
 ## 外部 Skill 更新检查
 
 GitHub Actions 在来源清单、安装说明或检查实现等相关文件推送后运行只读检查。也可手动触发。结果保存在工作流日志。来源变动需审查后手动更新固定提交和安装说明。
@@ -316,8 +322,8 @@ GitHub Actions 在来源清单、安装说明或检查实现等相关文件推�
 
 | Workflow | 覆盖内容 |
 | --- | --- |
-| [ci](../.github/workflows/ci.yml) | 三平台环境验证、项目 smoke 和 Tag 发布门禁 |
-| [skill-updates](../.github/workflows/skill-updates.yml) | 来源清单、安装说明和更新检查 |
+| [ci](../../.github/workflows/ci.yml) | 三平台环境验证、项目 smoke 和 Tag 发布门禁 |
+| [skill-updates](../../.github/workflows/skill-updates.yml) | 来源清单、安装说明和更新检查 |
 
 Windows 主路径使用 PowerShell 7。
 PowerShell 5.1 降级专项验证暂不执行。
@@ -343,7 +349,7 @@ README、AGENTS、CHANGELOG、`.agents/`、`.github/**/*.md` 和 `docs/` 变更�
 | --- | --- |
 | 文档 | 相对链接、命令目录、锚点和范围描述 |
 | builtin Skill | frontmatter、版本、引用、锁文件、行为场景 |
-| 链接资料与 qa-docs | 来源、相关性、归档字段、上下文读取顺序和静态输出路径 |
+| 链接资料与 `qa-core` 资料参考 | 来源、相关性、归档字段、上下文读取顺序和静态输出路径 |
 | external Skill | 上游来源、固定版本、安装范围、重复执行及失败行为 |
 | external App | 上游提交、许可证、官方资产、平台映射和 SHA256 |
 | MCP 清单 | 版本一致性、局部配置、`initialize`、`tools/list` |
@@ -365,7 +371,7 @@ README、AGENTS、CHANGELOG、`.agents/`、`.github/**/*.md` 和 `docs/` 变更�
 
 Release 不发布 npm 包。
 当前交付提供一个使用者 ZIP。开发和维护使用 GitHub 自动提供的源码快照。
-用户解压后直接运行 `packages/qa-cli/bin/qa.cmd` 或 `packages/qa-cli/bin/qa.sh`。
+用户解压后运行对应的全局安装脚本，再重新打开终端。
 以后如果加入平台二进制，再按平台增加 ZIP 或 `tar.gz` 资产。
 
 每个版本的用户变更说明维护在 `docs/releases/v<版本>.md`。
@@ -375,14 +381,16 @@ Release 工作流将该文件作为正文前缀，再追加 GitHub 自动生成�
 主 CI 的触发边界见[CI 触发与验证范围](#ci-触发与验证范围)。
 
 手动打包使用独立的 `Package` 工作流。它从 GitHub Actions 中所选分支运行
-`package:release` 对应的 Bun 脚本生成使用者包，校验 ZIP 并上传 ZIP 与
-`SHA256SUMS.txt`。默认只保存 Actions Artifact。
+`package:release` 对应的 Bun 脚本生成使用者包。
+相关 push 和 pull request 会执行同一打包检查。
+工作流在临时用户目录中安装、启动并卸载打包结果，再上传 ZIP 与 `SHA256SUMS.txt`。
+默认只保存 Actions Artifact。
 启用 `publish_release` 后按 `package.json` 版本创建 GitHub Release。
 同名 Release 只有在同时启用 `force_overwrite` 时才会更新用户包和校验文件。
 
 Tag 必须与根 `package.json` 的版本一致。
 例如版本 `0.0.1` 对应 `v0.0.1`。
-主 CI 的质量、三平台环境 smoke 和双语言项目 smoke 全部成功后，Release 检查才会运行。
+主 CI 的全局安装、会话入口、质量、三平台环境 smoke 和双语言项目 smoke 全部成功后，Release 检查才会运行。
 发布前会在干净目录中启动 CLI、初始化环境并生成项目。
 同名 Release 已存在时，检查成功，发布 job 跳过，不覆盖原版本。
 

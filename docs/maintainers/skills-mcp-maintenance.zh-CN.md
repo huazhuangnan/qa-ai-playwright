@@ -1,12 +1,6 @@
-# Skills 与 MCP
+# Skills 与 MCP 维护参考
 
-[使用人员](../README.md) | [维护人员](maintenance.zh-CN.md)
-
-本页说明 QA + AI + Playwright 中 Skill 与 MCP 的对象、来源、作用域、当前命令和生命周期边界。
-
-本页同时服务两类读者。使用人员重点阅读“使用人员：组合使用方式”和“使用边界”；仓库维护人员重点阅读来源、作用域、生命周期、版本和“维护人员：维护要求”。
-
-内置 Skill 支持项目级状态检查、安装、修复、快照和回滚。升级只提供检测结果，外部 Skill 继续按上游方式人工维护。
+[使用人员](../users/skills-mcp.zh-CN.md) | [维护人员](maintenance.zh-CN.md)
 
 ## 对象与来源
 
@@ -14,7 +8,7 @@
 
 Skill 是供 AI 读取的规则、路由、测试职责或工具使用说明。Skill 不等同于 CLI、MCP 或业务项目代码。
 
-在 Codex 中使用 `/skills` 查看可用 Skill。可使用 `$qa-business-guide` 显式调用业务引导 Skill。
+在 Codex 中使用 `/skills` 查看可用 Skill。QA 任务使用 `$qa-core`。
 MCP 由客户端提供工具。项目 CLI 通过终端运行，例如 `qa env init`，不是 `/env` 命令。
 
 | 对象 | 来源 | 当前管理方式 | 当前状态 |
@@ -29,14 +23,9 @@ QA 内置 Skill 包括：
 
 - `qa-setup`
 - `qa-core`
-- `qa-business-guide`
-- `qa-test-design`
-- `qa-api`
-- `qa-web`
-- `qa-triage`
-- `qa-python`
-- `qa-typescript`
-- 可选的 `qa-docs`
+
+`qa-core` 按需读取业务理解、测试设计、API、Web、TypeScript、Python、结果分析和资料处理参考。
+公开 Skill 不再按这些测试阶段分别拆分。
 
 外部 Skill 来源包括：
 
@@ -47,7 +36,7 @@ QA 内置 Skill 包括：
 - [Bun Runtime](https://github.com/affaan-m/ECC/tree/main/skills/bun-runtime)
 - [pnpm](https://github.com/antfu/skills/tree/main/skills/pnpm)
 
-外部 Skill 的来源、固定提交和安装命令见[外部 Skill 按需安装](../packages/skills/builtin/qa-core/references/external-skills.md)。仓库只保存来源清单和自有 Skill，不复制外部 Skill 内容。
+外部 Skill 的来源、固定提交和安装命令见[外部 Skill 按需安装](../../packages/skills/builtin/qa-core/references/external-skills.md)。仓库只保存来源清单和自有 Skill，不复制外部 Skill 内容。
 
 ### MCP
 
@@ -75,9 +64,9 @@ MCP 清单目录为：
 | `global` | 用户 Skill 目录 | 用户级 `CODEX_HOME/config.toml` | 用户或客户端 | 默认保留 |
 | `project` | 业务项目 `.agents/skills/` | 业务项目自己的客户端配置 | AI 按任务安装，业务项目维护 | 保留 |
 | `environment` | 旧环境 `<root>/codex/skills/` | 用户级 Codex 配置中指向当前环境的注册项 | QA CLI 管理 | 保留环境目录和旧 Skill，清理可确认归属的注册 |
-共享 MCP 包和工具可以被多个环境复用。它们默认不随单个环境卸载。
+共享 MCP 包和工具默认不随环境卸载。
 
-当前 MCP 注册写入用户级 `CODEX_HOME/config.toml`。注册名包含环境路径标识，server args 可以带当前环境根目录，因此多个环境可以共存。
+MCP 注册写入用户级 `CODEX_HOME/config.toml`。QA 使用可读的注册名称。
 
 环境只能删除自己创建且仍能验证所有权的注册项。遇到同名用户注册、来源不一致、环境路径不匹配或配置无法安全解析时，CLI 必须保留原配置并报告冲突。
 
@@ -138,11 +127,11 @@ AI 使用 Skill 前检查会话、全局、当前项目和旧环境中的可用�
 
 ```text
 qa skills list 项目目录
-qa skills check 项目目录 qa-api
-qa skills install 项目目录 qa-api
-qa skills repair 项目目录 qa-api
-qa skills upgrade 项目目录 qa-api  # 只输出人工操作提示  # 只输出人工升级提示
-qa skills uninstall 项目目录 qa-api
+qa skills check 项目目录 qa-core
+qa skills install 项目目录 qa-core
+qa skills repair 项目目录 qa-core
+qa skills upgrade 项目目录 qa-core  # 只输出人工操作提示
+qa skills uninstall 项目目录 qa-core
 ```
 
 - **状态**：列表报告 `missing`、`installed`、`modified` 或 `unmanaged`。`check` 只在受管文件完整且未修改时成功。
@@ -207,28 +196,6 @@ bash packages/qa-cli/bin/qa.sh skills check-updates --source ./external-sources.
 | `skills list/check/install/repair/upgrade/uninstall` | 检测并管理项目级内置 Skill；upgrade 只给人工提示 | 指定项目 `.agents/` | 已支持 |
 | `mcp check/repair` | 检查状态并按记录补齐缺失项 | 共享包和用户级注册 | 已支持可选 MCP |
 
-## 使用人员：组合使用方式
-
-在对话中按流程组合三者。Skill 负责当前这一轮该思考什么，MCP 负责检查和准备，CLI 在会话没有对应 MCP 时提供同等入口。
-
-```text
-1. 你：说明需求、资料、环境和写入边界。
-2. Codex：检查环境、项目和可用 Skill。
-3. 你：要求使用 qa-business-guide 整理业务规则。
-4. Codex：输出角色、状态、流程和待确认项。
-5. 你：要求使用 qa-test-design 形成用例和追踪关系。
-6. Codex：展示计划，等待范围确认。
-7. 你：确认范围并选择 qa-api/qa-web 与语言 Skill。
-8. Codex：实现、执行、保存证据。
-9. 你：要求使用 qa-triage 分析失败并安排复测。
-```
-
-环境、项目和 Skill 的只读检查可以并行。安装、修复、添加和移除必须等待上一轮结果，再把缺失项、项目路径或锁记录交给下一轮。出现 `modified`、`unmanaged`、所有权冲突或配置不一致时，暂停自动写入并转为人工处理。
-
-没有 MCP 工具时，在对话中明确说明“请使用 CLI 完成同一步骤”，并把 CLI 输出作为下一轮输入。不要跳过环境、权限、清理和证据检查。
-
-完整的需求、Skill、MCP、执行和证据示例见[从需求到执行](qa-workflow.zh-CN.md#在-codex-中执行一条完整任务)。
-
 ## 更新检查
 
 仓库根目录执行：
@@ -253,10 +220,7 @@ bash packages/qa-cli/bin/qa.sh update check --source ./update-sources.json
 
 ## MCP 注册与保护规则
 
-默认 QA 环境使用简短的 MCP 注册名称，例如 `qa` 和 `qa-playwright`。
-额外环境初始化时使用 `--name <name>` 指定名称。名称由小写字母、数字和单个连字符组成。
-例如，名称为 `legacy` 时注册项为 `qa-legacy` 和 `qa-legacy-playwright`。
-重新执行原环境的 `env init` 时迁移旧注册。迁移前会核对所有权和配置。
+QA 使用简短的 MCP 注册名称，例如 `qa` 和 `qa-playwright`。
 名称冲突或归属不明时保留已有配置。
 
 启用 Codex 时注册内置 `qa` MCP。未跳过浏览器工具时，标准模式还注册 `playwright`，`--full` 再注册 `agent-browser`。
@@ -337,24 +301,6 @@ bash packages/qa-cli/bin/qa.sh mcp remove faker
 ```
 
 `mcp add` 只对清单中已接入的 npm 包型 MCP 生效。k6 和 ZAP 需要外部程序或守护进程，暂不纳入一键安装、升级和卸载。
-
-## 使用边界
-
-标准模式：
-
-```powershell
-.\packages\qa-cli\bin\qa.cmd run codex
-.\packages\qa-cli\bin\qa.cmd run playwright-cli
-```
-
-需要 Agent Browser 时：
-
-```powershell
-.\packages\qa-cli\bin\qa.cmd env init typescript --full
-.\packages\qa-cli\bin\qa.cmd run agent-browser
-```
-
-Codex 登录由用户交互完成。凭证和本地认证状态不提交。
 
 ## 维护人员：维护要求
 

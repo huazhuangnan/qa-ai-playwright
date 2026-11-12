@@ -1,6 +1,6 @@
 # 代码风格与架构规范
 
-[使用人员](../README.md) | [QA 工作流](qa-workflow.zh-CN.md)
+[使用人员](../../README.md) | [QA 工作流](qa-workflow.zh-CN.md)
 
 适用对象：业务项目 QA 开发与维护人员。
 
@@ -15,9 +15,9 @@
 ## AI 路由
 
 1. 先读取项目 AGENTS.md 和公共架构与边界。
-2. TypeScript 项目读取 TypeScript 风格与架构和 qa-typescript。
-3. Python 项目读取 Python 风格与架构和 qa-python。
-4. 设计测试层级时读取 qa-test-design，执行环境时读取 qa-setup。
+2. TypeScript 项目读取 TypeScript 风格与架构和 `qa-core` 的 TypeScript 自动化参考。
+3. Python 项目读取 Python 风格与架构和 `qa-core` 的 Python 自动化参考。
+4. 设计测试层级时读取 `qa-core` 的测试设计参考，执行环境时读取 `qa-setup`。
 
 两种语言保持相同的测试边界、数据隔离、写保护、清理和证据要求。语法、类型系统、fixture 和运行器按语言分别实现。
 

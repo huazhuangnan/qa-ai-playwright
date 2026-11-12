@@ -1,11 +1,11 @@
 # AI 文档发现与静态化
 
-[使用人员](../README.md)
+[使用人员](../../README.md)
 
 本页说明如何让 AI 处理外部文档和减少上下文占用。
 底层网页、浏览器、压缩和文档生成能力由 Codex 提供。
-本仓库只规定调用顺序、归档位置和证据要求。
-需要归档或静态导出时，按项目 Skill 引导检查并使用 `qa-docs`。
+本 QA 方案只规定调用顺序、归档位置和证据要求。
+需要归档或静态导出时，按 `qa-core` 的资料参考执行。
 
 ## 整体流程
 
@@ -63,7 +63,7 @@ AI 应先读取项目 `AGENTS.md`、输入索引和依赖。
 Markdown 是事实来源。
 静态化通过当前会话已有的文档生成或浏览器能力完成。
 页面冻结可使用现有 PDF、截图或浏览器快照。
-本仓库不提供独立爬虫或静态站生成引擎。
+本 QA 方案不提供独立爬虫或静态站生成引擎。
 
 ## 节省 token
 
@@ -85,9 +85,9 @@ AI 使用以下顺序读取：
 
 ## 相关规则
 
-- [QA 通用规则](../packages/skills/builtin/qa-core/SKILL.md)
+- [QA 通用规则](../../packages/skills/builtin/qa-core/SKILL.md)
 - [公共架构与边界](code-style-architecture-common.zh-CN.md)
 - [TypeScript 风格与架构](typescript-code-style.zh-CN.md)
 - [Python 风格与架构](python-code-style.zh-CN.md)
-- [qa-docs Skill](../packages/skills/builtin/qa-docs/SKILL.md)
-- [输入清单](../packages/skills/builtin/qa-core/references/input-checklist.md)
+- [资料处理参考](../../packages/skills/builtin/qa-core/references/documents.md)
+- [输入清单](../../packages/skills/builtin/qa-core/references/input-checklist.md)

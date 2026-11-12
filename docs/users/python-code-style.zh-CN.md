@@ -1,6 +1,6 @@
 # Python 风格与架构
 
-[使用人员](../README.md) | [QA 工作流](qa-workflow.zh-CN.md)
+[使用人员](../../README.md) | [QA 工作流](qa-workflow.zh-CN.md)
 
 适用于 Python QA 项目。先读[公共架构与边界](code-style-architecture-common.zh-CN.md)。
 
@@ -12,6 +12,9 @@
 - 遵循 PEP 8。函数和变量使用 `snake_case`。类使用 `PascalCase`。常量使用 `UPPER_SNAKE_CASE`。
 - 文件和目录使用小写。多词名称使用 `snake_case`。
 - 公共 fixture、API 客户端、页面对象和复杂分支使用 docstring 与类型标注。
+- docstring 说明业务目标、输入、输出、副作用和非显然约束。
+- 复杂用例用简短注释标明准备、操作、断言和清理。
+- 简单步骤不加逐行注释，复杂分支解释为什么和顺序。
 - 测试函数名称说明业务行为和结果，不使用序号名称。
 
 ## 架构

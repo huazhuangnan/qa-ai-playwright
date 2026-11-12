@@ -1,12 +1,26 @@
 # Release 发布指南
 
-[使用人员](../README.md) | **维护人员**
+[使用人员](../../README.md) | **维护人员**
 
 本页说明 GitHub Release 的版本、资产和说明来源。
 
+## 交付边界
+
+| 内容 | 用户包 | 说明 |
+| --- | --- | --- |
+| `README.md`、`docs/users/` | 包含 | 面向 QA 使用人员 |
+| `packages/` | 包含 | QA CLI、Skills、MCP、模板和运行时清单 |
+| 模板 `AGENTS.md` | 包含 | 生成 QA 项目需要项目规则 |
+| 根 `AGENTS.md`、`.agents/` | 排除 | 只用于维护本仓库 |
+| `docs/maintainers/` | 排除 | 维护记录和发布流程 |
+| `apps/`、`tests/`、`scripts/` | 排除 | 示例源码和仓库开发资产 |
+
+打包脚本校验用户 Markdown 的相对链接。
+Package 工作流检查治理文件未进入用户包，并验证两种语言的模板规则可生成。
+
 ## 说明放置位置
 
-- 日常下载和使用步骤写在 [README](../README.md) 与环境指南。
+- 日常下载和使用步骤写在 [README](../../README.md) 与环境指南。
 - 发布流程、资产清单和验收门禁写在 [维护指南](maintenance.zh-CN.md)。
 - 每个版本面向使用人员的变更说明写在 `docs/releases/v<版本>.md`。
 - GitHub Release 正文由该版本文件和 GitHub 自动生成的变更组成。
@@ -40,7 +54,7 @@
 
 1. 更新根 `package.json` 版本。
 2. 更新 `docs/releases/v<版本>.md`。
-3. 同步 `docs/version-history.zh-CN.md` 的未发布内容。
+3. 同步 `docs/maintainers/version-history.zh-CN.md` 的未发布内容。
 4. 创建匹配的 `v<版本>` Tag。
 5. 等待主 CI 的质量、环境和项目 smoke 全部成功。
 6. 检查 GitHub Release 的 ZIP 和 `SHA256SUMS.txt`。
