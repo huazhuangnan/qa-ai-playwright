@@ -318,14 +318,17 @@ PowerShell 5.1 降级专项验证暂不执行。
 CI runner 固定为 `ubuntu-24.04`、`windows-2025` 和 `macos-15-intel`。
 不使用 `*-latest` 标签，避免系统迁移和 macOS ARM 排队改变验证环境。
 最小 Linux 容器专项验证暂不执行。
-Tag 发布使用主 CI 的完整矩阵。普通 push 和 pull request 使用相同的三平台验证；纯文档变更由路径过滤跳过。
+普通 push 和 pull request 使用快速矩阵：Linux 与 Windows 安装、Linux 环境 smoke、Linux TypeScript 和 Windows Python 项目 smoke。
+手动运行默认使用快速矩阵，启用 `full_matrix` 后运行全部三平台和项目组合。
+Tag 发布自动使用完整矩阵。纯文档变更由路径过滤跳过。
 测试或运行器失败时，不得只增加重试或跳过门禁。
 
 ## CI 触发与验证范围
 
 普通 push 和 pull request 只有在涉及代码、配置、模板行为、测试或工作流时才启动主 CI。
 README、AGENTS、CHANGELOG、`.agents/`、`.github/**/*.md` 和 `docs/` 变更不会启动主 CI。
-手动运行始终执行主 CI。`v<版本>` Tag 不受文档过滤影响，并进入发布门禁。
+手动运行默认执行快速矩阵，可启用 `full_matrix` 执行完整验证。
+`v<版本>` Tag 不受文档过滤影响，自动执行完整矩阵并进入发布门禁。
 环境验证使用 Node 26、Python 3.15 和固定工具版本。
 环境验证包含 MCP 和浏览器 smoke。
 
@@ -370,8 +373,9 @@ Release 工作流将该文件作为正文前缀，再追加 GitHub 自动生成�
 
 手动打包使用独立的 `Package` 工作流。它从 GitHub Actions 中所选分支运行
 `package:release` 对应的 Bun 脚本生成使用者包。
-相关 push 和 pull request 会执行同一打包检查。
-工作流在 Linux、macOS 和 Windows 临时用户目录中安装、启动并卸载打包结果，再上传 ZIP 与 `SHA256SUMS.txt`。
+相关 push 和 pull request 在 Linux 上构建并验证交付包。
+手动运行还会在 macOS 和 Windows 临时用户目录中安装、启动并卸载打包结果。
+成功后上传 ZIP 与 `SHA256SUMS.txt`。
 默认只保存 Actions Artifact。
 启用 `publish_release` 后按 `package.json` 版本创建 GitHub Release。
 同名 Release 只有在同时启用 `force_overwrite` 时才会更新用户包和校验文件。

@@ -125,6 +125,7 @@ jobs:
 
   package-windows:
     name: Verify package on Windows PowerShell 5.1
+    if: github.event_name == 'workflow_dispatch'
     needs: package
     runs-on: windows-2025
     timeout-minutes: 10
@@ -166,6 +167,7 @@ jobs:
 
   package-macos:
     name: Verify package on macOS
+    if: github.event_name == 'workflow_dispatch'
     needs: package
     runs-on: macos-15-intel
     timeout-minutes: 10

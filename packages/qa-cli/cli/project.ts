@@ -18,7 +18,7 @@ import {
   within,
   type Browser,
 } from './shared.ts';
-import { Environment } from './environment.ts';
+import { Environment, browserTemporaryEnvironment } from './environment.ts';
 
 /** Inputs accepted by project initialization. */
 export interface ProjectInitArguments {
@@ -407,6 +407,7 @@ function browserEnvironment(env: Environment, browser: Browser): Record<string, 
   const selected = browser === 'chrome' || browser === 'msedge' || browser === 'chromium'
     ? env.findBrowser(browser) : undefined;
   return {
+    ...browserTemporaryEnvironment(),
     QA_BROWSER_CHANNEL: system ? browser : '',
     QA_BROWSER_EXECUTABLE_PATH: selected?.scope === 'system-or-user' ? selected.path : '',
   };

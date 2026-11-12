@@ -19,6 +19,7 @@ import { test } from 'bun:test';
 
 import {
   Environment,
+  browserTemporaryEnvironment,
   detectCodexDesktop,
   type RunOptions,
 } from '../packages/qa-cli/cli/environment.ts';
@@ -85,8 +86,12 @@ process.once('exit', () => {
 });
 
 /** Creates a PATH directory outside the managed root with isolated tool placeholders. */
-function createToolPath(base: string, names = ['bun', 'pnpm']): string {
-  const bin = join(base, 'global tools');
+function createToolPath(
+  base: string,
+  names = ['bun', 'pnpm'],
+  directory = 'global tools',
+): string {
+  const bin = join(base, directory);
   mkdirSync(bin, { recursive: true });
   for (const name of names) {
     const path = join(bin, WINDOWS ? `${name}.exe` : name);
@@ -369,9 +374,13 @@ test('existing global browser tools keep their installed versions', async () => 
 });
 test('a missing package manager is installed once using the discovered global npm', async () => {
   const base = createWorkspace();
-  const bin = createToolPath(base, ['npm', 'bun']);
+  const bin = createToolPath(
+    base,
+    ['npm', 'bun'],
+    WINDOWS ? 'global tools' : 'npm-prefix/bin',
+  );
   const pnpm = join(bin, WINDOWS ? 'pnpm.exe' : 'pnpm');
-  const prefix = WINDOWS ? bin : dirname(bin);
+  const prefix = WINDOWS ? bin : join(base, 'npm-prefix');
   const environment = new class extends StubEnvironment {
     override run(command: readonly (string | number)[], options: RunOptions = {}): string | undefined {
       const result = super.run(command, options);
@@ -426,8 +435,12 @@ test('an existing user package without its command shim is never reinstalled', a
 
 test('an interrupted global installation is recorded without claiming ownership', async () => {
   const base = createWorkspace();
-  const bin = createToolPath(base, ['npm', 'bun']);
-  const prefix = WINDOWS ? bin : dirname(bin);
+  const bin = createToolPath(
+    base,
+    ['npm', 'bun'],
+    WINDOWS ? 'global tools' : 'npm-prefix/bin',
+  );
+  const prefix = WINDOWS ? bin : join(base, 'npm-prefix');
   const environment = new class extends StubEnvironment {
     override run(command: readonly (string | number)[], options: RunOptions = {}): string | undefined {
       if (command.includes('prefix')) return prefix;
@@ -574,6 +587,25 @@ test('PATH-discovered executable runs with its version argument', () => {
   assert.equal(environment.pnpmBin, executable);
   assert.equal(environment.pnpm(['--version'], { capture: true }), '9.0.0');
 });
+
+test('browser test runners use the host temporary directory', () => {
+  const environment = createEnvironment();
+  const observed: RunOptions[] = [];
+  const stub = new class extends StubEnvironment {
+    override run(
+      command: readonly (string | number)[],
+      options: RunOptions = {},
+    ): string | undefined {
+      observed.push(options);
+      return super.run(command, options);
+    }
+  }({ root: environment.root, env: {} });
+  const expected = browserTemporaryEnvironment();
+  stub.playwright(environment.root, 'test');
+  assert.deepEqual(observed.at(-1)?.env, expected);
+  assert.ok(!within(String(expected.TEMP), environment.root));
+});
+
 test('MCP registration preserves a conflicting user configuration', () => {
   const environment = new StubEnvironment({
     root: join(createWorkspace(), 'environment'),

@@ -53,7 +53,7 @@ const AGENT_BROWSER_LAUNCH_ARGS = WINDOWS
   : undefined;
 
 /** Uses the host temporary directory for Chromium's own short-lived files. */
-function agentBrowserTempEnvironment(): NodeJS.ProcessEnv {
+export function browserTemporaryEnvironment(): NodeJS.ProcessEnv {
   const temp = WINDOWS
     ? join(
         process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'),
@@ -698,7 +698,7 @@ export class Environment {
         join(target, 'node_modules/@playwright/test/cli.js'),
         ...args,
       ],
-      { cwd: target },
+      { cwd: target, env: browserTemporaryEnvironment() },
     );
   }
 
@@ -734,7 +734,7 @@ export class Environment {
             : []),
         ];
     if (!this.agentBrowser) throw new Error('Global Agent Browser is missing');
-    this.runGlobal(this.agentBrowser, [...sessionArgs, ...args], { env: agentBrowserTempEnvironment() });
+    this.runGlobal(this.agentBrowser, [...sessionArgs, ...args], { env: browserTemporaryEnvironment() });
   }
 
   /**
@@ -1181,7 +1181,7 @@ export class Environment {
         'mcp',
       ],
       env: {
-        ...agentBrowserTempEnvironment(),
+        ...browserTemporaryEnvironment(),
         AGENT_BROWSER_SOCKET_DIR: join(
           this.root,
           AGENT_BROWSER_SOCKET_DIR,
