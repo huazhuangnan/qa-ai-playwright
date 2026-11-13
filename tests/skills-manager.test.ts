@@ -43,7 +43,7 @@ test('builtin Skill install never takes ownership of an existing directory', () 
   assert.equal(readFileSync(join(target, 'SKILL.md'), 'utf8'), 'user');
 });
 
-test('repair uses the recorded source and upgrade preserves user conflicts', () => {
+test('repair uses the recorded source and upgrade overwrites repository-managed files', () => {
   const { project, repo, target } = fixture();
   const source = join(repo, 'packages', 'skills', 'builtin', 'qa-example');
   installBuiltinSkill(project, 'qa-example', repo);
@@ -51,15 +51,12 @@ test('repair uses the recorded source and upgrade preserves user conflicts', () 
   assert.deepEqual(repairBuiltinSkill(project, 'qa-example', repo).repaired, ['guide.md']);
   writeFileSync(join(source, 'guide.md'), 'new version');
   writeFileSync(join(target, 'guide.md'), 'user edit');
-  assert.throws(() => upgradeBuiltinSkill(project, 'qa-example', repo), /modified or missing/);
-  assert.equal(readFileSync(join(target, 'guide.md'), 'utf8'), 'user edit');
-  writeFileSync(join(target, 'guide.md'), 'original');
   upgradeBuiltinSkill(project, 'qa-example', repo);
   assert.equal(readFileSync(join(target, 'guide.md'), 'utf8'), 'new version');
   assert.equal(listBuiltinSkills(project, repo)[0]?.status, 'installed');
 });
 
-test('repair refuses a changed source and upgrade refuses unowned new files', () => {
+test('repair refuses a changed source and upgrade synchronizes new and removed files', () => {
   const { project, repo, target } = fixture();
   const source = join(repo, 'packages', 'skills', 'builtin', 'qa-example');
   installBuiltinSkill(project, 'qa-example', repo);
@@ -69,9 +66,11 @@ test('repair refuses a changed source and upgrade refuses unowned new files', ()
   writeFileSync(join(target, 'guide.md'), 'original');
   writeFileSync(join(source, 'extra.md'), 'upstream');
   writeFileSync(join(target, 'extra.md'), 'user');
-  assert.throws(() => upgradeBuiltinSkill(project, 'qa-example', repo), /unowned/);
-  assert.equal(readFileSync(join(target, 'extra.md'), 'utf8'), 'user');
-  assert.equal(readFileSync(join(target, 'guide.md'), 'utf8'), 'original');
+  upgradeBuiltinSkill(project, 'qa-example', repo);
+  assert.equal(readFileSync(join(target, 'extra.md'), 'utf8'), 'upstream');
+  unlinkSync(join(source, 'extra.md'));
+  upgradeBuiltinSkill(project, 'qa-example', repo);
+  assert.throws(() => readFileSync(join(target, 'extra.md')), /ENOENT/);
 });
 
 test('Skill upgrade snapshots roll back only unchanged managed state', () => {

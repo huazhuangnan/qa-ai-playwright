@@ -171,7 +171,11 @@ function replaceFile(path: string, contents: Buffer, create: boolean, mode?: num
     writeFileSync(temporary, contents, { flag: 'wx' });
     if (mode !== undefined) chmodSync(temporary, mode);
     if (create) linkSync(temporary, path);
-    else renameSync(temporary, path);
+    else {
+      // Windows cannot atomically rename over an existing file.
+      if (process.platform === 'win32' && existsSync(path)) unlinkSync(path);
+      renameSync(temporary, path);
+    }
   } finally {
     try { if (existsSync(temporary)) unlinkSync(temporary); } catch { /* Preserve the temporary file on cleanup failure. */ }
   }
@@ -334,7 +338,7 @@ export function repairBuiltinSkill(project: string, name: string, repo = REPO): 
   });
 }
 
-/** Upgrade an unchanged managed Skill to the current builtin source. */
+/** Synchronize a repository-managed Skill with the current builtin source. */
 export function upgradeBuiltinSkill(project: string, name: string, repo = REPO): { updated: string[]; snapshot?: string } {
   const root = projectRoot(project);
   const source = sourceDirectory(name, repo);
@@ -344,30 +348,32 @@ export function upgradeBuiltinSkill(project: string, name: string, repo = REPO):
     if (!record) throw new Error(`No QA ownership record for Skill ${name}`);
     const base = safePath(root, `.agents/skills/${name}`);
     const sourceFiles = collect(source);
+    const targetFiles = existsSync(base) ? collect(base) : [];
+    const sourceSet = new Set(sourceFiles);
     const newFiles: Record<string, string> = Object.create(null) as Record<string, string>;
     const changes: FileChange[] = [];
-    for (const [file, hash] of Object.entries(record.files)) {
-      const target = safePath(base, file);
-      if (!existsSync(target) || !lstatSync(target).isFile() || digest(target) !== hash) throw new Error(`Cannot upgrade modified or missing file: ${file}`);
-    }
     for (const file of sourceFiles) {
       const target = safePath(base, file);
       const original = safePath(source, file);
       const after = readFileSync(original);
       newFiles[file] = digest(original);
-      if (!Object.hasOwn(record.files, file) && existsSync(target)) throw new Error(`Cannot upgrade over unowned file: ${file}`);
-      const before = Object.hasOwn(record.files, file) ? readFileSync(target) : undefined;
+      if (existsSync(target) && !lstatSync(target).isFile()) throw new Error(`Cannot upgrade over non-file path: ${file}`);
+      const before = existsSync(target) ? readFileSync(target) : undefined;
       if (!before || !before.equals(after)) changes.push({ path: target, before, after });
     }
-    for (const file of Object.keys(record.files)) {
-      if (!Object.hasOwn(newFiles, file)) changes.push({ path: safePath(base, file), before: readFileSync(safePath(base, file)) });
+    for (const file of targetFiles) {
+      if (!sourceSet.has(file)) {
+        const target = safePath(base, file);
+        changes.push({ path: target, before: readFileSync(target) });
+      }
     }
     const version = sourceVersion(source, name);
     lock[name] = { ...record, version, files: newFiles };
     const lockPath = safePath(root, '.agents/qa-skills-lock.json');
     const updated = changes.map((change) => change.path);
     changes.push({ path: lockPath, before: readFileSync(lockPath), after: Buffer.from(`${JSON.stringify(lock, null, 2)}\n`) });
-    if (!updated.length && changes[0]?.before?.equals(changes[0]?.after ?? Buffer.alloc(0))) return { updated };
+    if (!updated.length && record.version === version && Object.keys(record.files).length === sourceFiles.length
+      && sourceFiles.every((file) => record.files[file] === newFiles[file])) return { updated };
     const snapshotData = Buffer.from(JSON.stringify({ schema: 1, name, entries: changes.map((change) => ({
       path: relative(root, change.path).split('\\').join('/'), before: change.before?.toString('base64') ?? null, after: change.after?.toString('base64') ?? null, beforeMode: change.before === undefined ? undefined : lstatSync(change.path).mode & 0o777,
     })) }));

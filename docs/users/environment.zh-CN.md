@@ -133,6 +133,7 @@ Project ready: ［项目目录］. QA templates: ［版本］. Language template
 - `project check <目录>`：检查项目依赖锁并运行项目测试，包括浏览器检查。TypeScript 项目还会进行类型检查。此命令会运行测试，并非只读的环境检查。
 - `project plan <目录>`：只读比较项目模板、受管文件和当前版本。
 - `project upgrade <目录>`：只输出人工升级说明，不自动替换文件。
+- `skills upgrade <目录> <名称>`：使用交付包内置版本直接覆盖项目 Skill，并同步安装记录。项目 Skill 由仓库维护，升级会删除源目录中已不存在的旧文件。
 - `project repair/snapshots/rollback <目录>`：修复缺失的受管文件，或管理升级快照。回滚不会覆盖无法确认所有权的文件。
 - `project uninstall <目录>`：删除项目记录中的未修改模板文件。保留修改过的文件、未跟踪文件和依赖目录。存在受管保留项时保留项目记录，方便再次执行。
 - `env uninstall`：清理当前环境拥有且可安全识别的 MCP 注册。

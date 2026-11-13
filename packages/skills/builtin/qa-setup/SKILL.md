@@ -62,6 +62,7 @@ metadata:
 - 跳过 CC Switch：`env init <python|typescript|both> --skip-cc-switch`。
 - 初始化项目：`project init <目录> --language <python|typescript>`。它会自动补齐标准环境并安装项目级 `qa-core`。
 - 检查：`env check <python|typescript|both>`；`project check <目录>`。
+- 升级项目 Skill：`skills upgrade <目录> <qa-core|qa-setup>`。项目 Skill 由仓库维护，命令直接同步交付包版本。
 - 运行：`run python ...`、`run pnpm ...`、`run bun ...`、`run codex ...`、`run cc-switch`。
 - 卸载项目：`project uninstall <目录>`。
 - 卸载环境：`env uninstall`。

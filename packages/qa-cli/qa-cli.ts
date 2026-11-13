@@ -111,8 +111,9 @@ export async function execute(args: ParsedArguments): Promise<number> {
         return 0;
       }
       if (args.skillAction === 'upgrade') {
-        console.error('Automatic Skill upgrade is disabled. Review qa skills check and update files manually, then run qa skills check.');
-        return 1;
+        const result = upgradeBuiltinSkill(target, name);
+        console.log(JSON.stringify(result, null, 2));
+        return 0;
       }
       if (args.skillAction === 'repair') {
         const result = repairBuiltinSkill(target, name);
@@ -305,7 +306,7 @@ function helpText(): string {
     'qa skills check <project> <name>',
     'qa skills install <project> <name>',
     'qa skills uninstall <project> <name>',
-    'qa skills upgrade <project> <name>  (manual-only guidance; no automatic upgrade)',
+    'qa skills upgrade <project> <name>  (sync repository-managed Skill files)',
     'qa skills repair <project> <name>',
     'qa skills check-updates [--source <file>]',
     'qa update check [--source <file>]',

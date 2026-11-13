@@ -80,11 +80,11 @@ CLI 中的 `REPO` 和 `QA_REPO` 指向仓库根目录。安装记录中的源码
 | 项目 | `project init/check/plan/upgrade/repair/snapshots/rollback/uninstall` | 项目模板生命周期和迁移规则。详见[项目模板管理](project-template-management.zh-CN.md) |
 | 模板 | `template list/check` | 查看仓库内语言模板和 QA 文档模板的版本及文件状态 |
 | MCP | `mcp list`、`mcp check`、`mcp add`、`mcp repair`、`mcp remove` | 查询状态、安装或复用、修复缺失项、移除符合记录的注册 |
-| 内置 Skill | `skills list/check/install/upgrade/repair/snapshots/rollback/recover/uninstall` | 检查项目内置 Skill，`upgrade` 只给出人工变更建议。外部 Skill 按上游方式管理 |
+| 内置 Skill | `skills list/check/install/upgrade/repair/snapshots/rollback/recover/uninstall` | 检查和同步项目内置 Skill，`upgrade` 直接覆盖仓库维护版本。外部 Skill 按上游方式管理 |
 | 更新检查 | `update check`、`skills check-updates` | 比较配置的来源基线与上游候选版本或提交 |
 | 诊断 | `doctor`、`shell` | 检查环境或输出激活脚本路径 |
 
-QA MCP 使用对应 CLI 操作，并传递退出码和输出。升级相关工具只检测并返回人工操作建议，不安装、替换或修改版本。
+QA MCP 使用对应 CLI 操作，并传递退出码和输出。内置 Skill 升级直接同步仓库版本；其他升级工具仍按各自边界处理。
 
 `env init` 可重复执行。它补齐缺失组件，并保留已有项目文件和受保护的用户配置。
 重复初始化不等同于模板升级。

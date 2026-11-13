@@ -105,7 +105,7 @@ MCP 注册写入用户级 `CODEX_HOME/config.toml`。QA 使用可读的注册名
 
 MCP 下载清单位于 `packages/mcp/external/`。桌面应用和其他下载资产的版本、提交、许可证、官方资产和 SHA256 记录在对应清单中。
 
-CLI 安装的内置 Skill 记录在项目 `.agents/qa-skills-lock.json`。记录包含项目作用域、来源、版本和每个文件的 SHA256。已有的同名目录不会被接管。
+CLI 安装的内置 Skill 记录在项目 `.agents/qa-skills-lock.json`。记录包含项目作用域、来源、版本和每个文件的 SHA256。Skill 目录由仓库维护，升级时以交付包版本为准。
 
 复用已有 Skill 时不产生新的安装记录。共享工具的复用状态和实际版本按环境记录。不能只根据清单版本推断本机已安装版本。
 
@@ -122,7 +122,7 @@ qa skills list 项目目录
 qa skills check 项目目录 qa-core
 qa skills install 项目目录 qa-core
 qa skills repair 项目目录 qa-core
-qa skills upgrade 项目目录 qa-core  # 只输出人工操作提示
+qa skills upgrade 项目目录 qa-core  # 直接同步交付包版本
 qa skills uninstall 项目目录 qa-core
 ```
 
@@ -131,7 +131,7 @@ qa skills uninstall 项目目录 qa-core
 - **卸载**：遇到修改时返回失败，可检查后重试。
 
 - **修复**：只补齐仍与锁记录匹配的缺失文件。
-- **升级**：检查受管文件和新文件冲突，输出人工迁移建议。发现用户修改或未受管目标时停止。CLI 不自动替换文件或更新安装记录。
+- **升级**：直接同步交付包版本，覆盖项目 Skill 文件，删除源目录中已不存在的旧文件，并更新安装记录。升级前自动保存快照，便于回滚。
 
 安装、修复和卸载会在修改前写入项目级恢复记录。中断后：
 
@@ -172,7 +172,7 @@ bash packages/qa-cli/bin/qa.sh skills check-updates --source ./external-sources.
 
 ### 变更检测保护
 
-变更检测检查项目安装记录和受管文件哈希。存在本地修改、缺失文件或同名未受管目标时停止，并输出人工迁移建议。维护者人工变更后再执行 `skills check`。
+变更检测检查项目安装记录和受管文件哈希。存在本地修改、缺失文件或旧文件时，直接执行 `skills upgrade` 同步仓库版本；升级后再执行 `skills check`。
 
 ## 当前命令边界
 
@@ -185,7 +185,7 @@ bash packages/qa-cli/bin/qa.sh skills check-updates --source ./external-sources.
 | `mcp add` | 安装并注册清单中的按需 MCP | 共享工具、安装记录和用户级注册 | 已支持部分 npm MCP |
 | `mcp remove` | 删除当前环境或清单拥有的按需 MCP | 仅处理可验证所有权的内容 | 已支持 |
 | `skills check-updates` | 检查外部 Skill 上游差异 | 只读 | 已支持 |
-| `skills list/check/install/repair/upgrade/uninstall` | 检测并管理项目级内置 Skill；upgrade 只给人工提示 | 指定项目 `.agents/` | 已支持 |
+| `skills list/check/install/repair/upgrade/uninstall` | 检测并管理项目级内置 Skill；upgrade 直接同步仓库版本 | 指定项目 `.agents/` | 已支持 |
 | `mcp check/repair` | 检查状态并按记录补齐缺失项 | 共享包和用户级注册 | 已支持可选 MCP |
 
 ## 更新检查
