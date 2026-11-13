@@ -235,13 +235,12 @@ CLI 负责准备隔离环境和测试项目。它不替 AI 做业务理解，也
 
 ```mermaid
 flowchart TD
-    A[qa env init] --> B[安装运行时、Skill 和 MCP]
-    B --> C[qa project init]
-    C --> D[生成语言项目和 QA 文档骨架]
-    D --> E[AI 读取项目资料并选择 Skill]
-    E --> F[生成或维护测试]
-    F --> G[项目运行器执行测试]
-    G --> H[AI 解释结果并生成证据报告]
+    A[qa project init] --> B[补齐环境并安装 qa-core]
+    B --> C[生成语言项目和 QA 文档骨架]
+    C --> D[AI 读取项目资料并选择 Skill]
+    D --> E[生成或维护测试]
+    E --> F[项目运行器执行测试]
+    F --> G[AI 解释结果并生成证据报告]
 ```
 
 CLI、Skill、MCP 和测试运行器的边界见 [Skills 与 MCP](skills-mcp.zh-CN.md)。从需求输入到示例执行的具体命令见 [从需求到执行](qa-workflow.zh-CN.md)。

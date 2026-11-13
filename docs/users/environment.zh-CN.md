@@ -66,20 +66,16 @@ macOS / Linux：`bash packages/qa-cli/bin/install.sh`。
 升级失败会保留恢复目录，路径由错误输出给出。
 
 ```powershell
-qa env init typescript
-qa env check typescript
 qa project init .\workspaces\my-qa --language typescript
 qa project check .\workspaces\my-qa
 ```
 
 ```bash
-qa env init python
-qa env check python
 qa project init ./workspaces/python-qa --language python
 qa project check ./workspaces/python-qa
 ```
 
-- **初始化**：`project` 要求先完成对应语言的 `env init`。初始化优先复用系统或用户级工具。缺少工具时，按组件安装到共享位置或环境目录，并在安装前输出命令。
+- **初始化**：`project init` 会自动补齐对应语言的标准环境，并安装项目级 `qa-core` Skill。初始化优先复用系统或用户级工具。缺少工具时，按组件安装到共享位置或环境目录，并在安装前输出命令。需要完整浏览器工具时添加 `env init <语言> --full`，需要高级环境控制时再单独使用 `env init` 和 `skills install`。
 - **可选组件**：扩展包使用 `env init <语言> --full`。CC Switch 默认准备，不需要时添加 `--skip-cc-switch`。Python 环境会准备受管 Python。
 - **状态记录**：初始化写入环境状态和用户级 MCP 配置。安装及复用的工具会记录在环境状态中。共享工具的使用关系不能仅凭单个环境的记录确认。
 - **失败恢复**：初始化失败后，可使用相同参数重跑。先检查已输出的安装操作。
@@ -123,7 +119,7 @@ Project ready: ［项目目录］. QA templates: ［版本］. Language template
 ## 生命周期管理
 
 以下是当前支持的操作。
-项目初始化、检查和升级要求环境已经初始化，且语言与项目匹配。
+项目检查和升级要求环境已经初始化，且语言与项目匹配。项目初始化会自动完成对应语言的标准环境准备。
 项目卸载只检查项目归属和路径边界。
 
 - `env init <语言>`：准备所选环境，复用已发现的工具并安装缺失组件。重新执行可补齐缺失项并更新环境状态。它不是通用升级或回滚命令。
@@ -133,7 +129,7 @@ Project ready: ［项目目录］. QA templates: ［版本］. Language template
 - `env plan uv`、`env upgrade uv`、`env snapshots uv` 和 `env rollback <快照标识>`：维护环境内受管 uv。
   升级前先查看计划，回滚时使用实际快照标识。
 - `env check <语言>`：只读检查所选环境的组件、版本和配置。它不自动安装、升级或删除组件。检查时使用与初始化一致的语言和选项。
-- `project init <目录> --language <语言>`：创建或重新初始化项目，准备模板、依赖和所选浏览器。已有项目文件会保留。重新初始化不等同于模板升级。
+- `project init <目录> --language <语言>`：自动准备或补齐对应语言的标准环境，创建或重新初始化项目，安装项目级 `qa-core`，准备模板、依赖和所选浏览器。已有项目文件和已存在的 Skill 会保留。重新初始化不等同于模板升级。
 - `project check <目录>`：检查项目依赖锁并运行项目测试，包括浏览器检查。TypeScript 项目还会进行类型检查。此命令会运行测试，并非只读的环境检查。
 - `project plan <目录>`：只读比较项目模板、受管文件和当前版本。
 - `project upgrade <目录>`：只输出人工升级说明，不自动替换文件。
@@ -158,7 +154,7 @@ Project ready: ［项目目录］. QA templates: ［版本］. Language template
 | `--language python/typescript` | 选择新项目语言 |
 | `--browser` | `project init` 支持 `chrome`、`msedge`、`chromium`、`firefox`、`webkit`、`all`、`none`；`project check` 支持前五项 |
 | `--skip-codex` | 不安装 Codex 和声明需要 Codex 的 MCP |
-| `--skip-skills` | 跳过 Playwright CLI、浏览器辅助 CLI 和浏览器 MCP；不影响 QA MCP 和 Skill 按需检查 |
+| `--skip-skills` | `env init/check` 跳过 Playwright CLI、浏览器辅助 CLI 和浏览器 MCP；不影响项目初始化自动安装 `qa-core` |
 | `--with-deps` | Linux 安装浏览器系统库 |
 
 `--language` 也可写作 `--语言`。

@@ -163,7 +163,21 @@ export async function execute(args: ParsedArguments): Promise<number> {
         browser: args.browser,
         withDeps: args.withDeps ?? false,
       };
-      return await projectInit(env, projectArgs);
+      try {
+        env.requireInitialized(stack);
+      } catch {
+        console.log(`Preparing ${stack} environment...`);
+        await env.init({
+          stack,
+          profile: 'standard',
+          skipCodex: false,
+          skipSkills: false,
+          skipCcSwitch: false,
+        });
+      }
+      const result = await projectInit(env, projectArgs);
+      if (result === 0) ensureProjectSkill(target, 'qa-core');
+      return result;
     }
     const projectArgs: ProjectTargetArguments = {
       target,
@@ -214,6 +228,17 @@ export async function execute(args: ParsedArguments): Promise<number> {
   return runCommand(env, args.runArgs ?? []);
 }
 
+/** Installs the project workflow Skill when it is absent, preserving user files. */
+function ensureProjectSkill(target: string, name: string): void {
+  const current = listBuiltinSkills(target).find((item) => item.name === name);
+  if (!current || current.status === 'missing') {
+    installBuiltinSkill(target, name);
+    console.log(`Installed project Skill ${name}`);
+    return;
+  }
+  console.log(`Keeping project Skill ${name}: ${current.status}`);
+}
+
 /** Runs one command inside the selected environment. */
 export function runCommand(env: Environment, initial: string[]): number {
   const command = initial[0] === '--' ? initial.slice(1) : [...initial];
@@ -255,7 +280,7 @@ function helpText(): string {
     'qa env rollback <snapshot>',
     'qa env check <python|typescript|both> [--full] [--skip-cc-switch]',
     'qa env uninstall',
-    'qa project init <project> --language <python|typescript> [--browser <name>]',
+    'qa project init <project> --language <python|typescript> [--browser <name>]  (prepares env and qa-core)',
     '  --language alias: --语言',
     'qa project check <project> [--browser <name>]',
     'qa project plan <project>',

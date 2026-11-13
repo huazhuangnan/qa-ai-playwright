@@ -29,7 +29,6 @@ pwsh -ExecutionPolicy Bypass -File packages/qa-cli/bin/install.ps1
 PowerShell 7 不可用时，改用 `powershell -ExecutionPolicy Bypass -File packages/qa-cli/bin/install.ps1`。
 
 ```powershell
-qa env init typescript
 qa project init .\workspaces\my-qa --language typescript
 ```
 
@@ -40,7 +39,6 @@ bash packages/qa-cli/bin/install.sh
 ```
 
 ```bash
-qa env init typescript
 qa project init my-qa --language typescript
 ```
 

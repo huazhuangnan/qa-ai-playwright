@@ -60,7 +60,7 @@ metadata:
 - 初始化环境：`env init <python|typescript|both>`。
 - 扩展环境：`env init <python|typescript|both> --full`。
 - 跳过 CC Switch：`env init <python|typescript|both> --skip-cc-switch`。
-- 初始化项目：`project init <目录> --language <python|typescript>`。
+- 初始化项目：`project init <目录> --language <python|typescript>`。它会自动补齐标准环境并安装项目级 `qa-core`。
 - 检查：`env check <python|typescript|both>`；`project check <目录>`。
 - 运行：`run python ...`、`run pnpm ...`、`run bun ...`、`run codex ...`、`run cc-switch`。
 - 卸载项目：`project uninstall <目录>`。

@@ -326,7 +326,13 @@ export class Environment {
     const direct = find(bases);
     if (direct) return direct;
     if (!executable && !queryNpmRoot) return '';
-    const npmRootOutput = this.globalNpm(['root', '--global'], true) ?? '';
+    let npmRootOutput = '';
+    try {
+      npmRootOutput = this.globalNpm(['root', '--global'], true) ?? '';
+    } catch {
+      // Read-only discovery must report an unavailable npm as missing.
+      return '';
+    }
     const npmRoots = npmRootOutput
       .split(/\r?\n/u)
       .map((line) => line.trim())
