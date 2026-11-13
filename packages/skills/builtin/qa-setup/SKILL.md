@@ -63,6 +63,7 @@ metadata:
 - 初始化项目：`project init <目录> --language <python|typescript>`。它会自动补齐标准环境并安装项目级 `qa-core`。
 - 检查：`env check <python|typescript|both>`；`project check <目录>`。
 - 升级项目 Skill：`skills upgrade <目录> <qa-core|qa-setup>`。项目 Skill 由仓库维护，命令直接同步交付包版本。
+- QA 本身的生命周期：`qa upgrade` 同步新版交付包，`qa reinstall` 强制重装 QA 文件，`qa uninstall` 卸载用户级 QA 安装。三者都保留业务项目；`qa uninstall` 也保留环境数据。
 - 运行：`run python ...`、`run pnpm ...`、`run bun ...`、`run codex ...`、`run cc-switch`。
 - 卸载项目：`project uninstall <目录>`。
 - 卸载环境：`env uninstall`。

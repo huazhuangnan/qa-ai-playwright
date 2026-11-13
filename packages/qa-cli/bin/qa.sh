@@ -85,6 +85,9 @@ marker="$root/.qa-managed"
 first=${1:-help}
 if [[ "$first" == help || "$first" == --help || "$first" == -h ]]; then
   cat <<'EOF'
+qa upgrade  # sync the current delivery package
+qa reinstall  # force-copy the current QA files
+qa uninstall  # remove the user-level QA installation
 qa env init <python|typescript|both> [--full] [--skip-cc-switch]
 qa env list
 qa env check <python|typescript|both> [--full] [--skip-cc-switch]
@@ -124,6 +127,17 @@ qa update check [--source <file>]
 qa run <command> [...]
 EOF
   exit 0
+fi
+if [[ "$first" == upgrade || "$first" == reinstall || "$first" == uninstall ]]; then
+  installer="$repo/packages/qa-cli/bin/install.sh"
+  if [[ "$first" == reinstall ]]; then
+    bash "$installer" --reinstall
+  elif [[ "$first" == uninstall ]]; then
+    bash "$installer" --uninstall
+  else
+    bash "$installer"
+  fi
+  exit $?
 fi
 if [[ "$first" == env && ( ${2:-} == init || ${2:-} == check ) ]]; then
   case "${3:-}" in

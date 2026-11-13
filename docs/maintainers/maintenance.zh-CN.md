@@ -53,6 +53,7 @@ packages/qa-cli/qa-cli.ts    →  命令分派
 
 - **入口**：平台入口只负责引导和参数转发。业务逻辑集中在 `packages/qa-cli/cli/`。
 - **全局命令**：使用 `install.ps1` 或 `install.sh` 安装用户级 `qa` 命令。源码包启动器和 `session.sh` 用于开发或当前会话。
+- **QA 本身**：`qa upgrade` 同步当前交付包，`qa reinstall` 强制重新复制 QA 文件，`qa uninstall` 清理用户级 QA 安装；三者不删除业务项目。
 - **运行时**：平台入口使用 Node 22.18 或更高版本。QA MCP 和项目维护脚本使用 Bun。
 - **分派**：环境、项目、Skill 和 MCP 共用 `qa` 命令。QA MCP 复用同一分派。
 - **名称**：项目对外名称为 `QA + AI + Playwright`，根包名为 `qa-ai-playwright`。
@@ -77,6 +78,7 @@ CLI 中的 `REPO` 和 `QA_REPO` 指向仓库根目录。安装记录中的源码
 | 对象 | 当前命令 | 当前作用 |
 | --- | --- | --- |
 | 环境 | `env init/list/check/repair/uninstall`，`env plan/upgrade/snapshots uv`，`env rollback` | 环境生命周期和 uv 升级，详见[组件升级](environment-managed-upgrades.zh-CN.md) |
+| QA 本身 | `qa upgrade/reinstall/uninstall` | 用户级 QA 安装的同步、重装和卸载 |
 | 项目 | `project init/check/plan/upgrade/repair/snapshots/rollback/uninstall` | 项目模板生命周期和迁移规则。详见[项目模板管理](project-template-management.zh-CN.md) |
 | 模板 | `template list/check` | 查看仓库内语言模板和 QA 文档模板的版本及文件状态 |
 | MCP | `mcp list`、`mcp check`、`mcp add`、`mcp repair`、`mcp remove` | 查询状态、安装或复用、修复缺失项、移除符合记录的注册 |

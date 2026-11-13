@@ -113,6 +113,9 @@ $marker = Join-Path $rootPath '.qa-managed'
 $first = if ($cliArguments.Count) { $cliArguments[0] } else { 'help' }
 if ($first -in @('help', '--help', '-h')) {
     @(
+        'qa upgrade  (sync the current delivery package)',
+        'qa reinstall  (force-copy the current QA files)',
+        'qa uninstall  (remove the user-level QA installation)',
         'qa env init <python|typescript|both> [--full] [--skip-cc-switch]',
         'qa env list',
         'qa env check <python|typescript|both> [--full] [--skip-cc-switch]',
@@ -152,6 +155,14 @@ if ($first -in @('help', '--help', '-h')) {
         'qa run <command> [...]'
     ) | Write-Host
     exit 0
+}
+if ($first -in @('upgrade', 'reinstall', 'uninstall')) {
+    $installer = Join-Path $repoPath 'packages/qa-cli/bin/install.ps1'
+    $installerArguments = @()
+    if ($first -eq 'reinstall') { $installerArguments += '-Reinstall' }
+    if ($first -eq 'uninstall') { $installerArguments += '-Uninstall' }
+    & $installer @installerArguments
+    exit $LASTEXITCODE
 }
 if (
     $first -eq 'env' -and

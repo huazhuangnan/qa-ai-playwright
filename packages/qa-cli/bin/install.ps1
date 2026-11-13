@@ -1,5 +1,5 @@
 # Install or remove the user-level QA command.
-param([switch]$Uninstall)
+param([switch]$Uninstall, [switch]$Reinstall)
 $ErrorActionPreference = 'Stop'
 $sourceRoot = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
 $localAppData = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { [Environment]::GetFolderPath('LocalApplicationData') }
@@ -113,16 +113,18 @@ if ($Uninstall) {
 }
 if ((Test-Path -LiteralPath (Join-Path $installRoot '.qa-managed')) -and (Test-Path -LiteralPath (Join-Path $installRoot '.files.json'))) {
     if (Test-ReparsePoint $installRoot) { throw 'Refusing to upgrade a linked installation root' }
-    if (!(Test-ManagedCommand $commandPath)) { throw 'Installation ownership cannot be verified' }
+    if (!$Reinstall -and !(Test-ManagedCommand $commandPath)) { throw 'Installation ownership cannot be verified' }
     $previousFiles = @(Get-Content -Raw -LiteralPath (Join-Path $installRoot '.files.json') | ConvertFrom-Json)
-    foreach ($file in $previousFiles) {
-        if (!$file.path.StartsWith('packages\') -or $file.path.Contains('..')) { throw 'Invalid installation manifest' }
-        $target = Join-Path $installRoot $file.path
-        if (!(Test-Path -LiteralPath $target -PathType Leaf) -or ((Get-Item -LiteralPath $target -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -or (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash -ne $file.hash) { throw "Modified installed file: $($file.path)" }
-    }
-    $known = @{}; foreach ($file in $previousFiles) { $known[$file.path] = $true }
-    foreach ($item in (Get-ChildItem -LiteralPath (Join-Path $installRoot 'packages') -Recurse -Force)) {
-        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -or (!$item.PSIsContainer -and !$known.ContainsKey($item.FullName.Substring($installRoot.Length + 1)))) { throw "Untracked installed file: $($item.FullName)" }
+    if (!$Reinstall) {
+        foreach ($file in $previousFiles) {
+            if (!$file.path.StartsWith('packages\') -or $file.path.Contains('..')) { throw 'Invalid installation manifest' }
+            $target = Join-Path $installRoot $file.path
+            if (!(Test-Path -LiteralPath $target -PathType Leaf) -or ((Get-Item -LiteralPath $target -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -or (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash -ne $file.hash) { throw "Modified installed file: $($file.path)" }
+        }
+        $known = @{}; foreach ($file in $previousFiles) { $known[$file.path] = $true }
+        foreach ($item in (Get-ChildItem -LiteralPath (Join-Path $installRoot 'packages') -Recurse -Force)) {
+            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -or (!$item.PSIsContainer -and !$known.ContainsKey($item.FullName.Substring($installRoot.Length + 1)))) { throw "Untracked installed file: $($item.FullName)" }
+        }
     }
     $stage = Join-Path $installRoot ('.upgrade-' + [guid]::NewGuid())
     New-Item -ItemType Directory -Path $stage | Out-Null
@@ -136,6 +138,7 @@ if ((Test-Path -LiteralPath (Join-Path $installRoot '.qa-managed')) -and (Test-P
         try {
             Move-Item -LiteralPath (Join-Path $stage 'packages') -Destination (Join-Path $installRoot 'packages')
             Copy-Item -LiteralPath (Join-Path $stage 'files.json') -Destination (Join-Path $installRoot '.files.json') -Force
+            if ($Reinstall) { $expectedCommand | Set-Content -LiteralPath $commandPath -Encoding ASCII }
         } catch {
             if (Test-Path -LiteralPath (Join-Path $installRoot 'packages')) { Remove-Item -LiteralPath (Join-Path $installRoot 'packages') -Recurse -Force }
             Move-Item -LiteralPath (Join-Path $stage 'previous') -Destination (Join-Path $installRoot 'packages')

@@ -15,6 +15,8 @@ zshrc="$HOME/.zshrc"
 path_line='export PATH="$HOME/.local/bin:$PATH" # QA-AI-PLAYWRIGHT'
 hash_file() { if command -v sha256sum >/dev/null; then sha256sum "$1" | cut -d ' ' -f 1; else shasum -a 256 "$1" | cut -d ' ' -f 1; fi; }
 
+reinstall=0
+if [[ ${1:-} == --reinstall ]]; then reinstall=1; fi
 if [[ ${1:-} == --uninstall ]]; then
   if [[ -e "$command_path" || -L "$command_path" ]]; then
     [[ -f "$command_path" && ! -L "$command_path" ]] && cmp -s "$command_path" <(printf '%s\n' '#!/usr/bin/env bash' "$marker" 'exec bash "$HOME/.local/share/qa-ai-playwright/packages/qa-cli/bin/qa.sh" "$@"') || { echo 'Command was modified; installation preserved' >&2; exit 1; }
@@ -80,14 +82,16 @@ if [[ ${1:-} == --uninstall ]]; then
   exit 0
 fi
 if [[ -f "$install_root/.qa-managed" && -f "$install_root/.files" ]]; then
-  [[ ! -L "$install_root" && -f "$command_path" && ! -L "$command_path" ]] && cmp -s "$command_path" <(printf '%s\n' '#!/usr/bin/env bash' "$marker" 'exec bash "$HOME/.local/share/qa-ai-playwright/packages/qa-cli/bin/qa.sh" "$@"') || { echo 'Installation ownership cannot be verified' >&2; exit 1; }
-  while IFS=$'\t' read -r hash relative; do
-    [[ "$relative" == packages/* && "$relative" != *'..'* && -f "$install_root/$relative" && ! -L "$install_root/$relative" && "$(hash_file "$install_root/$relative")" == "$hash" ]] || { echo "Modified installed file: $relative" >&2; exit 1; }
-  done < "$install_root/.files"
-  while IFS= read -r -d '' file; do
-    relative=${file#"$install_root/"}
-    [[ ! -L "$file" ]] && cut -f2- "$install_root/.files" | grep -Fxq "$relative" || { echo "Untracked installed file: $relative" >&2; exit 1; }
-  done < <(find "$install_root/packages" \( -type f -o -type l \) -print0)
+  if [[ $reinstall == 0 ]]; then
+    [[ ! -L "$install_root" && -f "$command_path" && ! -L "$command_path" ]] && cmp -s "$command_path" <(printf '%s\n' '#!/usr/bin/env bash' "$marker" 'exec bash "$HOME/.local/share/qa-ai-playwright/packages/qa-cli/bin/qa.sh" "$@"') || { echo 'Installation ownership cannot be verified' >&2; exit 1; }
+    while IFS=$'\t' read -r hash relative; do
+      [[ "$relative" == packages/* && "$relative" != *'..'* && -f "$install_root/$relative" && ! -L "$install_root/$relative" && "$(hash_file "$install_root/$relative")" == "$hash" ]] || { echo "Modified installed file: $relative" >&2; exit 1; }
+    done < "$install_root/.files"
+    while IFS= read -r -d '' file; do
+      relative=${file#"$install_root/"}
+      [[ ! -L "$file" ]] && cut -f2- "$install_root/.files" | grep -Fxq "$relative" || { echo "Untracked installed file: $relative" >&2; exit 1; }
+    done < <(find "$install_root/packages" \( -type f -o -type l \) -print0)
+  fi
   stage=$(mktemp -d "$install_root/.upgrade.XXXXXX")
   trap 'echo "Upgrade did not complete; recovery files are preserved at $stage" >&2' EXIT
   cp -R "$source_root/packages" "$stage/packages"
@@ -95,6 +99,14 @@ if [[ -f "$install_root/.qa-managed" && -f "$install_root/.files" ]]; then
   mv "$install_root/packages" "$stage/previous"
   if ! mv "$stage/packages" "$install_root/packages"; then mv "$stage/previous" "$install_root/packages"; exit 1; fi
   if ! mv "$stage/files" "$install_root/.files"; then rm -rf "$install_root/packages"; mv "$stage/previous" "$install_root/packages"; exit 1; fi
+  if [[ $reinstall == 1 ]]; then
+    cat > "$command_path" <<'EOF'
+#!/usr/bin/env bash
+# QA-AI-PLAYWRIGHT MANAGED COMMAND
+exec bash "$HOME/.local/share/qa-ai-playwright/packages/qa-cli/bin/qa.sh" "$@"
+EOF
+    chmod +x "$command_path"
+  fi
   rm -rf "$stage"
   trap - EXIT
   echo 'Updated qa.'
