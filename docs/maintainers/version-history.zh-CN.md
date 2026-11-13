@@ -44,6 +44,7 @@ MCP 清单和下载应用继续记录真实上游版本。
 - 新增使用者与维护者文档索引，根 README 按读者分流，并使用交付测试约束页面导航。
 - CC Switch 恢复默认准备，新增 `--skip-cc-switch` 显式跳过。
 - 修复 Windows 使用 Volta 时全局 npm 包目录解析失败，兼容命令 shim、`npm root --global` 和统一的外部 MCP 包发现逻辑。
+- 修复 Windows 检查 CC Switch 时遇到无权限安装目录会中断环境检查的问题。
 - 移除旧版参数别名、MCP 注册迁移、环境名称后缀、项目状态回退、uv 哈希回退和 `BASE_URL` 回退。
 - 修正 Windows 安装入口、Skills 安装器版本、环境根目录和项目升级行为的文档偏差。
 - 精简 `qa-core` 与 `qa-setup` 的常驻内容，去掉重复规则并增加入口体积断言。

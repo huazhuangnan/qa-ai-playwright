@@ -822,11 +822,16 @@ export class Environment {
         ? ['/Applications/CC Switch.app', '/Applications/CC-Switch.app', join(home, 'Applications', 'CC Switch.app'), join(home, 'Applications', 'CC-Switch.app')]
         : ['/opt/cc-switch', '/usr/local/share/cc-switch', '/usr/share/cc-switch', join(home, '.local', 'share', 'applications', 'cc-switch')];
     for (const candidate of candidates) {
-      if (!existsSync(candidate)) continue;
-      if (process.platform === 'darwin' && candidate.endsWith('.app') && lstatSync(candidate).isDirectory()) return candidate;
-      if (lstatSync(candidate).isDirectory()) {
-        const entry = findCcSwitchEntry(candidate, process.platform);
-        if (entry) return entry;
+      try {
+        if (!existsSync(candidate)) continue;
+        const info = lstatSync(candidate);
+        if (process.platform === 'darwin' && candidate.endsWith('.app') && info.isDirectory()) return candidate;
+        if (info.isDirectory()) {
+          const entry = findCcSwitchEntry(candidate, process.platform);
+          if (entry) return entry;
+        }
+      } catch {
+        // An inaccessible application directory is not a usable installation.
       }
     }
     return findCcSwitchEntry(this.ccSwitchDir, process.platform);
