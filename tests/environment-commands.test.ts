@@ -111,6 +111,25 @@ test('environment check reports incomplete or uninstalled status', () => {
   }
 });
 
+test('Playwright CLI resolves a package above a version manager shim', async () => {
+  const base = mkdtempSync(join(tmpdir(), 'qa-playwright-shim-'));
+  try {
+    const manager = join(base, 'volta');
+    const bin = join(manager, 'bin');
+    const packageDir = join(manager, 'node_modules', '@playwright', 'cli');
+    mkdirSync(bin, { recursive: true });
+    mkdirSync(packageDir, { recursive: true });
+    writeFileSync(join(bin, 'playwright-cli'), '#!/bin/sh\n');
+    writeFileSync(join(packageDir, 'package.json'), JSON.stringify({ name: '@playwright/cli', version: '0.1.24', bin: { 'playwright-cli': 'cli.js' } }));
+    writeFileSync(join(packageDir, 'cli.js'), '');
+    if (process.platform !== 'win32') chmodSync(join(bin, 'playwright-cli'), 0o755);
+    const env = new Environment({ root: join(base, 'environment'), env: { PATH: bin, HOME: base } });
+    assert.equal(await env.ensurePlaywrightCli(), '0.1.24');
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
 test('Unix launcher falls back to a compatible shared Node', () => {
   if (process.platform === 'win32') return;
   const base = mkdtempSync(join(tmpdir(), 'qa-node-selection-'));

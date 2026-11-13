@@ -301,6 +301,17 @@ export class Environment {
   private globalPackage(name: string, executable?: string): string {
     const bin = typeof this.state.global_npm_bin === 'string' ? this.state.global_npm_bin : '';
     const bases = [bin, executable ? dirname(executable) : ''].filter(Boolean);
+    // Windows version managers such as Volta expose a shim from a separate
+    // directory. Walk a few parent directories to reach the real node_modules.
+    if (executable) {
+      let current = dirname(resolve(executable));
+      for (let depth = 0; depth < 5; depth += 1) {
+        if (!bases.includes(current)) bases.push(current);
+        const parent = dirname(current);
+        if (parent === current) break;
+        current = parent;
+      }
+    }
     for (const base of bases) {
       const candidates = WINDOWS
         ? [join(base, 'node_modules', name)]
@@ -1257,10 +1268,7 @@ export class Environment {
 
     const packageName = String(manifest.package);
     const bin = typeof this.state.global_npm_bin === 'string' ? this.state.global_npm_bin : '';
-    const candidates = !bin ? [] : WINDOWS ? [join(bin, 'node_modules', packageName)]
-      : [join(bin, '..', 'lib', 'node_modules', packageName), join(bin, '..', 'node_modules', packageName)];
-    const directory = this.globalPackage(packageName)
-      || candidates.find((candidate) => !within(resolve(candidate), this.root) && existsSync(candidate)) || '';
+    const directory = this.globalPackage(packageName) || '';
     const knownPrefix = !!bin;
     let packageStatus: OptionalMcpStatus['package'] = { name: packageName, status: knownPrefix ? 'missing' : 'unknown' };
     if (directory) {
@@ -1335,7 +1343,7 @@ export class Environment {
       throw new Error(`Cannot repair MCP ${name}: shared package version differs from its ownership record`);
     }
     const bin = String(this.state.global_npm_bin);
-    const packageDir = status.package.path ?? (WINDOWS
+    const packageDir = (status.package.path ?? this.globalPackage(String(manifest.package))) || (WINDOWS
       ? join(bin, 'node_modules', String(manifest.package))
       : join(bin, '..', 'lib', 'node_modules', String(manifest.package)));
     const relativeEntry = typeof manifest.entry === 'string' ? manifest.entry : '';
