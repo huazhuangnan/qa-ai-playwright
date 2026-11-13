@@ -335,11 +335,24 @@ export class Environment {
     return find(bases);
   }
 
-  get playwrightCliBin(): string { return this.globalTool('playwright-cli') ?? ''; }
-  get agentBrowser(): string { return this.globalTool('agent-browser') ?? ''; }
-  get playwrightCliPackage(): string { return this.globalPackage('@playwright/cli', this.playwrightCliBin); }
+  get playwrightCliBin(): string { return this.globalTool('playwright-cli') ?? this.globalPackageBin('@playwright/cli', 'playwright-cli'); }
+  get agentBrowser(): string { return this.globalTool('agent-browser') ?? this.globalPackageBin('agent-browser', 'agent-browser'); }
+  get playwrightCliPackage(): string { return this.globalPackage('@playwright/cli', this.globalTool('playwright-cli'), true); }
   get playwrightMcpPackage(): string { return this.globalPackage('@playwright/mcp', this.globalTool('playwright-mcp')); }
   get agentBrowserPackage(): string { return this.globalPackage('agent-browser', this.agentBrowser); }
+
+  /** Finds a package command shim when a version manager does not expose it on PATH. */
+  private globalPackageBin(packageName: string, executableName: string): string {
+    const directory = this.globalPackage(packageName, undefined, true);
+    if (!directory) return '';
+    const nodeModules = packageName.startsWith('@') ? dirname(dirname(directory)) : dirname(directory);
+    const extensions = WINDOWS ? ['.cmd', '.bat', '.exe', ''] : [''];
+    for (const extension of extensions) {
+      const candidate = join(nodeModules, '.bin', `${executableName}${extension}`);
+      if (existsSync(candidate)) return candidate;
+    }
+    return '';
+  }
   /** Runs npm using user-level cache and temporary paths rather than QA-local paths. */
   private globalNpm(args: readonly string[], capture = false): string | undefined {
     const npm = this.globalTool('npm');
@@ -414,7 +427,9 @@ export class Environment {
     const packageBase = packageName ?? packageSpec.match(/^(@[^/]+\/[^@]+|[^@]+)/u)?.[0];
     const tool = executableName ?? packageBase?.split('/').at(-1);
     if (!tool) throw new Error(`Cannot determine executable for ${packageSpec}`);
-    if (this.globalTool(tool) || (packageBase && this.globalPackage(packageBase, this.globalTool(tool)))) return;
+    const existingTool = this.globalTool(tool);
+    const existingPackage = packageBase ? this.globalPackage(packageBase, existingTool) : '';
+    if (executableName ? existingTool && existingPackage : existingPackage) return;
     this.recordInstallation(packageBase ?? tool, { status: 'pending', source: 'unknown', scope: 'system-or-user', package: packageBase, requested: packageSpec, npm_bin: this.state.global_npm_bin });
     console.log(`Installing missing global tool: npm ${args.join(' ')}`);
     this.globalNpm(args);
@@ -1141,19 +1156,21 @@ export class Environment {
    * @returns Installed package version.
    */
   async ensurePlaywrightCli(): Promise<string> {
-    if (!this.playwrightCliBin && !this.playwrightCliPackage) {
+    if (!this.playwrightCliBin || !this.globalPackageVersion(this.playwrightCliPackage)) {
       this.installGlobal(`@playwright/cli@${this.playwrightCliVersion}`, 'playwright-cli', '@playwright/cli');
     }
-    const version = this.globalPackageVersion(this.playwrightCliPackage);
-    if (!this.playwrightCliBin || !version) {
+    const executable = this.playwrightCliBin;
+    const packagePath = this.playwrightCliPackage;
+    const version = this.globalPackageVersion(packagePath);
+    if (!executable || !version) {
       throw new Error('Global Playwright CLI exists but its executable or package metadata is unavailable');
     }
     this.recordInstallation('@playwright/cli', {
       status: 'ready',
-      source: this.ownsDiscoveredTool('@playwright/cli', this.playwrightCliBin) ? 'qa' : 'reused',
+      source: this.ownsDiscoveredTool('@playwright/cli', executable) ? 'qa' : 'reused',
       scope: 'system-or-user',
-      path: this.playwrightCliBin,
-      package_path: this.playwrightCliPackage,
+      path: executable,
+      package_path: packagePath,
       version,
     });
     return version;
@@ -1165,19 +1182,21 @@ export class Environment {
    * @returns Installed package version.
    */
   async ensureAgentBrowser(): Promise<string> {
-    if (!this.agentBrowser && !this.agentBrowserPackage) {
+    if (!this.agentBrowser || !this.globalPackageVersion(this.agentBrowserPackage)) {
       this.installGlobal(`agent-browser@${this.agentBrowserVersion}`, 'agent-browser', 'agent-browser');
     }
-    const version = this.globalPackageVersion(this.agentBrowserPackage);
-    if (!this.agentBrowser || !version) {
+    const executable = this.agentBrowser;
+    const packagePath = this.agentBrowserPackage;
+    const version = this.globalPackageVersion(packagePath);
+    if (!executable || !version) {
       throw new Error('Global Agent Browser exists but its executable or package metadata is unavailable');
     }
     this.recordInstallation('agent-browser', {
       status: 'ready',
-      source: this.ownsDiscoveredTool('agent-browser', this.agentBrowser) ? 'qa' : 'reused',
+      source: this.ownsDiscoveredTool('agent-browser', executable) ? 'qa' : 'reused',
       scope: 'system-or-user',
-      path: this.agentBrowser,
-      package_path: this.agentBrowserPackage,
+      path: executable,
+      package_path: packagePath,
       version,
     });
     return version;
