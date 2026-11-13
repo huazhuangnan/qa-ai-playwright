@@ -41,6 +41,7 @@ MCP 清单和下载应用继续记录真实上游版本。
 
 ## 未发布
 
+- 修复 QA CLI 调用内置 Skill 升级函数时遗漏导入，恢复 TypeScript 类型检查。
 - 调整内置 Skill 升级：项目副本由仓库统一维护，`skills upgrade` 直接覆盖交付包版本并保存快照。
 - 增加 `qa upgrade` 和 `qa reinstall`，支持从当前交付包同步或重新复制 QA 本身。
 - 增加 `qa uninstall`，统一卸载用户级 QA 安装并保留环境和业务项目数据。

@@ -9,7 +9,7 @@ import { executeDoctor, executeEnvironment } from './cli/environment-commands.ts
 import { environmentStatus } from './cli/environment-status.ts';
 import { checkTemplates, listTemplates } from './cli/template-status.ts';
 import { listEnvironmentUvSnapshots, planEnvironmentUv, rollbackEnvironmentUv, upgradeEnvironmentUv } from './cli/environment-upgrade.ts';
-import { installBuiltinSkill, listBuiltinSkills, listBuiltinSkillSnapshots, recoverBuiltinSkills, repairBuiltinSkill, rollbackBuiltinSkill, uninstallBuiltinSkill } from './cli/skills-manager.ts';
+import { installBuiltinSkill, listBuiltinSkills, listBuiltinSkillSnapshots, recoverBuiltinSkills, repairBuiltinSkill, rollbackBuiltinSkill, uninstallBuiltinSkill, upgradeBuiltinSkill } from './cli/skills-manager.ts';
 import { basename, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
