@@ -298,7 +298,7 @@ export class Environment {
   }
 
   /** Finds an npm package in the selected global prefix or beside its executable. */
-  private globalPackage(name: string, executable?: string): string {
+  private globalPackage(name: string, executable?: string, queryNpmRoot = false): string {
     const bin = typeof this.state.global_npm_bin === 'string' ? this.state.global_npm_bin : '';
     const bases = [bin, executable ? dirname(executable) : ''].filter(Boolean);
     // Windows version managers such as Volta expose a shim from a separate
@@ -312,15 +312,27 @@ export class Environment {
         current = parent;
       }
     }
-    for (const base of bases) {
-      const candidates = WINDOWS
-        ? [join(base, 'node_modules', name)]
-        : [join(base, '..', 'lib', 'node_modules', name), join(base, '..', 'node_modules', name)];
-      for (const candidate of candidates) {
-        if (existsSync(join(candidate, 'package.json')) && !within(resolve(candidate), this.root)) return resolve(candidate);
+    const find = (roots: string[]): string => {
+      for (const base of roots) {
+        const candidates = WINDOWS
+          ? [join(base, 'node_modules', name), join(base, name)]
+          : [join(base, '..', 'lib', 'node_modules', name), join(base, '..', 'node_modules', name), join(base, name)];
+        for (const candidate of candidates) {
+          if (existsSync(join(candidate, 'package.json')) && !within(resolve(candidate), this.root)) return resolve(candidate);
+        }
       }
-    }
-    return '';
+      return '';
+    };
+    const direct = find(bases);
+    if (direct) return direct;
+    if (!executable && !queryNpmRoot) return '';
+    const npmRootOutput = this.globalNpm(['root', '--global'], true) ?? '';
+    const npmRoots = npmRootOutput
+      .split(/\r?\n/u)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && isAbsolute(line));
+    for (const base of npmRoots) bases.push(base);
+    return find(bases);
   }
 
   get playwrightCliBin(): string { return this.globalTool('playwright-cli') ?? ''; }
@@ -406,7 +418,7 @@ export class Environment {
     this.recordInstallation(packageBase ?? tool, { status: 'pending', source: 'unknown', scope: 'system-or-user', package: packageBase, requested: packageSpec, npm_bin: this.state.global_npm_bin });
     console.log(`Installing missing global tool: npm ${args.join(' ')}`);
     this.globalNpm(args);
-    const path = this.globalTool(tool) ?? (packageBase ? this.globalPackage(packageBase) : '');
+    const path = this.globalTool(tool) ?? (packageBase ? this.globalPackage(packageBase, undefined, true) : '');
     const packagePath = packageBase ? this.globalPackage(packageBase, path) : '';
     const version = this.globalPackageVersion(packagePath);
     const globalBin = String(this.state.global_npm_bin);
@@ -1305,7 +1317,7 @@ export class Environment {
     let packageDir = this.globalPackage(pkg);
     if (!packageDir) {
       this.installGlobal(`${pkg}@${requested}`, undefined, pkg);
-      packageDir = this.globalPackage(pkg);
+      packageDir = this.globalPackage(pkg, undefined, true);
     }
     const installed = this.globalPackageVersion(packageDir);
     const relativeEntry = String(manifest.entry ?? '');
