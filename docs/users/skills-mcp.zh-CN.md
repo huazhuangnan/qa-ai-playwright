@@ -4,9 +4,21 @@
 
 Skill 帮助 Codex 按任务理解需求、设计和执行测试。MCP 提供浏览器等工具。
 
+## 推荐方式
+
+| 场景 | 推荐方式 | Skill 来源 |
+| --- | --- | --- |
+| 新建 QA 项目 | `qa project init <目录> --language <语言>` | `qa-core` 从交付包内置目录安装 |
+| 使用 QA CLI 管理 Skill | `qa skills install <目录> <名称>` | 从交付包内置目录安装 |
+| 已有项目且不使用 QA CLI | `skills add` | 从 GitHub 远程仓库安装 |
+
+`qa-core` 和 `qa-setup` 是交付包内置 Skill。`playwright-cli`、`agent-browser`、`webapp-testing`、`playwright-best-practices`、`bun-runtime` 和 `pnpm` 属于外部 Skill，按需从固定提交安装，不会随 QA 交付包打包。
+
+新建项目时，优先使用 `qa project init`。它会准备标准环境，并自动安装项目级 `qa-core`。
+
 ## 不使用 QA CLI
 
-在已有业务项目中使用 QA Skills。以下命令适用于 Windows、macOS 和 Linux，在业务项目根目录执行。需要可访问 QA Skills 来源的 Git 权限，以及 Node.js 22.18 或更高版本。
+以下方式适用于已有业务项目，且不使用 QA CLI 的情况。命令在业务项目根目录执行，需要可访问 Skill 来源的 Git 权限，以及 Node.js 22.18 或更高版本。
 
 ### 安装 Skills
 
@@ -27,7 +39,7 @@ npx -y skills@1.8.1 add https://github.com/huazhuangnan/qa-ai-playwright --skill
 安装到当前项目后，重新打开 Codex 会话，使用 `/skills` 查看。
 安装器的用法见 [skills 官方文档](https://github.com/vercel-labs/skills)。
 
-需要 Codex 按统一规则管理 QA CLI 环境时，另行安装：
+需要 Codex 按统一规则管理 QA CLI 环境时，再安装 `qa-setup`：
 
 ```bash
 npx -y skills@1.8.1 add https://github.com/huazhuangnan/qa-ai-playwright --skill qa-setup --agent codex --copy

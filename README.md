@@ -19,31 +19,26 @@ Windows、macOS 和 Linux 使用同一个交付包。
 
 ### 安装和初始化
 
-Windows 优先使用 PowerShell 7，也可使用 Windows PowerShell 5.1。
-在交付包根目录安装全局命令，然后重新打开终端。
+按以下步骤安装并初始化项目。
 
-```powershell
-pwsh -ExecutionPolicy Bypass -File packages/qa-cli/bin/install.ps1
-```
+1. 在交付包根目录安装全局命令。
+2. 重新打开终端。
+3. 执行项目初始化命令。
 
-PowerShell 7 不可用时，改用 `powershell -ExecutionPolicy Bypass -File packages/qa-cli/bin/install.ps1`。
+| 平台 | 安装命令 |
+| --- | --- |
+| Windows PowerShell 7 | `pwsh -ExecutionPolicy Bypass -File packages/qa-cli/bin/install.ps1` |
+| Windows PowerShell 5.1 | `powershell -ExecutionPolicy Bypass -File packages/qa-cli/bin/install.ps1` |
+| macOS、Linux、WSL | `bash packages/qa-cli/bin/install.sh` |
 
-```powershell
-qa project init .\workspaces\my-qa --language typescript
-```
+项目初始化：
 
-macOS、Linux 和 WSL 使用 Bash 或 zsh。
-
-```bash
-bash packages/qa-cli/bin/install.sh
-```
-
-```bash
-qa project init my-qa --language typescript
+```text
+qa project init <项目目录> --language <python|typescript>
 ```
 
 首次运行可能需要联网。
-CLI 优先复用系统工具，缺少时按配置安装。
+CLI 优先复用系统工具，缺少时按配置安装。项目初始化会自动准备标准环境，并安装项目级 `qa-core`。
 QA 环境默认位于用户目录的 `.qa-ai-playwright`。
 测试项目各自独立。
 
@@ -74,7 +69,7 @@ Codex 会识别输入并预览测试计划。
 ## 安装范围
 
 - **浏览器**：优先复用已有兼容浏览器。确认缺失后才下载。
-- **Skill**：QA 任务安装 `qa-core`，环境管理使用 `qa-setup`。Bun、pnpm 等 Skill 按任务复用。
+- **Skill**：`qa-core` 和 `qa-setup` 随交付包提供；Bun、pnpm 等外部 Skill 按任务从固定来源安装。
 - **MCP**：默认注册 QA MCP 和 Playwright MCP。
 - **CC Switch**：默认准备。不需要时添加 `--skip-cc-switch`。
 
