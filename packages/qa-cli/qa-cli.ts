@@ -2,6 +2,7 @@
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { checkSkillUpdates, loadSkillSources } from './cli/skill-updates.ts';
 import { checkAllUpdates, loadUpdateConfig } from './cli/update-check.ts';
+import { syncLatestRelease } from './cli/update-sync.ts';
 import { projectUpgradePlan } from './cli/project-upgrade-plan.ts';
 import { projectUpgrade } from './cli/project-upgrade.ts';
 import { projectRollback, projectSnapshots } from './cli/project-snapshots.ts';
@@ -67,7 +68,13 @@ export async function execute(args: ParsedArguments): Promise<number> {
     return 0;
   }
   if (args.command === 'update') {
-    const results = await checkAllUpdates(loadUpdateConfig(args.updateSource));
+    const config = loadUpdateConfig(args.updateSource);
+    if (args.updateAction === 'sync') {
+      const result = await syncLatestRelease(config);
+      console.log(JSON.stringify(result, null, 2));
+      return 0;
+    }
+    const results = await checkAllUpdates(config);
     for (const result of results) {
       console.log(`${result.name}: ${result.status} | baseline=${result.current} | candidate=${result.candidate ?? 'unknown'}${result.message ? ` | ${result.message}` : ''}`);
     }
@@ -310,6 +317,7 @@ function helpText(): string {
     'qa skills repair <project> <name>',
     'qa skills check-updates [--source <file>]',
     'qa update check [--source <file>]',
+    'qa update sync [--source <file>]  (download and install the latest QA Release)',
     'qa run <command> [...]',
   ].join('\n');
 }

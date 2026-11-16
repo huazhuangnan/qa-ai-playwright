@@ -14,6 +14,8 @@ test('root options preserve values and stop at run', () => {
 });
 
 test('update source retains the existing argument contract', () => {
+  assert.equal(parseArgs(['update', 'sync']).updateAction, 'sync');
+  assert.throws(() => parseArgs(['update', 'upgrade']), /update requires check or sync/);
   assert.equal(parseArgs(['update', 'check', '--source', 'file path.json']).updateSource, 'file path.json');
   assert.equal(parseArgs(['update', 'check', '--source', '-file']).updateSource, '-file');
   assert.throws(() => parseArgs(['update', 'check', '--source=file']), /accepts --source/);

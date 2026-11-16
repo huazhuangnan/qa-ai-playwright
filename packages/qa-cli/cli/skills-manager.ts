@@ -20,6 +20,8 @@ export interface BuiltinSkillStatus {
 
 function validName(name: string): boolean { return /^qa-[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(name); }
 
+function globalSource(name: string): string { return `global:qa/${name}`; }
+
 function validRelative(path: string): boolean {
   return !!path && path.split('/').every((part) => !!part && part !== '.' && part !== '..'
     && !/[\\<>:"|?*\u0000-\u001f]/u.test(part) && !/[. ]$/u.test(part)
@@ -55,7 +57,8 @@ function readLock(root: string): SkillLock {
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Invalid Skill lock');
   for (const [name, item] of Object.entries(data)) {
     const record = item as SkillRecord;
-    if (!validName(name) || !record || record.scope !== 'project' || record.source !== `packages/skills/builtin/${name}`
+    if (!validName(name) || !record || record.scope !== 'project'
+      || ![globalSource(name), `packages/skills/builtin/${name}`].includes(record.source)
       || typeof record.version !== 'string' || !record.files || typeof record.files !== 'object' || Array.isArray(record.files)
       || Object.entries(record.files).some(([file, hash]) => !validRelative(file) || typeof hash !== 'string' || !/^[a-f0-9]{64}$/u.test(hash))) {
       throw new Error(`Invalid Skill lock record: ${name}`);
@@ -150,7 +153,7 @@ export function installBuiltinSkill(project: string, name: string, repo = REPO):
       hashes[file] = createHash('sha256').update(contents).digest('hex');
       changes.push({ path: safePath(target, file), after: contents });
     }
-    lock[name] = { scope: 'project', source: `packages/skills/builtin/${name}`, version, files: hashes };
+    lock[name] = { scope: 'project', source: globalSource(name), version, files: hashes };
     const lockPath = safePath(root, '.agents/qa-skills-lock.json');
     changes.push({ path: lockPath, before: existsSync(lockPath) ? readFileSync(lockPath) : undefined, after: Buffer.from(`${JSON.stringify(lock, null, 2)}\n`) });
     let created = false;
@@ -338,7 +341,7 @@ export function repairBuiltinSkill(project: string, name: string, repo = REPO): 
   });
 }
 
-/** Synchronize a repository-managed Skill with the current builtin source. */
+/** Synchronize a project materialization with the global QA Skill source. */
 export function upgradeBuiltinSkill(project: string, name: string, repo = REPO): { updated: string[]; snapshot?: string } {
   const root = projectRoot(project);
   const source = sourceDirectory(name, repo);
@@ -368,7 +371,7 @@ export function upgradeBuiltinSkill(project: string, name: string, repo = REPO):
       }
     }
     const version = sourceVersion(source, name);
-    lock[name] = { ...record, version, files: newFiles };
+    lock[name] = { ...record, source: globalSource(name), version, files: newFiles };
     const lockPath = safePath(root, '.agents/qa-skills-lock.json');
     const updated = changes.map((change) => change.path);
     changes.push({ path: lockPath, before: readFileSync(lockPath), after: Buffer.from(`${JSON.stringify(lock, null, 2)}\n`) });

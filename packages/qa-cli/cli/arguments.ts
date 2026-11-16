@@ -13,6 +13,7 @@ export interface ParsedArguments {
   skillAction?: 'check-updates' | 'list' | 'check' | 'install' | 'uninstall' | 'upgrade' | 'repair' | 'recover' | 'snapshots' | 'rollback';
   skillName?: string;
   updateSource?: string;
+  updateAction?: 'check' | 'sync';
   stack?: Stack;
   full?: boolean;
   skipCodex?: boolean;
@@ -76,8 +77,9 @@ export function parseArgs(
     return parsed;
   }
   if (command === 'update') {
-    if (cleaned[1] !== 'check') throw new Error('update requires check');
-    parsed.updateSource = parseSource(cleaned.slice(2), 'update check');
+    if (cleaned[1] !== 'check' && cleaned[1] !== 'sync') throw new Error('update requires check or sync');
+    parsed.updateAction = cleaned[1];
+    parsed.updateSource = parseSource(cleaned.slice(2), `update ${cleaned[1]}`);
     return parsed;
   }
   if (command === 'template') {

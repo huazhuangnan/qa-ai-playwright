@@ -29,7 +29,7 @@ interface ConfigEntry {
   currentFrom: string;
   tagPrefix?: string;
 }
-interface UpdateConfig {
+export interface UpdateConfig {
   qa: { repository: string; ref: string };
   sources: ConfigEntry[];
 }

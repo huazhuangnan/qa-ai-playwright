@@ -78,11 +78,11 @@ CLI 中的 `REPO` 和 `QA_REPO` 指向仓库根目录。安装记录中的源码
 | 对象 | 当前命令 | 当前作用 |
 | --- | --- | --- |
 | 环境 | `env init/list/check/repair/uninstall`，`env plan/upgrade/snapshots uv`，`env rollback` | 环境生命周期和 uv 升级，详见[组件升级](environment-managed-upgrades.zh-CN.md) |
-| QA 本身 | `qa upgrade/reinstall/uninstall` | 用户级 QA 安装的同步、重装和卸载 |
+| QA 本身 | `qa update check/sync`、`qa upgrade/reinstall/uninstall` | 云端检测、Release 同步、本地交付包同步、重装和卸载 |
 | 项目 | `project init/check/plan/upgrade/repair/snapshots/rollback/uninstall` | 项目模板生命周期和迁移规则。详见[项目模板管理](project-template-management.zh-CN.md) |
 | 模板 | `template list/check` | 查看仓库内语言模板和 QA 文档模板的版本及文件状态 |
 | MCP | `mcp list`、`mcp check`、`mcp add`、`mcp repair`、`mcp remove` | 查询状态、安装或复用、修复缺失项、移除符合记录的注册 |
-| 内置 Skill | `skills list/check/install/upgrade/repair/snapshots/rollback/recover/uninstall` | 检查和同步项目内置 Skill，`upgrade` 直接覆盖仓库维护版本。外部 Skill 按上游方式管理 |
+| 内置 Skill | `skills list/check/install/upgrade/repair/snapshots/rollback/recover/uninstall` | 检查和同步项目内置 Skill，`upgrade` 同步全局 QA 版本。外部 Skill 按上游方式管理 |
 | 更新检查 | `update check`、`skills check-updates` | 比较配置的来源基线与上游候选版本或提交 |
 | 诊断 | `doctor`、`shell` | 检查环境或输出激活脚本路径 |
 
@@ -267,7 +267,7 @@ Skill 使用 SemVer。
 
 ## 统一更新检查
 
-`qa update check` 只读检查 QA CLI、内置 MCP、外部 Skill、npm 包和 GitHub Release 版本。
+`qa update check` 只读检查 QA CLI、内置 MCP、外部 Skill、npm 包和 GitHub Release 版本。`qa update sync` 只同步已配置仓库的可信 GitHub Release，并先校验 SHA256 清单，再替换用户级 QA 交付包。
 来源配置位于 `packages/qa-cli/update-sources.json`。
 `qa.repository` 是 GitHub 仓库，`qa.ref` 是可选分支。
 当前 QA Release 来源为 `huazhuangnan/qa-ai-playwright`。

@@ -152,6 +152,7 @@ if ($first -in @('help', '--help', '-h')) {
         'qa skills uninstall <project> <name>',
         'qa skills check-updates [--source <file>]',
         'qa update check [--source <file>]',
+        'qa update sync [--source <file>]  (download and install the latest QA Release)',
         'qa run <command> [...]'
     ) | Write-Host
     exit 0

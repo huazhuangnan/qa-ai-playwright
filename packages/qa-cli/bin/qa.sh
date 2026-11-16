@@ -124,6 +124,7 @@ qa skills repair <project> <name>
 qa skills uninstall <project> <name>
 qa skills check-updates [--source <file>]
 qa update check [--source <file>]
+  qa update sync [--source <file>]  # download and install the latest QA Release
 qa run <command> [...]
 EOF
   exit 0

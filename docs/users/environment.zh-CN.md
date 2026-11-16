@@ -67,15 +67,26 @@ macOS / Linux：`bash packages/qa-cli/bin/install.sh`。
 | 命令 | 使用时机 | 处理范围 | 保留内容 |
 | --- | --- | --- | --- |
 | `qa upgrade` | 新版交付包已解压 | 同步当前交付包中的 QA 文件 | 环境、项目、用户配置 |
+| `qa update sync` | 需要从 GitHub Release 同步最新 QA | 检查并下载可信 Release，更新用户级 QA 交付包 | 环境、项目、用户配置 |
 | `qa reinstall` | 安装损坏或需要重置 QA 文件 | 强制重新复制 QA 文件 | 环境、项目、用户配置 |
 | `qa uninstall` | 不再使用 QA 命令 | 删除用户级 QA 命令和受管理文件 | 环境数据、项目、共享工具 |
 
-升级步骤：
+从本地交付包升级步骤：
 
 1. 下载并解压新版交付包。
 2. 进入新版交付包根目录。
 3. 执行 `qa upgrade`。
 4. 重新打开终端并运行 `qa env check <语言>`。
+
+从云端同步步骤：
+
+```powershell
+qa update check
+qa update sync
+qa env check typescript
+```
+
+`qa update sync` 只同步 QA 本身和内置 MCP、Skill。项目中的 `qa-core` 等 Skill 由全局交付包作为来源，项目命令再按锁定版本物化到 `.agents/skills/`；业务项目不会直接下载 GitHub 内容。
 
 重新安装或卸载前，先确认当前终端没有正在运行的 QA 命令。`qa env uninstall` 是环境卸载，只清理可确认属于当前环境的 MCP 注册，不等同于 `qa uninstall`。
 
@@ -147,7 +158,7 @@ Project ready: ［项目目录］. QA templates: ［版本］. Language template
 - `project check <目录>`：检查项目依赖锁并运行项目测试，包括浏览器检查。TypeScript 项目还会进行类型检查。此命令会运行测试，并非只读的环境检查。
 - `project plan <目录>`：只读比较项目模板、受管文件和当前版本。
 - `project upgrade <目录>`：只输出人工升级说明，不自动替换文件。
-- `skills upgrade <目录> <名称>`：使用交付包内置版本直接覆盖项目 Skill，并同步安装记录。项目 Skill 由仓库维护，升级会删除源目录中已不存在的旧文件。
+- `skills upgrade <目录> <名称>`：使用全局 QA 交付包中的锁定版本覆盖项目 Skill，并同步安装记录。项目 Skill 是全局版本的项目物化副本，升级会删除源目录中已不存在的旧文件。
 - `project repair/snapshots/rollback <目录>`：修复缺失的受管文件，或管理升级快照。回滚不会覆盖无法确认所有权的文件。
 - `project uninstall <目录>`：删除项目记录中的未修改模板文件。保留修改过的文件、未跟踪文件和依赖目录。存在受管保留项时保留项目记录，方便再次执行。
 - `env uninstall`：清理当前环境拥有且可安全识别的 MCP 注册。

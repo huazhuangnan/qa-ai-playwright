@@ -10,6 +10,7 @@ Skill 帮助 Codex 按任务理解需求、设计和执行测试。MCP 提供浏
 | --- | --- | --- |
 | 新建 QA 项目 | `qa project init <目录> --language <语言>` | `qa-core` 从交付包内置目录安装 |
 | 使用 QA CLI 管理 Skill | `qa skills install <目录> <名称>` | 从交付包内置目录安装 |
+| 同步 QA 本身 | `qa update check`、`qa update sync` | 检测并从 GitHub Release 同步全局 QA 交付包 |
 | 已有项目且不使用 QA CLI | `skills add` | 从 GitHub 远程仓库安装 |
 
 `qa-core` 和 `qa-setup` 是交付包内置 Skill。`playwright-cli`、`agent-browser`、`webapp-testing`、`playwright-best-practices`、`bun-runtime` 和 `pnpm` 属于外部 Skill，按需从固定提交安装，不会随 QA 交付包打包。
