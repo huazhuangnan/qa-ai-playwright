@@ -787,6 +787,8 @@ test('QA skills keep token-aware references and documented behavior cases', () =
   ) as { cases: Array<{ id: string }> };
   const scenarioIds = new Set(scenarios.cases.map(({ id }) => id));
   for (const id of [
+    'business-test-default-automation',
+    'business-test-manual-only',
     'scenario-catalog-requires-judgment',
     'maintainable-generated-flow',
     'source-driven-auto-test',
