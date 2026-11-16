@@ -26,6 +26,8 @@
 - 测试进程默认设置超时，生产写入默认拒绝。
 - 断言依据[API 测试](../api-testing.md)确认的契约，不假设每个响应都有 JSON 或业务码。
 - 浏览器用 pytest-playwright 的 page fixture 和 expect 自动等待，沿用插件生命周期。
+- 浏览器录制或探索脚本入库前整理 locator，补齐用户可见结果断言，并检查重复运行、并行运行和失败清理。
+- 使用 pytest marker 区分探索、smoke 和 regression；探索脚本不混入稳定回归套件。
 - 写数据用唯一标识。yield fixture 的 try/finally 覆盖失败步骤，准备中途也登记清理。
 - 保留原测试错误，清理错误单独报告。
 - 不通过删断言、跳过、放宽预期或提高重试掩盖失败。

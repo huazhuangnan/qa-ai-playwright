@@ -77,7 +77,11 @@ API-only 任务不加载 Web 参考。
 
 ### 安装浏览器 MCP
 
-需要浏览器操作时，先用 `codex mcp list` 检查是否已有可用的 playwright 注册。没有时，在终端执行：
+当前 Codex 会话已提供内置浏览器时，可以直接用于页面探索和已授权验证，不需要先安装浏览器 MCP。需要把流程交给项目测试代码反复运行时，优先复用项目已有的 Playwright 配置。
+
+工具选择时优先使用源码、API、Playwright 和结构化浏览器能力。computer-use 适合结构化工具无法覆盖的真实界面或原生桌面应用场景，不适合批量执行回归步骤。
+
+只有在当前会话没有可用浏览器、项目需要独立 MCP 能力或需要补齐工具时，才用 `codex mcp list` 检查是否已有可用的 playwright 注册。没有时，在终端执行：
 
 ```bash
 codex mcp add playwright -- npx -y @playwright/mcp@0.0.85
