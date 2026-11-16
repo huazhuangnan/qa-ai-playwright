@@ -267,7 +267,7 @@ Skill 使用 SemVer。
 
 ## 统一更新检查
 
-`qa update check` 只读检查 QA CLI、内置 MCP、外部 Skill、npm 包和 GitHub Release 版本。`qa update sync` 只同步已配置仓库的可信 GitHub Release，并先校验 SHA256 清单，再替换用户级 QA 交付包。
+`qa update check` 只读检查 QA CLI、内置 MCP、外部 Skill、npm 包和 GitHub Release 版本。`qa update sync` 通过 Release 页面确定版本，从同一标签下载附件并校验 SHA256，再以普通升级模式更新用户级 QA 交付包。同步不调用 GitHub API，也不强制覆盖已修改的安装文件。
 来源配置位于 `packages/qa-cli/update-sources.json`。
 `qa.repository` 是 GitHub 仓库，`qa.ref` 是可选分支。
 当前 QA Release 来源为 `huazhuangnan/qa-ai-playwright`。
