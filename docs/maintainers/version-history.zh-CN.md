@@ -41,6 +41,8 @@ MCP 清单和下载应用继续记录真实上游版本。
 
 ## 未发布
 
+- 修复 Linux 同步 Release 时使用 GNU tar 解压 ZIP 失败的问题。
+- 修复 Windows PowerShell 5.1 升级时错误解析安装文件清单。
 - QA Release 同步改用 Release 跳转和固定版本附件，避免依赖 GitHub API 限额，并在安装文件被修改时停止。
 - 明确业务功能测试默认生成可重复运行的测试代码，区分浏览器探索、手工任务和实际业务写入。
 - 增加 QA 云端同步设计：`qa update check` 负责检测，`qa update sync` 从可信 GitHub Release 校验并同步全局 QA 交付包，项目 Skill 按全局版本物化并锁定。

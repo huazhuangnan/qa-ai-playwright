@@ -65,7 +65,11 @@ export async function syncLatestRelease(config: UpdateConfig, fetcher: Fetcher =
   const archivePath = join(staging, archive);
   writeFileSync(archivePath, archiveData);
   try {
-    execFileSync('tar', ['-xf', archivePath, '-C', staging], { stdio: 'inherit' });
+    if (process.platform === 'linux') {
+      execFileSync('unzip', ['-q', archivePath, '-d', staging], { stdio: 'inherit' });
+    } else {
+      execFileSync('tar', ['-xf', archivePath, '-C', staging], { stdio: 'inherit' });
+    }
     const extractedName = readdirSync(staging, { withFileTypes: true }).find((entry) => entry.isDirectory())?.name;
     if (!extractedName) throw new Error('Invalid extracted QA Release');
     const extracted = join(staging, extractedName);

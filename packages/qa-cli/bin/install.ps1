@@ -114,7 +114,7 @@ if ($Uninstall) {
 if ((Test-Path -LiteralPath (Join-Path $installRoot '.qa-managed')) -and (Test-Path -LiteralPath (Join-Path $installRoot '.files.json'))) {
     if (Test-ReparsePoint $installRoot) { throw 'Refusing to upgrade a linked installation root' }
     if (!$Reinstall -and !(Test-ManagedCommand $commandPath)) { throw 'Installation ownership cannot be verified' }
-    $previousFiles = @(Get-Content -Raw -LiteralPath (Join-Path $installRoot '.files.json') | ConvertFrom-Json)
+    $previousFiles = @((Get-Content -Raw -LiteralPath (Join-Path $installRoot '.files.json') | ConvertFrom-Json))
     if (!$Reinstall) {
         foreach ($file in $previousFiles) {
             if (!$file.path.StartsWith('packages\') -or $file.path.Contains('..')) { throw 'Invalid installation manifest' }

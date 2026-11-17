@@ -75,6 +75,11 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.18.0'
+      - name: Check Release synchronization
+        run: node --experimental-strip-types --test tests/update-sync.test.ts
       - name: Check Unix installation
         if: runner.os != 'Windows'
         shell: bash
@@ -187,6 +192,8 @@ jobs:
             [IO.File]::WriteAllText($installedCommand, $lfCommand, [Text.UTF8Encoding]::new($false))
             & $globalCommand.Source --help
             if ($LASTEXITCODE -ne 0) { throw 'LF command wrapper failed' }
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File packages/qa-cli/bin/install.ps1
+            if ($LASTEXITCODE -ne 0) { throw 'PowerShell 5.1 upgrade failed' }
             ./packages/qa-cli/bin/install.ps1
             New-Item -ItemType Directory -Force -Path $env:QA_ROOT | Out-Null
             Set-Content -LiteralPath (Join-Path $env:QA_ROOT '.qa-managed') -Value 'qa-local-environment-v1'

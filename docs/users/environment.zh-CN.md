@@ -37,6 +37,7 @@ Windows 的启动顺序如下：
 - 首次安装需要访问 Node、共享工具包和 Python 包下载域名。需要下载缺失的浏览器时还需要访问浏览器下载域名。
 
 Linux/macOS 的引导脚本需要 Bash、tar、gzip、curl 或 wget、SHA256 工具。
+Linux 使用 `qa update sync` 还需要 `unzip`。
 不支持 musl/Alpine。
 运行 CC Switch 的 Linux 桌面还需要 glibc 2.35+ 和 WebKitGTK 4.1。
 

@@ -60,11 +60,17 @@ test('runs the release installer without forcing a reinstall', async () => {
   try {
     const bin = join(root, 'release', 'packages', 'qa-cli', 'bin');
     mkdirSync(bin, { recursive: true });
-    writeFileSync(join(bin, 'install.ps1'), 'Set-Content -LiteralPath $env:QA_SYNC_TEST_ARGS -Value $args.Count\n');
+    writeFileSync(join(bin, 'install.ps1'), '[IO.File]::WriteAllText($env:QA_SYNC_TEST_ARGS, [string]$args.Count)\n');
     writeFileSync(join(bin, 'install.sh'), 'printf "%s" "$#" > "$QA_SYNC_TEST_ARGS"\n');
     const archivePath = join(root, 'release.zip');
-    execFileSync('tar', ['-acf', archivePath, '-C', root, 'release']);
+    if (process.platform === 'win32') {
+      execFileSync('powershell.exe', ['-NoProfile', '-Command',
+        '$root = [IO.Path]::GetDirectoryName($env:QA_SYNC_TEST_ARGS); Compress-Archive -Path (Join-Path $root "release") -DestinationPath (Join-Path $root "release.zip")']);
+    } else {
+      execFileSync('zip', ['-q', '-r', archivePath, 'release'], { cwd: root });
+    }
     const archive = readFileSync(archivePath);
+    assert.equal(archive.subarray(0, 4).toString('hex'), '504b0304');
     const hash = createHash('sha256').update(archive).digest('hex');
     const result = await syncLatestRelease({ qa: { repository: 'example/qa', ref: '' }, sources: [] }, async (input) => {
       const url = String(input);
