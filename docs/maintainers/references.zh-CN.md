@@ -20,6 +20,8 @@
 | Playwright 可访问性测试 | <https://playwright.dev/docs/accessibility-testing> |
 | Playwright API 测试 | <https://playwright.dev/docs/api-testing> |
 | Playwright 隔离与上下文 | <https://playwright.dev/docs/browser-contexts> |
+| ISO/IEC/IEEE 29119 系列概览 | <https://www.iso.org/files/live/sites/isoorg/files/developing_standards/who_develops_standards/docs/ISO_IEC_JTC%201_SC%207%20Brochure.pdf> |
+| OpenTelemetry 语义约定 | <https://opentelemetry.io/docs/specs/otel/semantic-conventions/> |
 | OpenAPI 3.2.1 | <https://spec.openapis.org/oas/latest.html> |
 | W3C WCAG 2.2 | <https://www.w3.org/TR/WCAG22/> |
 | OWASP ASVS 5.0.0 | <https://owasp.org/www-project-application-security-verification-standard/> |
