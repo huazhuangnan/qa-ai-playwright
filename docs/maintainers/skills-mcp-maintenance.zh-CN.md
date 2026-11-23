@@ -156,7 +156,7 @@ bash packages/qa-cli/bin/qa.sh skills check-updates
 bash packages/qa-cli/bin/qa.sh skills check-updates --source ./external-sources.json
 ```
 
-检查只比较来源清单中的固定提交与上游指定目录的最新提交。
+维护者同步可比较来源清单中的固定提交与上游指定目录的最新提交；用户侧检查默认不读取 GitHub 目录历史 API。
 检查不会安装、升级、覆盖或删除 Skill，也不会修改安装记录。
 网络失败、来源无效、目录不存在或无法确认版本时，必须报告未知或错误。
 不能报告为最新。
@@ -184,7 +184,7 @@ bash packages/qa-cli/bin/qa.sh skills check-updates --source ./external-sources.
 | `mcp list` | 查询可选 MCP 清单 | 只读 | 已支持 |
 | `mcp add` | 安装并注册清单中的按需 MCP | 共享工具、安装记录和用户级注册 | 已支持部分 npm MCP |
 | `mcp remove` | 删除当前环境或清单拥有的按需 MCP | 仅处理可验证所有权的内容 | 已支持 |
-| `skills check-updates` | 检查外部 Skill 上游差异 | 只读 | 已支持 |
+| `skills check-updates` | 检查外部 Skill 上游差异 | 只读；默认不调用 GitHub API，目录历史会标记为未检查 | 已支持 |
 | `skills list/check/install/repair/upgrade/uninstall` | 检测并管理项目级内置 Skill；upgrade 同步全局 QA 版本 | 指定项目 `.agents/` | 已支持 |
 | `mcp check/repair` | 检查状态并按记录补齐缺失项 | 共享包和用户级注册 | 已支持可选 MCP |
 

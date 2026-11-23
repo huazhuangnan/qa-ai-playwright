@@ -10,4 +10,4 @@ Node、Python 支持策略、项目依赖锁和部分 CI 固定版本不在自�
 
 本次核对时，Anthropic 和 antfu 的新 Skill 提交未能确认许可证，仍保留原提交。许可证问题未解决时，整次同步会停止。
 
-GitHub API 限流时可设置 `GITHUB_TOKEN`。查询失败会终止同步，不把失败当成最新。
+维护者同步会读取 Skill 目录历史、许可证和应用提交等 GitHub 元数据，因此执行前必须设置 `GITHUB_TOKEN`。查询失败会终止同步，不把失败当成最新。用户侧 `qa update check` 和 `qa update sync` 不走这些元数据 API。

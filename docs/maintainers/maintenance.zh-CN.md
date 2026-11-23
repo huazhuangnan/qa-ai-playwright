@@ -83,7 +83,7 @@ CLI 中的 `REPO` 和 `QA_REPO` 指向仓库根目录。安装记录中的源码
 | 模板 | `template list/check` | 查看仓库内语言模板和 QA 文档模板的版本及文件状态 |
 | MCP | `mcp list`、`mcp check`、`mcp add`、`mcp repair`、`mcp remove` | 查询状态、安装或复用、修复缺失项、移除符合记录的注册 |
 | 内置 Skill | `skills list/check/install/upgrade/repair/snapshots/rollback/recover/uninstall` | 检查和同步项目内置 Skill，`upgrade` 同步全局 QA 版本。外部 Skill 按上游方式管理 |
-| 更新检查 | `update check`、`skills check-updates` | 比较配置的来源基线与上游候选版本或提交 |
+| 更新检查 | `update check`、`skills check-updates` | 比较公开版本来源；外部 Skill 目录历史在用户路径标记为未检查 |
 | 诊断 | `doctor`、`shell` | 检查环境或输出激活脚本路径 |
 
 QA MCP 使用对应 CLI 操作，并传递退出码和输出。内置 Skill 升级直接同步仓库版本；其他升级工具仍按各自边界处理。
@@ -267,7 +267,7 @@ Skill 使用 SemVer。
 
 ## 统一更新检查
 
-`qa update check` 只读检查 QA CLI、内置 MCP、外部 Skill、npm 包和 GitHub Release 版本。`qa update sync` 通过 Release 页面确定版本，从同一标签下载附件并校验 SHA256，再以普通升级模式更新用户级 QA 交付包。同步不调用 GitHub API，也不强制覆盖已修改的安装文件。
+`qa update check` 只读检查 QA CLI、内置 MCP、npm 包和 GitHub Release 版本。用户路径不调用 GitHub API：Release 使用公开跳转，npm 使用 registry。外部 Skill 目录历史默认标记为无法检查；维护者同步脚本才使用 GitHub 元数据 API。`qa update sync` 通过 Release 页面确定版本，从同一标签下载附件并校验 SHA256，再以普通升级模式更新用户级 QA 交付包。
 来源配置位于 `packages/qa-cli/update-sources.json`。
 `qa.repository` 是 GitHub 仓库，`qa.ref` 是可选分支。
 当前 QA Release 来源为 `huazhuangnan/qa-ai-playwright`。
@@ -300,7 +300,7 @@ GitHub Actions 在来源清单、安装说明或检查实现等相关文件推�
 `commit` 是当前固定提交。
 维护来源时同步核对安装命令、上游提交和许可证。
 
-使用 `qa skills check-updates [--source <清单路径>]` 只读检查指定目录的上游最新提交。
+使用 `qa skills check-updates [--source <清单路径>]` 只读检查指定来源。用户路径不查询 GitHub 目录历史 API，因此目录提交比较会标记为未检查；维护者使用 `pnpm upstream:sync` 更新固定提交。
 结果比较固定提交和跟踪分支中该目录的最近修改提交。差异不代表分支快进或业务项目已安装的版本。
 未指定 `--source` 时使用交付包内的默认清单。
 检查失败、离线或清单无效时应明确报告，不能推断没有更新。

@@ -90,7 +90,7 @@ qa env check typescript
 `qa update sync` 只同步 QA 本身和内置 MCP、Skill。项目中的 `qa-core` 等 Skill 由全局交付包作为来源，项目命令再按锁定版本物化到 `.agents/skills/`；业务项目不会直接下载 GitHub 内容。
 同步使用普通升级模式。受管安装文件被修改或存在未跟踪文件时会停止。确认不再需要这些更改后，才使用 `qa reinstall` 强制重装。
 
-新版 `qa update sync` 通过 GitHub Release 页面查找最新版本，不使用 GitHub API。它从同一版本下载交付包和 SHA256 清单并校验。旧版遇到 API 限流时，可等待限额重置，或使用新版交付包执行本地升级。`qa update check` 仍使用 GitHub API。
+新版 `qa update sync` 通过 GitHub Release 页面查找最新版本，不使用 GitHub API。它从同一版本下载交付包和 SHA256 清单并校验。`qa update check` 也不调用 GitHub API；Release 使用公开跳转，npm 使用 registry。外部 Skill 的目录历史需要维护者元数据，用户命令会明确标记为未检查。
 
 重新安装或卸载前，先确认当前终端没有正在运行的 QA 命令。`qa env uninstall` 是环境卸载，只清理可确认属于当前环境的 MCP 注册，不等同于 `qa uninstall`。
 

@@ -36,17 +36,17 @@ test('checks the GitHub latest release and compares its tag without the v prefix
   const requests: string[] = [];
   const fetcher: Fetcher = async (input) => {
     requests.push(input instanceof Request ? input.url : String(input));
-    return jsonResponse({ tag_name: 'v1.2.3' });
+    return new Response(null, { status: 302, headers: { location: '/example/tool/releases/tag/v1.2.3' } });
   };
   const result = await checkVersionSource(releaseSource, fetcher);
-  assert.deepEqual(requests, ['https://api.github.com/repos/example/tool/releases/latest']);
+  assert.deepEqual(requests, ['https://github.com/example/tool/releases/latest']);
   assert.equal(result.name, releaseSource.name);
   assert.equal(result.current, releaseSource.current);
   assert.equal(result.status, 'current');
 });
 
 test('reports a changed GitHub release after removing its v prefix', async () => {
-  const result = await checkVersionSource(releaseSource, async () => jsonResponse({ tag_name: 'v1.3.0' }));
+  const result = await checkVersionSource(releaseSource, async () => new Response(null, { status: 302, headers: { location: '/example/tool/releases/tag/v1.3.0' } }));
   assert.equal(result.status, 'changed');
   assert.equal(result.current, releaseSource.current);
   assert.equal(result.candidate, '1.3.0');
@@ -75,7 +75,9 @@ test('reports missing or empty versions and release tags as errors', async () =>
     [releaseSource, { tag_name: '' }],
     [releaseSource, { tag_name: 'v' }],
   ] as const) {
-    const result = await checkVersionSource(source, async () => jsonResponse(payload));
+    const result = await checkVersionSource(source, async () => source.type === 'github-release'
+      ? new Response(null, { status: 302, headers: { location: `/example/tool/releases/tag/${String((payload as { tag_name?: string }).tag_name ?? '')}` } })
+      : jsonResponse(payload));
     assert.equal(result.status, 'error');
     assert.ok(result.message);
   }

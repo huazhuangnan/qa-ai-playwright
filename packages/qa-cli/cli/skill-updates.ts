@@ -17,7 +17,7 @@ export interface SkillSource {
 /** A comparison of directory history, not an installed-version check. */
 export interface SkillUpdateResult {
   name: string;
-  status: 'current' | 'update' | 'error';
+  status: 'current' | 'update' | 'error' | 'unconfigured';
   installedCommit: string;
   candidateCommit?: string;
   message?: string;
@@ -68,7 +68,15 @@ async function directoryCommit(source: SkillSource, ref: string, fetcher: Fetche
 }
 
 /** Compare each pinned directory history with its configured upstream branch. */
-export async function checkSkillUpdates(sources: SkillSource[], fetcher: Fetcher = fetch): Promise<SkillUpdateResult[]> {
+export async function checkSkillUpdates(sources: SkillSource[], fetcher: Fetcher = fetch, options: { allowGitHubApi?: boolean } = {}): Promise<SkillUpdateResult[]> {
+  if (!options.allowGitHubApi) {
+    return sources.map((source) => ({
+      name: source.name,
+      installedCommit: source.commit,
+      status: 'unconfigured' as const,
+      message: 'Directory history requires GitHub metadata; skipped to avoid API rate limits',
+    }));
+  }
   const results: SkillUpdateResult[] = [];
   for (const source of sources) {
     try {

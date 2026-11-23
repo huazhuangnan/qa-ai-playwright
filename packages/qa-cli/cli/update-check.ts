@@ -1,8 +1,8 @@
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { checkSkillUpdates, loadSkillSources, type Fetcher } from './skill-updates.ts';
+import { fetchLatestRelease } from './update-sync.ts';
 
 /** A published package or release and the version pinned by QA. */
 export interface VersionSource {
@@ -77,53 +77,47 @@ export function resolveVersionSources(config: UpdateConfig): VersionSource[] {
   });
 }
 
-/** Compare a pinned npm package or GitHub release to its published candidate. */
+/** Compare a pinned npm package or public GitHub Release to its published candidate. */
 export async function checkVersionSource(source: VersionSource, fetcher: Fetcher = fetch): Promise<UpdateResult> {
   try {
     if (!source.name || !source.current || !(source.type === 'npm' ? npmPackage : githubRepo).test(source.target)
       || !['npm', 'github-release'].includes(source.type)) throw new Error('Invalid source');
     const github = source.type === 'github-release';
-    const url = github ? `https://api.github.com/repos/${source.target}/releases/latest` : `https://registry.npmjs.org/${encodeURIComponent(source.target)}/latest`;
+    if (github) {
+      const candidate = await fetchLatestRelease(source.target, fetcher);
+      const prefix = source.tagPrefix ?? 'v';
+      const normalized = prefix && candidate.startsWith(prefix) ? candidate.slice(prefix.length) : candidate;
+      if (!normalized) throw new Error('Missing published version');
+      return { name: source.name, current: source.current, candidate: normalized, status: normalized === source.current ? 'current' : 'changed' };
+    }
+    const url = `https://registry.npmjs.org/${encodeURIComponent(source.target)}/latest`;
     const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': 'qa-ai-playwright' };
-    if (github && process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
     const response = await fetcher(url, { headers, signal: AbortSignal.timeout(15000) });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data: unknown = await response.json();
-    const candidate = data && typeof data === 'object' ? (data as Record<string, unknown>)[github ? 'tag_name' : 'version'] : undefined;
+    const candidate = data && typeof data === 'object' ? (data as Record<string, unknown>).version : undefined;
     if (typeof candidate !== 'string' || !candidate.trim()) throw new Error('Missing published version');
-    const prefix = source.tagPrefix ?? 'v';
-    const normalized = prefix && candidate.startsWith(prefix) ? candidate.slice(prefix.length) : candidate;
-    if (!normalized) throw new Error('Missing published version');
-    return { name: source.name, current: source.current, candidate: normalized, status: normalized === source.current ? 'current' : 'changed' };
+    return { name: source.name, current: source.current, candidate, status: candidate === source.current ? 'current' : 'changed' };
   } catch (error) {
     return { name: source.name, current: source.current, status: 'error', message: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 
-/** Compare the local source checkout with a configured GitHub branch without fetching or writing. */
+/** Compare the installed QA package with the public latest Release without using GitHub's API. */
 export async function checkQaSource(qa: UpdateConfig['qa'], fetcher: Fetcher = fetch): Promise<UpdateResult> {
   if (!qa.repository) return { name: 'qa-cli-and-builtin-mcp', status: 'unconfigured', current: 'unknown', message: 'Set qa.repository in update-sources.json' };
   let current: string;
-  let dirty: boolean;
   try {
-    current = execFileSync('git', ['-C', srcDir, 'rev-parse', 'HEAD'], { encoding: 'utf8', timeout: 5000 }).trim();
-    dirty = Boolean(execFileSync('git', ['-C', srcDir, 'status', '--porcelain', '--untracked-files=normal'], { encoding: 'utf8', timeout: 5000 }).trim());
-    if (!/^[a-f0-9]{40}$/u.test(current)) throw new Error('Invalid local commit');
+    const packageJson = JSON.parse(readFileSync(`${srcDir}/package.json`, 'utf8')) as { version?: unknown };
+    current = typeof packageJson.version === 'string' ? packageJson.version : '';
+    if (!/^\d+\.\d+\.\d+$/u.test(current)) throw new Error('Invalid local package version');
   } catch {
-    return { name: 'qa-cli-and-builtin-mcp', status: 'unconfigured', current: 'unknown', message: 'Local Git checkout or commit unavailable' };
+    return { name: 'qa-cli-and-builtin-mcp', status: 'unconfigured', current: 'unknown', message: 'Local QA package version unavailable' };
   }
   try {
-    const url = new URL(`https://api.github.com/repos/${qa.repository}/commits`);
-    url.searchParams.set('per_page', '1');
-    if (qa.ref) url.searchParams.set('sha', qa.ref);
-    const headers: Record<string, string> = { Accept: 'application/vnd.github+json', 'User-Agent': 'qa-ai-playwright' };
-    if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-    const response = await fetcher(url, { headers, signal: AbortSignal.timeout(15000) });
-    if (!response.ok) throw new Error(`GitHub HTTP ${response.status}`);
-    const body: unknown = await response.json();
-    const candidate = Array.isArray(body) && body[0] && typeof body[0] === 'object' ? (body[0] as { sha?: unknown }).sha : undefined;
-    if (typeof candidate !== 'string' || !/^[a-f0-9]{40}$/u.test(candidate)) throw new Error('Invalid GitHub commit');
-    return { name: 'qa-cli-and-builtin-mcp', current, candidate, status: current === candidate ? 'current' : 'changed', message: dirty ? 'Working tree has local changes' : undefined };
+    if (qa.ref) return { name: 'qa-cli-and-builtin-mcp', current, status: 'unconfigured', message: 'Branch checks require an explicit Release source' };
+    const candidate = (await fetchLatestRelease(qa.repository, fetcher)).replace(/^v/u, '');
+    return { name: 'qa-cli-and-builtin-mcp', current, candidate, status: current === candidate ? 'current' : 'changed' };
   } catch (error) {
     return { name: 'qa-cli-and-builtin-mcp', current, status: 'error', message: error instanceof Error ? error.message : 'Unknown error' };
   }

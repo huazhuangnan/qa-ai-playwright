@@ -21,6 +21,9 @@ export function assertSkillLicense(value: unknown, expected: string): void {
 
 /** Synchronize checked-in runtime baselines from official release metadata. */
 async function main(): Promise<void> {
+  if (!process.env.GITHUB_TOKEN?.trim()) {
+    throw new Error('GITHUB_TOKEN is required for maintainer upstream sync; user update commands do not use GitHub metadata APIs');
+  }
   const root = resolve(import.meta.dirname, '..');
   const sources = resolveVersionSources(loadUpdateConfig());
   const results = await Promise.all([...sources, { name: 'skills-installer', type: 'npm' as const, target: 'skills', current: '1.8.1' }].map((source) => checkVersionSource(source)));
@@ -32,7 +35,7 @@ async function main(): Promise<void> {
   const json = (path: string): Record<string, any> => JSON.parse(read(path)) as Record<string, any>;
   const putJson = (path: string, value: unknown): void => { staged.set(path, `${JSON.stringify(value, null, 2)}\n`); };
   const skillSources = loadSkillSources();
-  const skillResults = await checkSkillUpdates(skillSources);
+  const skillResults = await checkSkillUpdates(skillSources, fetch, { allowGitHubApi: true });
   if (skillResults.some((item) => item.status === 'error' || !item.candidateCommit)) throw new Error('Failed to verify all external Skill commits');
   const skillDocPath = 'packages/skills/builtin/qa-core/references/external-skills.md';
   let skillDoc = read(skillDocPath);

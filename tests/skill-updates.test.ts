@@ -33,7 +33,7 @@ test('reports current when the directory has the same last commit at the pinned 
     return commitsResponse(originalDirectoryCommit);
   };
 
-  const results = await checkSkillUpdates(validateSources([source]), fetcher);
+  const results = await checkSkillUpdates(validateSources([source]), fetcher, { allowGitHubApi: true });
 
   assert.equal(results.length, 1);
   assert.equal(results[0]!.name, source.name);
@@ -55,7 +55,7 @@ test('reports an update only when the tracked directory commit differs', async (
     return commitsResponse(url.searchParams.get('sha') === pinned ? originalDirectoryCommit : updatedDirectoryCommit);
   };
 
-  const [resultValue] = await checkSkillUpdates(validateSources([source]), fetcher);
+  const [resultValue] = await checkSkillUpdates(validateSources([source]), fetcher, { allowGitHubApi: true });
 
   const result = resultValue!;
   assert.equal(result.name, source.name);
@@ -74,7 +74,7 @@ test('reports a failed source without suppressing another source', async () => {
     return commitsResponse(originalDirectoryCommit);
   };
 
-  const results = await checkSkillUpdates(validateSources([source, second]), fetcher);
+  const results = await checkSkillUpdates(validateSources([source, second]), fetcher, { allowGitHubApi: true });
   const failed = results.find((result) => result.name === source.name);
   const succeeded = results.find((result) => result.name === second.name);
 
@@ -92,7 +92,7 @@ test('reports network failures and invalid GitHub responses as errors', async ()
     async () => new Response('[]', { status: 200 }),
     async () => new Response(JSON.stringify([{ sha: 'invalid' }]), { status: 200 }),
   ] satisfies Array<Fetcher>) {
-    const [resultValue] = await checkSkillUpdates(validateSources([source]), fetcher);
+    const [resultValue] = await checkSkillUpdates(validateSources([source]), fetcher, { allowGitHubApi: true });
     const result = resultValue!;
     assert.equal(result.status, 'error');
     assert.equal(result.installedCommit, pinned);
@@ -136,9 +136,19 @@ test('default branch query omits sha and custom source arguments are validated',
     refs.push(new URL(input instanceof Request ? input.url : String(input)).searchParams.get('sha'));
     return commitsResponse(originalDirectoryCommit);
   };
-  await checkSkillUpdates(validateSources([{ ...source, ref: '' }]), fetcher);
+  await checkSkillUpdates(validateSources([{ ...source, ref: '' }]), fetcher, { allowGitHubApi: true });
   assert.deepEqual(refs, [pinned, null]);
   assert.equal(parseArgs(['skills', 'check-updates', '--source', 'sources.json']).skillSource, 'sources.json');
   assert.throws(() => parseArgs(['skills', 'check-updates', '--source']));
   assert.throws(() => parseArgs(['skills', 'check-updates', '--unexpected']));
+});
+
+test('user-facing checks do not call GitHub metadata APIs by default', async () => {
+  let requests = 0;
+  const results = await checkSkillUpdates(validateSources([source]), async () => {
+    requests += 1;
+    throw new Error('unexpected network request');
+  });
+  assert.equal(requests, 0);
+  assert.equal(results[0]!.status, 'unconfigured');
 });

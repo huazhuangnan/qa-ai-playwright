@@ -33,7 +33,7 @@
 
 - 环境和项目已有 `init`、`check`、`uninstall`。
 - 可选 MCP 已有 `list`、`check`、`add`、`repair`、`remove`。
-- `update check` 和 `skills check-updates` 只读比较来源基线与上游候选版本，不代表已安装版本。
+- `update check` 只读比较公开 Release 和 npm 来源；`skills check-updates` 在没有维护者元数据 API 时标记目录历史未检查，不代表已安装版本。
 - `project plan` 可只读比较项目文件与当前模板。内置 Skill 的升级命令直接同步仓库维护版本并保留快照；项目模板、环境 uv 和外部 Skill 仍按各自升级边界处理。
 - `env uninstall` 清理可确认属于当前环境的 MCP 注册，保留环境目录及其数据。成功卸载后状态标记为未初始化。
 - `project uninstall` 保留 `.venv`、`node_modules` 和修改文件，并在存在受管保留项时保留项目标记。
@@ -86,7 +86,7 @@ CLI、内置 QA MCP 和文档对已有行为保持一致。优先统一核心流
 - [x] `skills list/check`：列出并检查项目内置 Skill 的所有权和文件完整性。
 - [x] `skills install`：安装内置 Skill，记录项目 scope、来源、版本和文件哈希。
 - [ ] 统一列出并检查外部及其他作用域的 Skill。
-- [x] `skills check-updates`：只读比较来源清单中的固定提交与上游候选提交。
+- [x] `skills check-updates`：只读检查来源清单；用户路径避免 GitHub 元数据 API，维护者同步单独执行提交比较。
 - [x] `skills upgrade/snapshots/rollback/recover`：直接同步仓库维护的内置 Skill，保存快照并支持回滚和中断恢复。
 - [x] `skills repair`：按原始哈希修复缺失的内置 Skill 文件。
 - [x] `skills uninstall`：只删除有所有权记录且未被修改的内置 Skill 文件。
