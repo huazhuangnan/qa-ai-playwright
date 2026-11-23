@@ -52,6 +52,7 @@ function runInstaller(root: string): void {
 /** Download and install the latest trusted QA Release into the user-level QA installation. */
 export async function syncLatestRelease(config: UpdateConfig, fetcher: Fetcher = fetch): Promise<{ tag: string; asset: string }> {
   if (!config.qa.repository) throw new Error('QA update source is not configured');
+  if (config.qa.ref) throw new Error('QA update sync requires an empty qa.ref (latest Release only)');
   const tag = await fetchLatestRelease(config.qa.repository, fetcher);
   const archive = releaseArchiveName(tag.slice(1));
   const download = `https://github.com/${config.qa.repository}/releases/download/${encodeURIComponent(tag)}`;

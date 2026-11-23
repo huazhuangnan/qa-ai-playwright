@@ -108,11 +108,10 @@ export async function checkQaSource(qa: UpdateConfig['qa'], fetcher: Fetcher = f
   if (!qa.repository) return { name: 'qa-cli-and-builtin-mcp', status: 'unconfigured', current: 'unknown', message: 'Set qa.repository in update-sources.json' };
   let current: string;
   try {
-    const packageJson = JSON.parse(readFileSync(`${srcDir}/package.json`, 'utf8')) as { version?: unknown };
-    current = typeof packageJson.version === 'string' ? packageJson.version : '';
-    if (!/^\d+\.\d+\.\d+$/u.test(current)) throw new Error('Invalid local package version');
+    current = readFileSync(new URL('../VERSION', import.meta.url), 'utf8').trim();
+    if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(current)) throw new Error('Invalid local package version');
   } catch {
-    return { name: 'qa-cli-and-builtin-mcp', status: 'unconfigured', current: 'unknown', message: 'Local QA package version unavailable' };
+    return { name: 'qa-cli-and-builtin-mcp', status: 'error', current: 'unknown', message: 'Local QA package version missing or invalid' };
   }
   try {
     if (qa.ref) return { name: 'qa-cli-and-builtin-mcp', current, status: 'unconfigured', message: 'Branch checks require an explicit Release source' };

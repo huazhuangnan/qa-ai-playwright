@@ -1,4 +1,8 @@
 import assert from 'node:assert/strict';
+import { cpSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { test } from 'bun:test';
 import { checkQaSource, checkVersionSource, loadUpdateConfig, resolveVersionSources } from '../packages/qa-cli/cli/update-check.ts';
 import { parseArgs } from '../packages/qa-cli/qa-cli.ts';
@@ -61,6 +65,24 @@ test('accepts non-v GitHub release prefixes', async () => {
   assert.equal(result.candidate, '1.4.4');
 });
 
+test('checks the configured uv source using unprefixed release tags', async () => {
+  const source = resolveVersionSources(loadUpdateConfig()).find((entry) => entry.name === 'uv');
+  assert.ok(source);
+  assert.equal(source.tagPrefix, '');
+  const current = '0.13.7';
+  for (const [candidate, status] of [['0.13.7', 'current'], ['0.13.9', 'changed']] as const) {
+    const result = await checkVersionSource({ ...source, current }, async (input, init) => {
+      assert.equal(String(input), 'https://github.com/astral-sh/uv/releases/latest');
+      assert.equal(init?.redirect, 'manual');
+      return new Response(null, {
+        status: 302,
+        headers: { location: `https://github.com/astral-sh/uv/releases/tag/${candidate}` },
+      });
+    });
+    assert.deepEqual(result, { name: 'uv', current, candidate, status });
+  }
+});
+
 test('reports HTTP, network and malformed JSON failures as errors', async () => {
   const fetchers: Array<Fetcher> = [
     async () => jsonResponse({ message: 'rate limited' }, 403),
@@ -117,6 +139,54 @@ test('uses unconfigured status for QA source until a repository is explicitly se
   const result = await checkQaSource({ repository: '', ref: '' });
   assert.equal(result.status, 'unconfigured');
   assert.match(result.message ?? '', /qa\.repository/u);
+});
+
+test('checks installed QA versions without a root package manifest and rejects missing or invalid metadata', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'qa installed update '));
+  try {
+    const cli = join(root, 'packages', 'qa-cli');
+    cpSync(new URL('../packages/qa-cli', import.meta.url), cli, { recursive: true });
+    assert.equal(existsSync(join(root, 'package.json')), false);
+    const { checkQaSource: checkInstalledQa } = await import(pathToFileURL(join(cli, 'cli/update-check.ts')).href) as typeof import('../packages/qa-cli/cli/update-check.ts');
+    const versionFile = join(cli, 'VERSION');
+    const qa = { repository: 'example/qa', ref: '' };
+    for (const current of ['1.2.3', '1.2.3-rc.1']) {
+      writeFileSync(versionFile, `${current}\n`);
+      for (const [candidate, status] of [[current, 'current'], ['1.3.0', 'changed']] as const) {
+        const result = await checkInstalledQa(qa, async (input, init) => {
+          assert.equal(String(input), 'https://github.com/example/qa/releases/latest');
+          assert.equal(init?.redirect, 'manual');
+          return new Response(null, { status: 302, headers: { location: `/example/qa/releases/tag/v${candidate}` } });
+        });
+        assert.deepEqual(result, { name: 'qa-cli-and-builtin-mcp', current, candidate, status });
+      }
+    }
+    let requests = 0;
+    for (const version of [undefined, '', '1.2', 'invalid']) {
+      if (version === undefined) rmSync(versionFile);
+      else writeFileSync(versionFile, version);
+      const result = await checkInstalledQa(qa, async () => {
+        requests += 1;
+        throw new Error('Invalid local metadata reached fetch');
+      });
+      assert.equal(result.status, 'error');
+      assert.equal(result.current, 'unknown');
+      assert.match(result.message ?? '', /local QA package version/i);
+    }
+    assert.equal(requests, 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('reports nonempty QA refs as unconfigured without requesting a Release', async () => {
+  let requests = 0;
+  const result = await checkQaSource({ repository: 'example/qa', ref: 'main' }, async () => {
+    requests += 1;
+    throw new Error('Unsupported ref reached fetch');
+  });
+  assert.equal(result.status, 'unconfigured');
+  assert.equal(requests, 0);
 });
 
 test('loads the default source configuration and repository baselines', () => {

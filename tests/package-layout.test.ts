@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'bun:test';
 
@@ -27,6 +28,36 @@ test('user delivery contains resolvable local Markdown links', () => {
   assert.ok(entries.some((entry) => entry.source === 'packages/templates/python/AGENTS.md'));
   assert.ok(entries.some((entry) => entry.source === 'packages/templates/typescript/AGENTS.md'));
   assertPackageLinks(entries, (source) => readFileSync(join(REPO, source), 'utf8'));
+});
+
+test('user delivery includes the QA version without the root development manifest', () => {
+  const entries = packageEntries(listRepositoryFiles());
+  const versionPath = 'packages/qa-cli/VERSION';
+  assert.ok(entries.some((entry) => entry.source === versionPath && entry.target === versionPath));
+  assert.ok(!entries.some((entry) => entry.target === 'package.json'));
+  const manifest = JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8')) as { version: string };
+  assert.equal(readFileSync(join(REPO, versionPath), 'utf8').trim(), manifest.version);
+});
+
+test('release packaging rejects a CLI version that differs from the root manifest', () => {
+  const root = mkdtempSync(join(tmpdir(), 'qa package version '));
+  try {
+    mkdirSync(join(root, 'scripts'));
+    for (const file of ['package-release.ts', 'package-layout.ts']) {
+      cpSync(join(REPO, 'scripts', file), join(root, 'scripts', file));
+    }
+    mkdirSync(join(root, 'packages/qa-cli'), { recursive: true });
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ version: '1.2.3' }));
+    writeFileSync(join(root, 'packages/qa-cli/VERSION'), '1.2.4\n');
+    const output = join(root, 'release');
+    const result = spawnSync(process.execPath, [join(root, 'scripts/package-release.ts'), '--output', output], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /packages\/qa-cli\/VERSION must match root package\.json version/);
+    assert.equal(existsSync(output), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('builtin QA workflow exposes two skills with resolvable references', () => {

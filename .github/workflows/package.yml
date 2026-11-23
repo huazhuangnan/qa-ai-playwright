@@ -89,6 +89,7 @@ jobs:
           printf 'export QA_PACKAGE_SETTING=1' > "$smoke_home/.bashrc"
           unzip -q "$archive" -d "$unpacked"
           root="$unpacked/qa-ai-playwright-v${version}"
+          test "$(cat "$root/packages/qa-cli/VERSION")" = "$version"
           test -f "$root/README.md"
           test -f "$root/packages/templates/typescript/AGENTS.md"
           test -f "$root/packages/templates/python/AGENTS.md"
@@ -97,6 +98,8 @@ jobs:
             "$RUNNER_TEMP/package-typescript-project" --language typescript --browser none
           test -f "$RUNNER_TEMP/package-typescript-project/AGENTS.md"
           HOME="$smoke_home" bash "$root/packages/qa-cli/bin/install.sh"
+          cmp "$root/packages/qa-cli/VERSION" "$smoke_home/.local/share/qa-ai-playwright/packages/qa-cli/VERSION"
+          grep -F $'\tpackages/qa-cli/VERSION' "$smoke_home/.local/share/qa-ai-playwright/.files" > /dev/null
           (cd "$RUNNER_TEMP" && HOME="$smoke_home" bash -lc 'test "$(command -v qa)" = "$HOME/.local/bin/qa" && qa --help | grep -F "qa project init" >/dev/null')
           HOME="$smoke_home" bash "$root/packages/qa-cli/bin/install.sh" --uninstall
           test ! -e "$smoke_home/.local/share/qa-ai-playwright"
@@ -144,6 +147,7 @@ jobs:
           Expand-Archive -LiteralPath $archive.FullName -DestinationPath $unpacked -Force
           $installer = Get-ChildItem -LiteralPath $unpacked -Filter 'install.ps1' -Recurse | Select-Object -First 1
           if (!$installer) { throw 'PowerShell installer is missing' }
+          $expectedVersion = (Get-Content -LiteralPath (Join-Path $installer.Directory.Parent.FullName 'VERSION') -Raw).Trim()
           $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP 'qa package local app data'
           $env:QA_ROOT = Join-Path $env:RUNNER_TEMP 'qa package environment'
           $root = Join-Path $env:LOCALAPPDATA 'qa-ai-playwright'
@@ -152,6 +156,9 @@ jobs:
           try {
             & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer.FullName
             if ($LASTEXITCODE -ne 0) { throw 'PowerShell 5.1 package install failed' }
+            if ((Get-Content -LiteralPath (Join-Path $root 'packages/qa-cli/VERSION') -Raw).Trim() -ne $expectedVersion) { throw 'Installed QA version mismatch' }
+            $files = Get-Content -LiteralPath (Join-Path $root '.files.json') -Raw | ConvertFrom-Json
+            if (!($files | Where-Object { $_.path -eq 'packages\qa-cli\VERSION' })) { throw 'QA version is missing from the installation record' }
             $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
             $command = Get-Command qa -CommandType Application -ErrorAction Stop | Select-Object -First 1
             if ($command.Source -ine (Join-Path $root 'bin/qa.cmd')) { throw 'PATH resolved to an unexpected qa command' }

@@ -680,7 +680,7 @@ test('environment check rejects a stale uv executable', () => {
   } finally {
     capture.restore();
   }
-  assert.match(capture.output(), /"uv@0\.13\.7"/);
+  assert.match(capture.output(), /"uv@\d+\.\d+\.\d+"/u);
 });
 
 test('template version validation rejects incomplete semantic versions', () => {

@@ -269,15 +269,17 @@ Skill 使用 SemVer。
 
 `qa update check` 只读检查 QA CLI、内置 MCP、npm 包和 GitHub Release 版本。用户路径不调用 GitHub API：Release 使用公开跳转，npm 使用 registry。外部 Skill 目录历史默认标记为无法检查；维护者同步脚本才使用 GitHub 元数据 API。`qa update sync` 通过 Release 页面确定版本，从同一标签下载附件并校验 SHA256，再以普通升级模式更新用户级 QA 交付包。
 来源配置位于 `packages/qa-cli/update-sources.json`。
-`qa.repository` 是 GitHub 仓库，`qa.ref` 是可选分支。
+`qa.repository` 是 GitHub 仓库，`qa.ref` 应为空。
 当前 QA Release 来源为 `huazhuangnan/qa-ai-playwright`。
-未设置分支时检查默认分支。
+检查和同步使用最新 Release。非空 `qa.ref` 在检查时报告 `unconfigured`，同步时拒绝执行。
+QA 自身版本读取 `packages/qa-cli/VERSION`，随交付包安装和升级。缺失或非法时报告 `error`。
+发布时同步更新根 `package.json` 与 CLI `VERSION`；打包前校验二者一致。
 Skill 使用 `packages/skills/external-sources.json`。
 
 npm 和 Release 来源从运行时、MCP 和应用清单读取固定版本。
 候选版本不同只代表变化，不代表可以安全升级。
 Release 资产和哈希仍需人工审查。
-检查不读取实际安装版本。
+外部组件检查固定基线，不读取本机实际安装版本。
 Node 和 Python 的版本策略尚未配置，报告 `unconfigured`。
 检查失败时，不能当作最新。
 

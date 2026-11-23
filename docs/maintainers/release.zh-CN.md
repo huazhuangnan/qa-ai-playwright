@@ -17,6 +17,7 @@
 
 打包脚本校验用户 Markdown 的相对链接。
 Package 工作流检查治理文件未进入用户包，并验证两种语言的模板规则可生成。
+同时检查 CLI 版本随包安装，并纳入安装文件记录。
 
 ## 说明放置位置
 
@@ -52,7 +53,7 @@ Package 工作流检查治理文件未进入用户包，并验证两种语言的
 
 ## 发布前检查
 
-1. 更新根 `package.json` 版本。
+1. 同步更新根 `package.json` 与 `packages/qa-cli/VERSION`，打包前会校验版本一致。
 2. 更新 `docs/releases/v<版本>.md`。
 3. 同步 `docs/maintainers/version-history.zh-CN.md` 的未发布内容。
 4. 创建匹配的 `v<版本>` Tag。

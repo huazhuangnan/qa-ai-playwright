@@ -28,6 +28,15 @@ test('rejects invalid release redirects', async () => {
   await assert.rejects(fetchLatestRelease('example/qa', async () => new Response(null, { status: 404 })), /HTTP 404/);
 });
 
+test('rejects nonempty QA refs before fetching or installing a Release', async () => {
+  let requests = 0;
+  await assert.rejects(syncLatestRelease({ qa: { repository: 'example/qa', ref: 'main' }, sources: [] }, async () => {
+    requests += 1;
+    throw new Error('Unsupported ref reached fetch');
+  }), /qa\.ref/);
+  assert.equal(requests, 0);
+});
+
 test('downloads both assets from the resolved tag and reports missing assets', async () => {
   const requests: string[] = [];
   await assert.rejects(syncLatestRelease({ qa: { repository: 'example/qa', ref: '' }, sources: [] }, async (input) => {

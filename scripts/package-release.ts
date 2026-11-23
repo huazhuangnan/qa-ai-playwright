@@ -14,6 +14,8 @@ const output = resolve(process.cwd(), argumentValue('--output') ?? 'release');
 const manifest = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8')) as PackageManifest;
 const version = typeof manifest.version === 'string' ? manifest.version : '';
 if (!version || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(version)) throw new Error('Root package.json has no valid semantic version');
+const cliVersion = readFileSync(join(repo, 'packages/qa-cli/VERSION'), 'utf8').trim();
+if (cliVersion !== version) throw new Error('packages/qa-cli/VERSION must match root package.json version');
 
 const files = execFileSync('git', ['-C', repo, 'ls-files', '-z'], { encoding: 'buffer' })
   .toString('utf8').split('\0').filter(Boolean);
