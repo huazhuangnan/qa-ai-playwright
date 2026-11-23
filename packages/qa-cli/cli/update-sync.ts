@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import type { Fetcher } from './skill-updates.ts';
 import type { UpdateConfig } from './update-check.ts';
 
-export async function fetchLatestRelease(repository: string, fetcher: Fetcher = fetch): Promise<string> {
+export async function fetchLatestRelease(repository: string, fetcher: Fetcher = fetch, tagPrefix = 'v'): Promise<string> {
   const latest = `https://github.com/${repository}/releases/latest`;
   const response = await fetcher(latest, {
     headers: { 'User-Agent': 'qa-ai-playwright' },
@@ -21,8 +21,9 @@ export async function fetchLatestRelease(repository: string, fetcher: Fetcher = 
   const prefix = `/${repository}/releases/tag/`;
   let tag: string;
   try { tag = decodeURIComponent(url.pathname.slice(prefix.length)); } catch { throw new Error('Invalid GitHub release redirect'); }
+  const tagPattern = new RegExp(`^${tagPrefix.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')}\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$`, 'u');
   if (url.origin !== 'https://github.com' || url.username || url.password || !url.pathname.startsWith(prefix) || url.search || url.hash
-    || !/^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u.test(tag)) {
+    || !tagPattern.test(tag)) {
     throw new Error('Invalid GitHub release redirect');
   }
   return tag;

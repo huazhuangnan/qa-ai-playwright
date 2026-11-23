@@ -84,9 +84,9 @@ export async function checkVersionSource(source: VersionSource, fetcher: Fetcher
       || !['npm', 'github-release'].includes(source.type)) throw new Error('Invalid source');
     const github = source.type === 'github-release';
     if (github) {
-      const candidate = await fetchLatestRelease(source.target, fetcher);
       const prefix = source.tagPrefix ?? 'v';
-      const normalized = prefix && candidate.startsWith(prefix) ? candidate.slice(prefix.length) : candidate;
+      const candidate = await fetchLatestRelease(source.target, fetcher, prefix);
+      const normalized = candidate.slice(prefix.length);
       if (!normalized) throw new Error('Missing published version');
       return { name: source.name, current: source.current, candidate: normalized, status: normalized === source.current ? 'current' : 'changed' };
     }

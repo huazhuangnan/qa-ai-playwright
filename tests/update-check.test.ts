@@ -52,6 +52,15 @@ test('reports a changed GitHub release after removing its v prefix', async () =>
   assert.equal(result.candidate, '1.3.0');
 });
 
+test('accepts non-v GitHub release prefixes', async () => {
+  const result = await checkVersionSource({ ...releaseSource, tagPrefix: 'bun-v' }, async () => new Response(null, {
+    status: 302,
+    headers: { location: '/example/tool/releases/tag/bun-v1.4.4' },
+  }));
+  assert.equal(result.status, 'changed');
+  assert.equal(result.candidate, '1.4.4');
+});
+
 test('reports HTTP, network and malformed JSON failures as errors', async () => {
   const fetchers: Array<Fetcher> = [
     async () => jsonResponse({ message: 'rate limited' }, 403),
