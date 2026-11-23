@@ -692,12 +692,12 @@ test('template version validation rejects incomplete semantic versions', () => {
   assert.throws(() => templateVersion(directory), /Invalid template version/);
 });
 
-test('pre-release repository versions stay fixed at 0.0.1', () => {
+test('repository component versions use semantic versions', () => {
   const packageJson = JSON.parse(
     readFileSync(join(REPO, 'package.json'), 'utf8'),
   ) as { name: string; version: string };
   assert.equal(packageJson.name, 'qa-ai-playwright');
-  assert.equal(packageJson.version, '0.0.1');
+  assert.match(packageJson.version, /^\d+\.\d+\.\d+$/u);
   assert.match(
     readFileSync(join(REPO, 'packages/qa-cli/runtime-versions.env'), 'utf8'),
     /^QA_UV_VERSION=\d+\.\d+\.\d+$/mu,
@@ -716,19 +716,19 @@ test('pre-release repository versions stay fixed at 0.0.1', () => {
       join(REPO, 'packages/skills/builtin', name, 'SKILL.md'),
       'utf8',
     );
-    assert.match(skill, /^  version: "0\.0\.1"$/m, name);
+    assert.match(skill, /^  version: "\d+\.\d+\.\d+"$/m, name);
   }
   assert.match(
     readFileSync(
       join(REPO, '.agents/skills/repo-maintainer/SKILL.md'),
       'utf8',
     ),
-    /^  version: "0\.0\.1"$/m,
+    /^  version: "\d+\.\d+\.\d+"$/m,
   );
   for (const stack of ['qa', 'python', 'typescript']) {
-    assert.equal(
+    assert.match(
       readFileSync(join(REPO, 'packages/templates', stack, 'VERSION'), 'utf8').trim(),
-      '0.0.1',
+      /^\d+\.\d+\.\d+$/u,
       stack,
     );
   }

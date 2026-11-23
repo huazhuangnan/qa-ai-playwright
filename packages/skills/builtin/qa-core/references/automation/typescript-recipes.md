@@ -44,7 +44,7 @@ await test.step('提交合法表单并看到保存结果', async () => {
 });
 ```
 
-单个断言不需要包装 step。失败时的数据清理放在 `finally` 或 fixture teardown。
+单个断言不需要包装 step。需要清理时放在 `finally` 或 fixture teardown，并遵守公共执行边界。
 
 来源：
 

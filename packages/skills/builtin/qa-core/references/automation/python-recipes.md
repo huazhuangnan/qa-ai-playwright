@@ -22,7 +22,7 @@ expect(page.get_by_role('status')).to_have_text('保存成功')
 
 示例预期来自假设页面，接入真实业务时核对需求。共享数据可导致顺序依赖；单独运行通过并不说明整套回归稳定。当前模板不默认启用并行或重试插件，不照搬 TS 的 workers/retries 参数。
 
-复杂流程用注释和 docstring 说明业务目标。需要逐步输出时使用简洁上下文管理器或 pytest 日志，并在失败路径保留数据清理。
+复杂流程用注释和 docstring 说明业务目标。需要逐步输出时使用简洁上下文管理器或 pytest 日志；失败路径按公共执行边界清理或保留数据。
 
 ```python
 def test_save_form(page):

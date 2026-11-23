@@ -31,7 +31,7 @@
 - CI 将重试后通过视为失败，生产写入默认拒绝。
 - API-only 不引入浏览器，按[API 测试](../api-testing.md)确认的契约写断言。
 - UI 用 locator 与 await expect(locator) 等待业务结果。期望响应或弹窗先注册等待再触发。
-- 用独立 context、唯一数据和 fixture teardown 隔离。准备中途失败也清理，保留原错误。
+- 用独立 context、唯一数据和 fixture teardown 隔离。准备中途失败也按公共执行边界处理，保留原错误。
 - 认证状态只复用于不会产生服务端状态冲突的测试。共享账号有写入竞争时使用独立账号。
 - 认证状态按角色管理且不提交。优先用`auth-setup` project生成 `playwright/.auth/<role>.json`。
 - 同一用例切换角色使用 `loginAs` fixture，每个角色使用独立 context。
