@@ -98,21 +98,21 @@ async function main(): Promise<void> {
   if (version !== previous) {
     const headers: Record<string, string> = { Accept: 'application/vnd.github+json', 'User-Agent': 'qa-ai-playwright' };
     if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-    const get = async (url: string): Promise<any> => {
+    const get = async (url: string): Promise<Record<string, unknown>> => {
       const response = await fetch(url, { headers, signal: AbortSignal.timeout(15000) });
       if (!response.ok) throw new Error(`GitHub HTTP ${response.status}: ${url}`);
-      return response.json();
+      return (await response.json()) as Record<string, unknown>;
     };
     const release = await get(`https://api.github.com/repos/farion1231/cc-switch/releases/tags/v${version}`);
     const commit = await get(`https://api.github.com/repos/farion1231/cc-switch/commits/v${version}`);
-    if (release.tag_name !== `v${version}` || !Array.isArray(release.assets) || !/^[a-f0-9]{40}$/u.test(commit.sha)) throw new Error('Invalid CC Switch release metadata');
+    if (release.tag_name !== `v${version}` || !Array.isArray(release.assets) || typeof commit.sha !== 'string' || !/^[a-f0-9]{40}$/u.test(commit.sha)) throw new Error('Invalid CC Switch release metadata');
     const docPath = 'packages/apps/cc-switch/UPSTREAM.md';
     let doc = read(docPath).replaceAll(previous, version).replaceAll(String(app.commit), commit.sha);
     for (const asset of app.assets as Array<Record<string, string>>) {
       const oldFile = asset.file!;
       const file = oldFile.replace(previous, version);
       if (file === oldFile) throw new Error(`Cannot update CC Switch asset: ${oldFile}`);
-      const hash = releaseAssetHash(release.assets, file);
+      const hash = releaseAssetHash(release.assets as Array<Record<string, unknown>>, file);
       doc = doc.replaceAll(oldFile, file).replaceAll(asset.sha256!, hash);
       asset.file = file;
       asset.sha256 = hash;

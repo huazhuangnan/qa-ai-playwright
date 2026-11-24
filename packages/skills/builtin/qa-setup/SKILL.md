@@ -3,6 +3,9 @@ name: qa-setup
 description: 通过 QA CLI 为新电脑初始化本地 QA 环境、创建 Python/TypeScript 测试项目、检查安装或卸载受管理的环境和项目。
 metadata:
   version: "0.0.1"
+  source: "qa-ai-playwright/packages/skills/builtin/qa-setup"
+  compatible_cli: ">=0.0.2"
+  updated: "2026-11-25"
 ---
 
 # QA 环境与项目管理

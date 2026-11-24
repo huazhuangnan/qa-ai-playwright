@@ -5,7 +5,7 @@ import type { Browser, Stack } from './shared.ts';
 /** Parsed command line used by the local QA lifecycle CLI. */
 export interface ParsedArguments {
   root: string;
-  command: 'env' | 'project' | 'template' | 'doctor' | 'shell' | 'run' | 'mcp' | 'skills' | 'update' | 'help';
+  command: 'env' | 'project' | 'template' | 'quality' | 'doctor' | 'shell' | 'run' | 'mcp' | 'skills' | 'update' | 'help';
   action?: 'init' | 'check' | 'uninstall' | 'plan' | 'repair' | 'upgrade' | 'rollback' | 'snapshots' | 'list';
   mcpAction?: 'add' | 'remove' | 'list' | 'check' | 'repair';
   mcpName?: string;
@@ -14,6 +14,7 @@ export interface ParsedArguments {
   skillName?: string;
   updateSource?: string;
   updateAction?: 'check' | 'sync';
+  qualityAction?: 'check';
   stack?: Stack;
   full?: boolean;
   skipCodex?: boolean;
@@ -62,7 +63,7 @@ export function parseArgs(
   if (cleaned.length === 0 || ['--help', '-h'].includes(cleaned[0] ?? '')) {
     return { root, command: 'help' };
   }
-  if (!['env', 'project', 'template', 'doctor', 'shell', 'run', 'mcp', 'skills', 'update'].includes(command)) {
+  if (!['env', 'project', 'template', 'quality', 'doctor', 'shell', 'run', 'mcp', 'skills', 'update'].includes(command)) {
     throw new Error(`Invalid command: ${command}`);
   }
   const parsed: ParsedArguments = { root, command };
@@ -86,6 +87,12 @@ export function parseArgs(
     const action = cleaned[1];
     if ((action !== 'list' && action !== 'check') || cleaned.length !== 2) throw new Error('template requires list or check');
     parsed.action = action;
+    return parsed;
+  }
+  if (command === 'quality') {
+    if (cleaned[1] !== 'check' || cleaned.length > 3) throw new Error('quality requires check [path]');
+    parsed.qualityAction = 'check';
+    parsed.target = cleaned[2] ?? cwd;
     return parsed;
   }
   if (command === 'skills') {

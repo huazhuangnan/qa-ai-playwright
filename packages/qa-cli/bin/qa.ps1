@@ -134,6 +134,7 @@ if ($first -in @('help', '--help', '-h')) {
         'qa project snapshots <project>',
         'qa project rollback <project> <snapshot>',
         'qa project uninstall <project>',
+        'qa quality check [path]',
         'qa doctor',
         'qa shell',
         'qa mcp add <name>',

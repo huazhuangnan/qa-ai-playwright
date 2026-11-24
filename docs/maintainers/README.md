@@ -11,6 +11,7 @@
 | --- | --- |
 | [维护指南](maintenance.zh-CN.md) | 架构、边界、生命周期、CI 和发布门禁 |
 | [Skills 与 MCP 维护](skills-mcp-maintenance.zh-CN.md) | 来源、作用域、所有权和更新 |
+| [QA Skill 非业务优化升级](qa-skill-non-business-optimization.zh-CN.md) | Skill 公共契约、质量门禁、证据和分批升级 |
 | [参考来源](references.zh-CN.md) | 官方文档、行业实践和许可证 |
 
 ## CLI 与环境

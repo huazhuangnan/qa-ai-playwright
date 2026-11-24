@@ -9,6 +9,7 @@ import { projectRollback, projectSnapshots } from './cli/project-snapshots.ts';
 import { executeDoctor, executeEnvironment } from './cli/environment-commands.ts';
 import { environmentStatus } from './cli/environment-status.ts';
 import { checkTemplates, listTemplates } from './cli/template-status.ts';
+import { checkQuality } from './cli/quality-check.ts';
 import { listEnvironmentUvSnapshots, planEnvironmentUv, rollbackEnvironmentUv, upgradeEnvironmentUv } from './cli/environment-upgrade.ts';
 import { installBuiltinSkill, listBuiltinSkills, listBuiltinSkillSnapshots, recoverBuiltinSkills, repairBuiltinSkill, rollbackBuiltinSkill, uninstallBuiltinSkill, upgradeBuiltinSkill } from './cli/skills-manager.ts';
 import { basename, join, resolve } from 'node:path';
@@ -83,6 +84,11 @@ export async function execute(args: ParsedArguments): Promise<number> {
   if (args.command === 'template') {
     if (args.action === 'list') { console.log(JSON.stringify(listTemplates(), null, 2)); return 0; }
     const result = checkTemplates();
+    console.log(JSON.stringify(result, null, 2));
+    return result.ok ? 0 : 1;
+  }
+  if (args.command === 'quality') {
+    const result = checkQuality(args.target);
     console.log(JSON.stringify(result, null, 2));
     return result.ok ? 0 : 1;
   }
@@ -299,6 +305,7 @@ function helpText(): string {
     'qa project rollback <project> <snapshot>',
     'qa template list',
     'qa template check',
+    'qa quality check [path]',
     'qa doctor',
     'qa shell',
     'qa mcp add <name>',
