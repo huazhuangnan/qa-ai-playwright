@@ -9,7 +9,7 @@
 ## 分层
 
 ```text
-测试用例（unit / api / functional / e2e）
+测试用例（按业务模块组织，按层级执行）
         ↓
 fixtures 与页面或 API 辅助
         ↓
@@ -19,11 +19,22 @@ fixtures 与页面或 API 辅助
 ```
 
 - `tests/api/` 只验证 HTTP 接口和契约。
-- `tests/functional/` 验证跨接口业务动作，不导入服务端实现。
-- `tests/e2e/` 验证浏览器可观察行为，不用 API 断言替代 UI 断言。
+- `tests/integration/` 验证服务、数据库、消息或第三方之间的协作。
+- `tests/ui/` 验证单页或单个用户交互的可观察行为。
+- `tests/e2e/` 验证跨页面、跨服务和数据生命周期的完整用户旅程，不用 API 断言替代 UI 断言。
 - `tests/unit/` 只放测试项目自身的纯辅助逻辑。
 - `tests/fixtures/` 提供认证、请求、唯一数据、写保护和清理能力。
-- 页面对象、API 客户端和数据工厂按领域拆分。跨领域公共逻辑才进入 `tests/support/` 或等价目录。
+- `functional`、`contract`、`smoke`、`regression` 是测试目标或执行标签，不是独立层级。功能行为可以在多个层级验证。
+- 页面对象、API 客户端和数据工厂按业务领域拆分。跨领域公共逻辑才进入 `tests/support/` 或等价目录。
+
+推荐目录：
+
+```text
+tests/api/receiving/
+tests/integration/receiving/
+tests/ui/receiving/
+tests/e2e/receiving/
+```
 
 ## 依赖方向
 

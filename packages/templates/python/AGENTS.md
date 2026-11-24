@@ -2,7 +2,7 @@
 
 ## 代码风格与架构
 
-- 测试按 `api/`、`functional/`、`e2e/` 和 `unit/` 分层。依赖方向由测试用例指向 fixtures 和 HTTP/浏览器边界。
+- 测试按 `api/`、`integration/`、`ui/`、`e2e/` 和 `unit/` 分层；`functional`、`contract`、`smoke` 和 `regression` 作为 marker。依赖方向由测试用例指向 fixtures 和 HTTP/浏览器边界。
 - 公共 fixture、API 客户端、页面对象和复杂分支使用 docstring 与类型标注。测试名称说明业务行为和结果。
 - 遵循 PEP 8。函数和变量使用 `snake_case`，类使用 `PascalCase`，常量使用 `UPPER_SNAKE_CASE`。
 - fixture 通过 `conftest.py` 和 `tests/fixtures/` 注入。fixture 管理资源生命周期，测试函数只编排动作和断言。

@@ -3,7 +3,7 @@
 Windows 项目解释器为 .venv/Scripts/python.exe；macOS/Linux 为 .venv/bin/python。下面以 Windows 为例，工作目录是项目根目录。
 
 ```powershell
-.venv\Scripts\python.exe -m pytest tests/functional -q
+.venv\Scripts\python.exe -m pytest -m functional -q
 .venv\Scripts\python.exe -m pytest tests/api -q
 .venv\Scripts\python.exe -m pytest -m smoke -q
 .venv\Scripts\python.exe -m pytest -m regression -q

@@ -1,10 +1,14 @@
-# Web 功能与 E2E 测试
+# Web 与 E2E 测试
 
 先应用 `qa-core` 已加载的公共执行边界。
 需要设计用例时读取[测试设计](test-design.md)。
 需要自动化时按项目语言读取[TypeScript](automation/typescript.md)或[Python](automation/python.md)。
 
 ## 规则
+
+- 单页交互属于 `ui` 层；只有跨页面、跨服务或需要验证完整数据生命周期的用户旅程才属于 `e2e` 层。
+- `functional` 是业务目标标签，不是与 `api`、`ui`、`e2e` 并列的执行层级。
+- UI/E2E 断言以用户可观察结果为主。API 可以准备数据或辅助检查持久化，但不能替代本次要验证的页面行为。
 
 - 浏览器能力按以下顺序使用：优先使用当前 Codex 会话已提供的内置浏览器；其次复用项目已配置的 Playwright 或浏览器 MCP；最后才提出安装或补齐工具。内置浏览器适合探索、页面观察和已授权的验证，不要求额外安装才能开始。
 - 对同一页面任务，优先使用 locator、DOM、网络和 Playwright 等结构化操作；避免用 computer-use 逐个点击完成可由结构化工具表达的步骤。computer-use 仅用于结构化能力无法覆盖的真实界面或原生应用场景。

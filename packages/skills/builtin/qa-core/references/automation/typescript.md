@@ -18,6 +18,8 @@
 - 生成代码同时给出实际运行命令、浏览器项目、环境变量和认证准备；不得把当前浏览器会话、临时脚本或隐式页面状态作为唯一依赖。
 - 录制代码入库前整理 locator，补齐用户可见结果断言，并检查连续重复运行、并行运行和失败清理。
 - 使用测试标签区分探索、smoke 和 regression；探索脚本放在临时或任务目录，不混入稳定回归套件。
+- 目录按业务模块和测试层级组织，例如 `tests/api/receiving/`、`tests/ui/receiving/`、`tests/e2e/receiving/`。不要创建含义不清的 `tests/functional/` 大桶。
+- `functional`、`contract`、`smoke`、`regression` 使用标签表达测试目标；`unit`、`api`、`integration`、`ui`、`e2e` 表达测试层级。
 - Playwright 配置自动加载项目根目录 `.env`。系统和 CI 环境变量优先。
 - `QA_ENV` 选择 `.env.<环境>` 文件，各环境文件使用相同变量名。
 - UI 和 API 分别使用 `UI_BASE_URL` 与 `API_BASE_URL`。
@@ -30,6 +32,7 @@
 - 用 unit、smoke、regression、integration 标签选择执行范围。
 - CI 将重试后通过视为失败，生产写入默认拒绝。
 - API-only 不引入浏览器，按[API 测试](../api-testing.md)确认的契约写断言。
+- API、UI 和 E2E 使用各自的边界断言；API 准备数据可以复用，不能把 API 响应断言当作 UI/E2E 的用户结果断言。
 - UI 用 locator 与 await expect(locator) 等待业务结果。期望响应或弹窗先注册等待再触发。
 - 用独立 context、唯一数据和 fixture teardown 隔离。准备中途失败也按公共执行边界处理，保留原错误。
 - 认证状态只复用于不会产生服务端状态冲突的测试。共享账号有写入竞争时使用独立账号。

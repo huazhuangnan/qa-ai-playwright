@@ -269,7 +269,7 @@ export async function projectInit(
       '.venv',
       WINDOWS ? 'Scripts/python.exe' : 'bin/python',
     );
-    env.run([python, '-m', 'pytest', 'tests/unit', 'tests/functional', '-q'], {
+    env.run([python, '-m', 'pytest', 'tests/unit', '-q'], {
       cwd: target,
       env: browserEnvironment(env, args.browser),
     });
@@ -278,7 +278,7 @@ export async function projectInit(
       target,
       'test',
       'tests/unit',
-      'tests/functional',
+      'tests/unit',
       '--project=chromium',
     ));
   }
@@ -297,7 +297,7 @@ export async function projectInit(
 }
 
 /**
- * Validates a managed project and runs its functional, browser, and type checks.
+ * Validates a managed project and runs its unit, browser, and type checks.
  */
 export function projectCheck(
   env: Environment,
@@ -326,7 +326,7 @@ export function projectCheck(
     throw new Error(`System browser ${selected} was not found; install it separately or choose another browser`);
   }
   const testBrowser = selected === 'chrome' || selected === 'msedge' ? 'chromium' : selected;
-  const testPaths = ['tests/unit', 'tests/functional', 'tests/e2e'];
+  const testPaths = ['tests/unit', 'tests/e2e'];
   if (process.env.REQUIRE_API_TESTS === '1') {
     testPaths.push('tests/api');
   }

@@ -2,6 +2,11 @@
 
 ## 未发布
 
+## 0.0.2 - 2026-11-25
+
+- 按 `api`、`integration`、`ui`、`e2e` 和 `unit` 区分测试层级，使用标签表达 `functional`、`contract`、`smoke` 和 `regression`。
+- 将运行器自检归入 `unit`，避免创建含义不清的 `functional/` 目录。
+
 - 支持通过 `QA_BROWSER_CHANNEL` 和 `QA_BROWSER_EXECUTABLE_PATH` 为 Chromium 测试和登录态生成选择已有 Chrome、Edge 或 Chromium。
 - 将 Skill 安装引导更新至官方安装器 1.8.1。
 

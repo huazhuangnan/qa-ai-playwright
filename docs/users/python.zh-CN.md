@@ -183,7 +183,7 @@ pytest-playwright 没有 setup project。
 .venv\Scripts\python.exe -m pytest -m regression
 .venv\Scripts\python.exe -m pytest -m contract
 .venv\Scripts\python.exe -m pytest -m integration
-.venv\Scripts\python.exe -m pytest tests/functional
+.venv\Scripts\python.exe -m pytest -m functional
 .venv\Scripts\python.exe -m pytest tests/api
 ```
 
@@ -198,7 +198,7 @@ pytest-playwright 没有 setup project。
 .venv/bin/python -m pytest -m regression
 .venv/bin/python -m pytest -m contract
 .venv/bin/python -m pytest -m integration
-.venv/bin/python -m pytest tests/functional
+.venv/bin/python -m pytest -m functional
 .venv/bin/python -m pytest tests/api
 ```
 
@@ -238,13 +238,16 @@ python-qa/
 │   ├── api/              API 测试
 │   ├── fixtures/         API、数据和生产写保护
 │   ├── fixtures/auth.py  角色状态路径与环境变量工具
-│   ├── functional/       功能逻辑测试
+│   ├── integration/      服务集成测试（按需创建）
+│   ├── ui/               单页 UI 测试（按需创建）
 │   ├── e2e/              浏览器测试
 │   └── unit/             模板自身单元测试
 ├── playwright/.auth/     本地角色状态，不提交
 ├── docs/qa/              工作模板
 └── .github/workflows/    CI
 ```
+
+`functional`、`contract`、`smoke` 和 `regression` 是测试类型 marker，不是独立目录。测试目录按业务模块和 `unit`、`api`、`integration`、`ui`、`e2e` 层级组织。
 
 ## 报告与 Trace
 

@@ -2,7 +2,7 @@
 
 ## 代码风格与架构
 
-- 测试按 `api/`、`functional/`、`e2e/` 和 `unit/` 分层。依赖方向由测试用例指向 fixtures 和 HTTP/浏览器边界。
+- 测试按 `api/`、`integration/`、`ui/`、`e2e/` 和 `unit/` 分层；`functional`、`contract`、`smoke` 和 `regression` 作为标签。依赖方向由测试用例指向 fixtures 和 HTTP/浏览器边界。
 - 公共 fixture、页面对象、API 客户端和复杂分支使用 TSDoc。测试名称说明业务行为和结果。
 - 开启 TypeScript `strict`。禁止使用 `any` 绕过接口契约；异步 Playwright 调用必须 `await`。
 - fixture 通过 `test.extend` 注入。`playwright.config.ts` 只放运行器和环境接入，不放业务流程。

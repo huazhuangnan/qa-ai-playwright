@@ -8,7 +8,7 @@
     "test:api": "playwright test tests/api --project=chromium",
     "test:contract": "playwright test tests/api --project=chromium --grep @contract",
     "test:unit": "playwright test tests/unit --project=chromium",
-    "test:functional": "playwright test tests/functional --project=chromium",
+    "test:functional": "playwright test --grep @functional --project=chromium",
     "test:smoke": "playwright test --grep @smoke --project=chromium",
     "test:regression": "playwright test --grep @regression --project=chromium",
     "test:integration": "playwright test tests/api --grep @integration --project=chromium",

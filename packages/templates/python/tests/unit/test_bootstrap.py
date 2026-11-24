@@ -2,6 +2,7 @@ import pytest
 
 
 @pytest.mark.regression
+@pytest.mark.functional
 def test_runtime():
     """验证本地测试运行器可执行，不代表业务功能通过。"""
     import requests
